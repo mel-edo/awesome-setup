@@ -19,10 +19,10 @@ theme.bg_urgent     = "#ff0000"
 theme.bg_minimize   = "#444444"
 theme.bg_systray    = theme.bg_normal
 
-theme.fg_normal     = "#aaaaaa"
-theme.fg_focus      = "#ffffff"
-theme.fg_urgent     = "#ffffff"
-theme.fg_minimize   = "#ffffff"
+theme.fg_normal     = "#1e1e2e"
+theme.fg_focus      = "#313244"
+theme.fg_urgent     = "#45475a"
+theme.fg_minimize   = "#b4befe"
 
 theme.useless_gap   = dpi(5)
 theme.border_width  = dpi(0)

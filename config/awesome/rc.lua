@@ -254,9 +254,15 @@ globalkeys = gears.table.join(
               {description = "show main menu", group = "awesome"}),
 
     awful.key({}, "XF86AudioRaiseVolume", function() awful.spawn.with_shell("pactl set-sink-volume @DEFAULT_SINK@ +5%")end),
-    
+
+    awful.key({}, "F6", function() awful.util.spawn("playerctl play-pause", false) end),
+
     awful.key({}, "XF86AudioLowerVolume", function() awful.spawn.with_shell("pactl set-sink-volume @DEFAULT_SINK@ -5%")end),
 
+    awful.key({}, "XF86MonBrightnessDown", function() awful.util.spawn("xbacklight -dec 10") end),
+    
+    awful.key({}, "XF86MonBrightnessUp", function() awful.util.spawn("xbacklight -inc 10") end),   
+    
     -- Layout manipulation
     awful.key({ modkey, "Shift"   }, "j", function () awful.client.swap.byidx(  1)    end,
               {description = "swap with next client by index", group = "client"}),
