@@ -45,7 +45,7 @@ end
 
 -- {{{ Variable definitions
 -- Themes define colours, icons, font and wallpapers.
-beautiful.init("/home/meledo/.config/awesome/theme.lua")
+beautiful.init("/home/meledo/.config/awesome/theme-def.lua")
 
 -- This is used later as the default terminal and editor to run.
 terminal = "konsole"
@@ -167,55 +167,55 @@ screen.connect_signal("property::geometry", set_wallpaper)
 awful.screen.connect_for_each_screen(function(s)
     -- Wallpaper
     set_wallpaper(s)
+    awful.screen.padding(s, {top = 28})
+
 
     -- Each screen has its own tag table.
     awful.tag({ "1", "2", "3", "4"}, s, awful.layout.layouts[1])
 
     -- Create a promptbox for each screen
-    s.mypromptbox = awful.widget.prompt()
+    --s.mypromptbox = awful.widget.prompt()
     -- Create an imagebox widget which will contain an icon indicating which layout we're using.
     -- We need one layoutbox per screen.
-    s.mylayoutbox = awful.widget.layoutbox(s)
-    s.mylayoutbox:buttons(gears.table.join(
-                           awful.button({ }, 1, function () awful.layout.inc( 1) end),
-                           awful.button({ }, 3, function () awful.layout.inc(-1) end),
-                           awful.button({ }, 4, function () awful.layout.inc( 1) end),
-                           awful.button({ }, 5, function () awful.layout.inc(-1) end)))
-    -- Create a taglist widget
-    s.mytaglist = awful.widget.taglist {
-        screen  = s,
-        filter  = awful.widget.taglist.filter.all,
-        buttons = taglist_buttons
-    }
-
-    -- Create a tasklist widget
-    s.mytasklist = awful.widget.tasklist {
-        screen  = s,
-        filter  = awful.widget.tasklist.filter.currenttags,
-        buttons = tasklist_buttons
-    }
-
-    -- Create the wibox
-    s.mywibox = awful.wibar({ position = "top", screen = s })
-
-    -- Add widgets to the wibox
-    s.mywibox:setup {
-        layout = wibox.layout.align.horizontal,
-        { -- Left widgets
-            layout = wibox.layout.fixed.horizontal,
-            mylauncher,
-            s.mytaglist,
-            s.mypromptbox,
-        },
-        s.mytasklist, -- Middle widget
-        { -- Right widgets
-            layout = wibox.layout.fixed.horizontal,
-            mykeyboardlayout,
-            wibox.widget.systray(),
-            mytextclock,
-            s.mylayoutbox,
-        },
-    }
+    --s.mylayoutbox = awful.widget.layoutbox(s)
+    --s.mylayoutbox:buttons(gears.table.join(
+--                           awful.button({ }, 1, function () awful.layout.inc( 1) end),
+--                           awful.button({ }, 3, function () awful.layout.inc(-1) end),
+--                           awful.button({ }, 4, function () awful.layout.inc( 1) end),
+--                           awful.button({ }, 5, function () awful.layout.inc(-1) end)))
+--    -- Create a taglist widget
+--    s.mytaglist = awful.widget.taglist {
+--        screen  = s,
+--        filter  = awful.widget.taglist.filter.all,
+--        buttons = taglist_buttons
+--    }
+--
+--    -- Create a tasklist widget
+--    s.mytasklist = awful.widget.tasklist {
+--        screen  = s,
+--        filter  = awful.widget.tasklist.filter.currenttags,
+--        buttons = tasklist_buttons
+--    }
+--
+--    -- Create the wibox
+--    s.mywibox = awful.wibar({ position = "top", screen = s })
+--
+--    -- Add widgets to the wibox
+--    s.mywibox:setup {
+--        layout = wibox.layout.align.horizontal,
+--        { -- Left widgets
+--            layout = wibox.layout.fixed.horizontal,
+--            mylauncher,
+--            s.mytaglist,
+--            s.mypromptbox,
+--        },
+--        s.mytasklist, -- Middle widget
+--        { -- Right widgets
+--            layout = wibox.layout.fixed.horizontal,
+--            wibox.widget.systray(),
+--            mytextclock,
+--        },
+--    }
 end)
 -- }}}
 
@@ -252,6 +252,10 @@ globalkeys = gears.table.join(
     ),
     awful.key({ modkey,           }, "w", function () mymainmenu:show() end,
               {description = "show main menu", group = "awesome"}),
+
+    awful.key({}, "XF86AudioRaiseVolume", function() awful.spawn.with_shell("pactl set-sink-volume @DEFAULT_SINK@ +5%")end),
+    
+    awful.key({}, "XF86AudioLowerVolume", function() awful.spawn.with_shell("pactl set-sink-volume @DEFAULT_SINK@ -5%")end),
 
     -- Layout manipulation
     awful.key({ modkey, "Shift"   }, "j", function () awful.client.swap.byidx(  1)    end,
@@ -311,10 +315,24 @@ globalkeys = gears.table.join(
               {description = "restore minimized", group = "client"}),
 
     -- Prompt
-    awful.key({ modkey },            "space",     function () 
+    awful.key({ modkey },            "a",     function () 
     awful.util.spawn("rofi -show drun")                                            end,
-              {description = "run rofi", group = "launcher"}),
+              {description = "run rofi apps", group = "launcher"}),
 
+    awful.key({ modkey },            "r",     function () 
+    awful.util.spawn("rofi -show run")                                            end,
+              {description = "run rofi programs", group = "launcher"}),
+    
+    awful.key({ modkey },            "e",        function ()
+    awful.spawn.with_shell("nemo")                                                       end,
+              {description = "run nemo", group = "launcher"}),
+    
+    awful.key({ modkey },            "l",        function ()
+    awful.spawn.with_shell("betterlockscreen --lock")                                                       end,
+              {description = "lock the screen", group = "awesome"}),
+    
+
+    
     awful.key({ modkey }, "x",
               function ()
                   awful.prompt.run {
@@ -328,6 +346,7 @@ globalkeys = gears.table.join(
     -- Menubar
     awful.key({ modkey }, "p", function() menubar.show() end,
               {description = "show the menubar", group = "launcher"})
+
 )
 
 clientkeys = gears.table.join(
@@ -503,7 +522,10 @@ awful.rules.rules = {
 
     { rule = { instance = "mpv" },
     properties = { tag = "3" } },
-    
+
+    { rule = { instance = "Youtube Music" },
+    properties = { tag = "3" } },
+
     { rule = { instance = "scrcpy"},
     properties = { floating = true } },
 }
@@ -573,20 +595,14 @@ end)
 --client.connect_signal("unfocus", function(c) c.border_color = beautiful.border_normal end)
 -- }}}
 
--- Gaps
-
-beautiful.useless_gap = 5
-
 -- Autostart
 
-awful.spawn.with_shell("picom")
+awful.spawn.with_shell("picom --experimental-backends")
 awful.spawn.with_shell("unclutter")
 awful.spawn.with_shell("nitrogen --restore")
 awful.spawn.with_shell("xinput disable 13")
 awful.spawn.with_shell("firefox")
 awful.spawn.with_shell("discord")
-
-
-
+awful.spawn.with_shell("polybar")
 
 
