@@ -182,7 +182,8 @@ box_drawing_scale 0.001, 1, 1.5, 2
 #: }}}
 
 #: Cursor customization {{{
-# cursor #F4DBD6
+
+cursor #F4DBD6
 
 #: Default cursor color. If set to the special value none the cursor
 #: will be rendered with a "reverse video" effect. It's color will be
@@ -191,7 +192,8 @@ box_drawing_scale 0.001, 1, 1.5, 2
 #: program running in the terminal sets a cursor color, this takes
 #: precedence. Also, the cursor colors are modified if the cell
 #: background and foreground colors have very low contrast.
-# cursor_text_color #24273A
+
+cursor_text_color #24273A
 
 #: Choose the color of text under the cursor. If you want it rendered
 #: with the background color of the cell underneath instead, use the
@@ -309,7 +311,8 @@ mouse_hide_wait 3.0
 #: typing text. Disabled by default on macOS as getting it to work
 #: robustly with the ever-changing sea of bugs that is Cocoa is too
 #: much effort.
-# url_color #F4DBD6
+
+url_color #F4DBD6
 url_style curly
 
 #: The color and style for highlighting URLs on mouse-over. url_style
@@ -604,7 +607,8 @@ visual_bell_duration 0.0
 
 #: Visual bell duration. Flash the screen when a bell occurs for the
 #: specified number of seconds. Set to zero to disable.
-# visual_bell_color none
+
+visual_bell_color none
 
 #: The color used by visual bell. Set to none will fall back to
 #: selection background color. If you feel that the visual bell is too
@@ -717,14 +721,17 @@ placement_strategy center
 #: this option. Using a value of center means the cell area will be
 #: placed centrally. A value of top-left means the padding will be on
 #: only the bottom and right edges.
-# active_border_color #B7BDF8
+
+active_border_color #B7BDF8
 
 #: The color for the border of the active window. Set this to none to
 #: not draw borders around the active window.
-# inactive_border_color #6E738D
+
+inactive_border_color #6E738D
 
 #: The color for the border of inactive windows
-# bell_border_color #EED49F
+
+bell_border_color #EED49F
 
 #: The color for the border of inactive windows in which a bell has
 #: occurred
@@ -927,19 +934,22 @@ active_tab_title_template none
 
 #: Template to use for active tabs, if not specified falls back to
 #: tab_title_template.
-# active_tab_foreground   #181926
-# active_tab_background   #C6A0F6
+
+active_tab_foreground   #181926
+active_tab_background   #C6A0F6
 active_tab_font_style   bold-italic
-# inactive_tab_foreground #CAD3F5
-# inactive_tab_background #1E2030
+inactive_tab_foreground #CAD3F5
+inactive_tab_background #1E2030
 inactive_tab_font_style normal
 
 #: Tab bar colors and styles
-# tab_bar_background #181926
+
+tab_bar_background #181926
 
 #: Background color for the tab bar. Defaults to using the terminal
 #: background color.
-# tab_bar_margin_color none
+
+tab_bar_margin_color none
 
 #: Color for the tab bar margin area. Defaults to using the terminal
 #: background color.
@@ -947,8 +957,9 @@ inactive_tab_font_style normal
 #: }}}
 
 #: Color scheme {{{
-# foreground              #CAD3F5
-# background              #24273A
+
+foreground              #CAD3F5
+background              #24273A
 
 #: The foreground and background colors
 
@@ -1007,8 +1018,9 @@ dim_opacity 0.75
 
 #: How much to dim text that has the DIM/FAINT attribute set. One
 #: means no dimming and zero means fully dimmed (i.e. invisible).
-# selection_foreground    #24273A
-# selection_background    #F4DBD6
+
+selection_foreground    #24273A
+selection_background    #F4DBD6
 
 #: The foreground and background colors for text selected with the
 #: mouse. Setting both of these to none will cause a "reverse video"
@@ -1027,52 +1039,58 @@ dim_opacity 0.75
 # The 16 terminal colors
 
 # black
-# color0 #494D64
-# color8 #5B6078
+color0 #494D64
+color8 #5B6078
 
 # red
-# color1 #ED8796
-# color9 #ED8796
+color1 #ED8796
+color9 #ED8796
 
 # green
-# color2  #A6DA95
-# color10 #A6DA95
+color2  #A6DA95
+color10 #A6DA95
 
 # yellow
-# color3  #EED49F
-# color11 #EED49F
+color3  #EED49F
+color11 #EED49F
 
 # blue
-# color4  #8AADF4
-# color12 #8AADF4
+color4  #8AADF4
+color12 #8AADF4
 
 # magenta
-# color5  #F5BDE6
-# color13 #F5BDE6
+color5  #F5BDE6
+color13 #F5BDE6
 
 # cyan
-# color6  #8BD5CA
-# color14 #8BD5CA
+color6  #8BD5CA
+color14 #8BD5CA
 
 # white
-# color7  #B8C0E0
-# color15 #A5ADCB
-# mark1_foreground #24273A
+color7  #B8C0E0
+color15 #A5ADCB
+
+mark1_foreground #24273A
 
 #: Color for marks of type 1
-# mark1_background #B7BDF8
+
+mark1_background #B7BDF8
 
 #: Color for marks of type 1 (light steel blue)
-# mark2_foreground #24273A
+
+mark2_foreground #24273A
 
 #: Color for marks of type 2
-# mark2_background #C6A0F6
+
+mark2_background #C6A0F6
 
 #: Color for marks of type 1 (beige)
-# mark3_foreground #24273A
+
+mark3_foreground #24273A
 
 #: Color for marks of type 3
-# mark3_background #7DC4E4
+
+mark3_background #7DC4E4
 
 #: Color for marks of type 3 (violet)
 
@@ -1261,14 +1279,16 @@ term xterm-kitty
 #: }}}
 
 #: OS specific tweaks {{{
-# wayland_titlebar_color system
+
+wayland_titlebar_color system
 
 #: Change the color of the kitty window's titlebar on Wayland systems
 #: with client side window decorations such as GNOME. A value of
 #: system means to use the default system color, a value of background
 #: means to use the background color of the currently active window
 #: and finally you can use an arbitrary color, such as #12af59 or red.
-# macos_titlebar_color system
+
+macos_titlebar_color system
 
 #: Change the color of the kitty window's titlebar on macOS. A value
 #: of system means to use the default system color, light or dark can
@@ -1748,6 +1768,7 @@ map cmd+t       new_tab
 #: Close tab
 
 map kitty_mod+q close_tab
+map cmd+w       close_tab
 
 #: Close OS window
 
@@ -2053,9 +2074,3 @@ map opt+cmd+,    debug_config
 
 #: }}}
 
-
-
-# BEGIN_KITTY_THEME
-# Catppuccin
-include current-theme.conf
-# END_KITTY_THEME
