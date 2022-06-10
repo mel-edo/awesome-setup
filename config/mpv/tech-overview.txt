@@ -1,0 +1,657 @@
+This file intends to give a big picture overview of how mpv is structured.
+
+player/*.c:
+    Essentially makes up the player applications, including the main() function
+    and the playback loop.
+
+    Generally, it accesses all other subsystems, initializes them, and pushes
+    data between them during playback.
+
+    The structure is as follows (as of commit e13c05366557cb):
+    * main():
+        * basic initializations (e.g. init_libav() and more)
+        * pre-parse command line (verbosity level, config file locations)
+        * load config files (parse_cfgfiles())
+        * parse command line, add files from the command line to playlist
+          (m_config_parse_mp_command_line())
+        * check help options etc. (call handle_help_options()), possibly exit
+        * call mp_play_files() function that works down the playlist:
+            * run idle loop (idle_loop()), until there are files in the
+                playlist or an exit command was given (only if --idle it set)
+            * actually load and play a file in play_current_file():
+                * run all the dozens of functions to load the file and
+                  initialize playback
+                * run a small loop that does normal playback, until the file is
+                  done or a command terminates playback
+                  (on each iteration, run_playloop() is called, which is rather
+                   big and complicated - it decodes some audio and video on
+                   each frame, waits for input, etc.)
+                * uninitialize playback
+            * determine next entry on the playlist to play
+            * loop, or exit if no next file or quit is requested
+              (see enum stop_play_reason)
+        * call mp_destroy()
+    * run_playloop():
+        * calls fill_audio_out_buffers()
+            This checks whether new audio needs to be decoded, and pushes it
+            to the AO.
+        * calls write_video()
+            Decode new video, and push it to the VO.
+        * determines whether playback of the current file has ended
+        * determines when to start playback after seeks
+        * and calls a whole lot of other stuff
+            (Really, this function does everything.)
+
+    Things worth saying about the playback core:
+    - most state is in MPContext (core.h), which is not available to the
+      subsystems (and should not be made available)
+    - the currently played tracks are in mpctx->current_tracks, and decoder
+      state in track.dec/d_sub
+    - the other subsystems rarely call back into the frontend, and the frontend
+      polls them instead (probably a good thing)
+    - one exceptions are wakeup callbacks, which notify a "higher" component
+      of a changed situation in a subsystem
+
+    I like to call the player/*.c files the "frontend".
+
+ta.h & ta.c:
+    Hierarchical memory manager inspired by talloc from Samba. It's like a
+    malloc() with more features. Most importantly, each talloc allocation can
+    have a parent, and if the parent is free'd, all children will be free'd as
+    well. The parent is an arbitrary talloc allocation. It's either set by the
+    allocation call by passing a talloc parent, usually as first argument to the
+    allocation function. It can also be set or reset later by other calls (at
+    least talloc_steal()). A talloc allocation that is used as parent is often
+    called a talloc context.
+
+    One very useful feature of talloc is fast tracking of memory leaks. ("Fast"
+    as in it doesn't require valgrind.) You can enable it by setting the
+    MPV_LEAK_REPORT environment variable to "1":
+        export MPV_LEAK_REPORT=1
+    Or permanently by building with --enable-ta-leak-report.
+    This will list all unfree'd allocations on exit.
+
+    Documentation can be found here:
+        http://git.samba.org/?p=samba.git;a=blob;f=lib/talloc/talloc.h;hb=HEAD
+
+    For some reason, we're still using API-compatible wrappers instead of TA
+    directly. The talloc wrapper has only a subset of the functionality, and
+    in particular the wrappers abort() on memory allocation failure.
+
+    Note: unlike tcmalloc, jemalloc, etc., talloc() is not actually a malloc
+          replacement. It works on top of system malloc and provides additional
+          features that are supposed to make memory management easier.
+
+player/command.c:
+    This contains the implementation for client API commands and properties.
+    Properties are essentially dynamic variables changed by certain commands.
+    This is basically responsible for all user commands, like initiating
+    seeking, switching tracks, etc. It calls into other player/*.c files,
+    where most of the work is done, but also calls other parts of mpv.
+
+player/core.h:
+    Data structures and function prototypes for most of player/*.c. They are
+    usually not accessed by other parts of mpv for the sake of modularization.
+
+player/client.c:
+    This implements the client API (libmpv/client.h). For the most part, this
+    just calls into other parts of the player. This also manages a ringbuffer
+    of events from player to clients.
+
+options/options.h, options/options.c
+    options.h contains the global option struct MPOpts. The option declarations
+    (option names, types, and MPOpts offsets for the option parser) are in
+    options.c. Most default values for options and MPOpts are in
+    mp_default_opts at the end of options.c.
+
+    MPOpts is unfortunately quite monolithic, but is being incrementally broken
+    up into sub-structs. Many components have their own sub-option structs
+    separate from MPOpts. New options should be bound to the component that uses
+    them. Add a new option table/struct if needed.
+
+    The global MPOpts still contains the sub-structs as fields, which serves to
+    link them to the option parser. For example, an entry like this may be
+    typical:
+
+        {"", OPT_SUBSTRUCT(demux_opts, demux_conf)},
+
+    This directs the option access code to include all options in demux_conf
+    into the global option list, with no prefix (""), and as part of the
+    MPOpts.demux_opts field. The MPOpts.demux_opts field is actually not
+    accessed anywhere, and instead demux.c does this:
+
+        struct m_config_cache *opts_cache =
+            m_config_cache_alloc(demuxer, global, &demux_conf);
+        struct demux_opts *opts = opts_cache->opts;
+
+    ... to get a copy of its options.
+
+    See m_config.h (below) how to access options.
+
+    The actual option parser is spread over m_option.c, m_config.c, and
+    parse_commandline.c, and uses the option table in options.c.
+
+options/m_config.h & m_config.c:
+    Code for querying and managing options. This (unfortunately) contains both
+    declarations for the "legacy-ish" global m_config struct, and ways to access
+    options in a threads-safe way anywhere, like m_config_cache_alloc().
+
+    m_config_cache_alloc() lets anyone read, observe, and write options in any
+    thread. The only state it needs is struct mpv_global, which is an opaque
+    type that can be passed "down" the component hierarchy. For safety reasons,
+    you should not pass down any pointers to option structs (like MPOpts), but
+    instead pass down mpv_global, and use m_config_cache_alloc() (or similar)
+    to get a synchronized copy of the options.
+
+input/input.c:
+    This translates keyboard input coming from VOs and other sources (such
+    as remote control devices like Apple IR or client API commands) to the
+    key bindings listed in the user's (or the builtin) input.conf and turns
+    them into items of type struct mp_cmd. These commands are queued, and read
+    by playloop.c. They get pushed with run_command() to command.c.
+
+    Note that keyboard input and commands used by the client API are the same.
+    The client API only uses the command parser though, and has its own queue
+    of input commands somewhere else.
+
+common/msg.h:
+    All terminal output must go through mp_msg().
+
+stream/*:
+    File input is implemented here. stream.h/.c provides a simple stream based
+    interface (like reading a number of bytes at a given offset). mpv can
+    also play from http streams and such, which is implemented here.
+
+    E.g. if mpv sees "http://something" on the command line, it will pick
+    stream_lavf.c based on the prefix, and pass the rest of the filename to it.
+
+    Some stream inputs are quite special: stream_dvd.c turns DVDs into mpeg
+    streams (DVDs are actually a bunch of vob files etc. on a filesystem),
+    stream_tv.c provides TV input including channel switching.
+
+    Some stream inputs are just there to invoke special demuxers, like
+    stream_mf.c. (Basically to make the prefix "mf://" do something special.)
+
+demux/:
+    Demuxers split data streams into audio/video/sub streams, which in turn
+    are split in packets. Packets (see demux_packet.h) are mostly byte chunks
+    tagged with a playback time (PTS). These packets are passed to the decoders.
+
+    Most demuxers have been removed from this fork, and the only important and
+    "actual" demuxers left are demux_mkv.c and demux_lavf.c (uses libavformat).
+    There are some pseudo demuxers like demux_cue.c.
+
+    The main interface is in demux.h. The stream headers are in stheader.h.
+    There is a stream header for each audio/video/sub stream, and each of them
+    holds codec information about the stream and other information.
+
+    demux.c is a bit big, the main reason being that it contains the demuxer
+    cache, which is implemented as a list of packets. The cache is complex
+    because it support seeking, multiple ranges, prefetching, and so on.
+
+video/:
+    This contains several things related to audio/video decoding, as well as
+    video filters.
+
+    mp_image.h and img_format.h define how mpv stores decoded video frames
+    internally.
+
+video/decode/:
+    vd_*.c are video decoders. (There's only vd_lavc.c left.) dec_video.c
+    handles most of connecting the frontend with the actual decoder.
+
+video/filter/:
+    vf_*.c and vf.c form the video filter chain. They are fed by the video
+    decoder, and output the filtered images to the VOs though vf_vo.c. By
+    default, no video filters (except vf_vo) are used. vf_scale is automatically
+    inserted if the video output can't handle the video format used by the
+    decoder.
+
+video/out/:
+    Video output. They also create GUI windows and handle user input. In most
+    cases, the windowing code is shared among VOs, like x11_common.c for X11 and
+    w32_common.c for Windows. The VOs stand between frontend and windowing code.
+    vo_gpu can pick a windowing system at runtime, e.g. the same binary can
+    provide both X11 and Cocoa support on OSX.
+
+    VOs can be reconfigured at runtime. A vo_reconfig() call can change the video
+    resolution and format, without destroying the window.
+
+    vo_gpu should be taken as reference.
+
+audio/:
+    format.h/format.c define the uncompressed audio formats. (As well as some
+    compressed formats used for spdif.)
+
+audio/decode/:
+    ad_*.c and dec_audio.c handle audio decoding. ad_lavc.c is the
+    decoder using ffmpeg. ad_spdif.c is not really a decoder, but is used for
+    compressed audio passthrough.
+
+audio/filter/:
+    Audio filter chain. af_lavrresample is inserted if any form of conversion
+    between audio formats is needed.
+
+audio/out/:
+    Audio outputs.
+
+    Unlike VOs, AOs can't be reconfigured on a format change. On audio format
+    changes, the AO will simply be closed and re-opened.
+
+    There are wrappers to support for two types of audio APIs: push.c and
+    pull.c. ao.c calls into one of these. They contain generic code to deal
+    with the data flow these APIs impose.
+
+    Note that mpv synchronizes the video to the audio. That's the reason
+    why buggy audio drivers can have a bad influence on playback quality.
+
+sub/:
+    Contains subtitle and OSD rendering.
+
+    osd.c/.h is actually the OSD code. It queries dec_sub.c to retrieve
+    decoded/rendered subtitles. osd_libass.c is the actual implementation of
+    the OSD text renderer (which uses libass, and takes care of all the tricky
+    fontconfig/freetype API usage and text layouting).
+
+    The VOs call osd.c to render OSD and subtitle (via e.g. osd_draw()). osd.c
+    in turn asks dec_sub.c for subtitle overlay bitmaps, which relays the
+    request to one of the sd_*.c subtitle decoders/renderers.
+
+    Subtitle loading is in demux/. The MPlayer subreader.c is mostly gone - parts
+    of it survive in demux_subreader.c. It's used as last fallback, or to handle
+    some text subtitle types on Libav. It should go away eventually. Normally,
+    subtitles are loaded via demux_lavf.c.
+
+    The subtitles are passed to dec_sub.c and the subtitle decoders in sd_*.c
+    as they are demuxed. All text subtitles are rendered by sd_ass.c. If text
+    subtitles are not in the ASS format, the libavcodec subtitle converters are
+    used (lavc_conv.c).
+
+    Text subtitles can be preloaded, in which case they are read fully as soon
+    as the subtitle is selected. In this case, they are effectively stored in
+    sd_ass.c's internal state.
+
+etc/:
+    The file input.conf is actually integrated into the mpv binary by the
+    build system. It contains the default keybindings.
+
+Best practices and Concepts within mpv
+======================================
+
+General contribution etc.
+-------------------------
+
+See: DOCS/contribute.md
+
+Error checking
+--------------
+
+If an error is relevant, it should be handled. If it's interesting, log the
+error. However, mpv often keeps errors silent and reports failures somewhat
+coarsely by propagating them upwards the caller chain. This is OK, as long as
+the errors are not very interesting, or would require a developer to debug it
+anyway (in which case using a debugger would be more convenient, and the
+developer would need to add temporary debug printfs to get extremely detailed
+information which would not be appropriate during normal operation).
+
+Basically, keep a balance on error reporting. But always check them, unless you
+have a good argument not to.
+
+Memory allocation errors (OOM) are a special class of errors. Normally such
+allocation failures are not handled "properly". Instead, abort() is called.
+(New code should use MP_HANDLE_OOM() for this.) This is done out of laziness and
+for convenience, and due to the fact that MPlayer/mplayer2 never handled it
+correctly. (MPlayer varied between handling it correctly, trying to do so but
+failing, and just not caring, while mplayer2 started using abort() for it.)
+
+This is justifiable in a number of ways. Error handling paths are notoriously
+untested and buggy, so merely having them won't make your program more reliable.
+Having these error handling paths also complicates non-error code, due to the
+need to roll back state at any point after a memory allocation.
+
+Take any larger body of code, that is supposed to handle OOM, and test whether
+the error paths actually work, for example by overriding malloc with a version
+that randomly fails. You will find bugs quickly, and often they will be very
+annoying to fix (if you can even reproduce them).
+
+In addition, a clear indication that something went wrong may be missing. On
+error your program may exhibit "degraded" behavior by design. Consider a video
+encoder dropping frames somewhere in the middle of a video due to temporary
+allocation failures, instead of just exiting with an errors. In other cases, it
+may open conceptual security holes. Failing fast may be better.
+
+mpv uses GPU APIs, which may be break on allocation errors (because driver
+authors will have the same issues as described here), or don't even have a real
+concept for dealing with OOM (OpenGL).
+
+libmpv is often used by GUIs, which I predict always break if OOM happens.
+
+Last but not least, OSes like Linux use "overcommit", which basically means that
+your program may crash any time OOM happens, even if it doesn't use malloc() at
+all!
+
+But still, don't just assume malloc() always succeeds. Use MP_HANDLE_OOM(). The
+ta* APIs do this for you. The reason for this is that dereferencing a NULL
+pointer can have security relevant consequences if large offsets are involved.
+Also, a clear error message is better than a random segfault.
+
+Some big memory allocations are checked anyway. For example, all code must
+assume that allocating video frames or packets can fail. (The above example
+of dropping video frames during encoding is entirely possible in mpv.)
+
+Undefined behavior
+------------------
+
+Undefined behavior (UB) is a concept in the C language. C is famous for being a
+language that makes it almost impossible to write working code, because
+undefined behavior is so easily triggered, compilers will happily abuse it to
+generate "faster" code, debugging tools will shout at you, and sometimes it
+even means your code doesn't work.
+
+There is a lot of literature on this topic. Read it.
+
+(In C's defense, UB exists in other languages too, but since they're not used
+for low level infrastructure, and/or these languages are at times not rigorously
+defined, simply nobody cares. However, the C standard committee is still guilty
+for not addressing this. I'll admit that I can't even tell from the standard's
+gibberish whether some specific behavior is UB or not. It's written like tax
+law.)
+
+In mpv, we generally try to avoid undefined behavior. For one, we want portable
+and reliable operation. But more importantly, we want clean output from
+debugging tools, in order to find real bugs more quickly and effectively.
+
+Avoid the "works in practice" argument. Once debugging tools come into play, or
+simply when "in practice" stops being true, this will all get back to you in a
+bad way.
+
+Global state, library safety
+----------------------------
+
+Mutable global state is when code uses global variables that are not read-only.
+This must be avoided in mpv. Always use context structs that the caller of
+your code needs to allocate, and whose pointers are passed to your functions.
+
+Library safety means that your code (or library) can be used by a library
+without causing conflicts with other library users in the same process. To any
+piece of code, a "safe" library's API can simply be used, without having to
+worry about other API users that may be around somewhere.
+
+Libraries are often not library safe, because they they use global mutable state
+or other "global" resources. Typical examples include use of signals, simple
+global variables (like hsearch() in libc), or internal caches not protected by
+locks.
+
+A surprisingly high number of libraries are not library safe because they need
+global initialization. Typically they provide an API function, which
+"initializes" the library, and which must be called before calling any other
+API functions. Often, you are to provide global configuration parameters, which
+can change the behavior of the library. If two libraries A and B use library C,
+but A and B initialize C with different parameters, something "bad" may happen.
+In addition, these global initialization functions are often not thread-safe. So
+if A and B try to initialize C at the same time (from different threads and
+without knowing about each other), it may cause undefined behavior. (libcurl is
+a good example of both of these issues. FFmpeg and some TLS libraries used to be
+affected, but improved.)
+
+This is so bad because library A and B from the previous example most likely
+have no way to cooperate, because they're from different authors and have no
+business knowing each others. They'd need a library D, which wraps library C
+in a safe way. Unfortunately, typically something worse happens: libraries get
+"infected" by the unsafeness of its sub-libraries, and export a global init API
+just to initialize the sub-libraries. In the previous example, libraries A and B
+would export global init APIs just to init library C, even though the rest of
+A/B are clean and library safe. (Again, libcurl is an example of this, if you
+subtract other historic anti-features.)
+
+The main problem with library safety is that its lack propagates to all
+libraries using the library.
+
+We require libmpv to be library safe. This is not really possible, because some
+libraries are not library safe (FFmpeg, Xlib, partially ALSA). However, for
+ideological reasons, there is no global init API, and best effort is made to try
+to avoid problems.
+
+libmpv has some features that are not library safe, but which are disabled by
+default (such as terminal usage aka stdout, or JSON IPC blocking SIGPIPE for
+internal convenience).
+
+A notable, very disgustingly library unsafe behavior of libmpv is calling
+abort() on some memory allocation failure. See error checking section.
+
+Logging
+-------
+
+All logging and terminal output in mpv goes through the functions and macros
+provided in common/msg.h. This is in part for library safety, and in part to
+make sure users can silence all output, or to redirect the output elsewhere,
+like a log file or the internal console.lua script.
+
+Locking
+-------
+
+See generally available literature. In mpv, we use pthread for this.
+
+Always keep locking clean. Don't skip locking just because it will work "in
+practice". (See undefined behavior section.) If your use case is simple, you may
+use C11 atomics (osdep/atomic.h for partial C99 support), but most likely you
+will only hurt yourself and others.
+
+Always make clear which fields in a struct are protected by which lock. If a
+field is immutable, or simply not thread-safe (e.g. state for a single worker
+thread), document it as well.
+
+Internal mpv APIs are assumed to be not thread-safe by default. If they have
+special guarantees (such as being usable by more than one thread at a time),
+these should be explicitly documented.
+
+All internal mpv APIs must be free of global state. Even if a component is not
+thread-safe, multiple threads can use _different_ instances of it without any
+locking.
+
+On a side note, recursive locks may seem convenient at first, but introduce
+additional problems with condition variables and locking hierarchies. They
+should be avoided.
+
+Locking hierarchy
+-----------------
+
+A simple way to avoid deadlocks with classic locking is to define a locking
+hierarchy or lock order. If all threads acquire locks in the same order, no
+deadlocks will happen.
+
+For example, a "leaf" lock is a lock that is below all other locks in the
+hierarchy. You can acquire it any time, as long as you don't acquire other
+locks while holding it.
+
+Unfortunately, C has no way to declare or check the lock order, so you should at
+least document it.
+
+In addition, try to avoid exposing locks to the outside. Making the declaration
+of a lock private to a specific .c file (and _not_ exporting accessors or
+lock/unlock functions that manipulate the lock) is a good idea. Your component's
+API may acquire internal locks, but should release them when returning. Keeping
+the entire locking in a single file makes it easy to check it.
+
+Avoiding callback hell
+----------------------
+
+mpv code is separated in components, like the "frontend" (i.e. MPContext mpctx),
+VOs, AOs, demuxers, and more. The frontend usually calls "down" the usage
+hierarchy: mpctx almost on top, then things like vo/ao, and utility code on the
+very bottom.
+
+"Callback hell" is when when components call both up and down the hierarchy,
+which for example leads to accidentally recursion, reentrancy problems, or
+locking nightmares. This is avoided by (mostly) calling only down the hierarchy.
+Basically the call graph forms a DAG. The other direction is handled by event
+queues, wakeup callbacks, and similar mechanisms.
+
+Typically, a component provides an API, and does not know anything about its
+user. The API user (component higher in the hierarchy) polls the state of the
+lower component when needed.
+
+This also enforces some level of modularization, and with some luck the locking
+hierarchy. (Basically, locks of lower components automatically become leaf
+locks.) Another positive effect is simpler memory management.
+
+(Also see e.g.: http://250bpm.com/blog:24)
+
+Wakeup callbacks
+----------------
+
+This is a common concept in mpv. Even the public API uses it. It's used when an
+API has internal threads (or otherwise triggers asynchronous events), but the
+component call hierarchy needs to be kept. The wakeup callback is the only
+exception to the call hierarchy, and always calls up.
+
+For example, vo spawns a thread that the API user (the mpv frontend) does not
+need to know about. vo simply provides a single-threaded API (or that looks like
+one). This API needs a way to notify the API user of new events. But the vo
+event producer is on the vo thread - it can't simply invoke a callback back into
+the API user, because then the API user has to deal with locking, despite not
+using threads. In addition, this will probably cause problems like mentioned in
+the "callback hell" section, especially lock order issues.
+
+The solution is the wakeup callback. It merely unblocks the API user from
+waiting, and the API user then uses the normal vo API to examine whether or
+which state changed. As a concept, it documents what a wakeup callback is
+allowed to do and what not, to avoid the aforementioned problems.
+
+Generally, you are not allowed to call any API from the wakeup callback. You
+just do whatever is needed to unblock your thread. For example, if it's waiting
+on a mutex/condition variable, acquire the mutex, set a change flag, signal
+the condition variable, unlock, return. (This mutex must not be held when
+calling the API. It must be a leaf lock.)
+
+Restricting the wakeup callback like this sidesteps any reentrancy issues and
+other complexities. The API implementation can simply hold internal (and
+non-recursive) locks while invoking the wakeup callback.
+
+The API user still needs to deal with locking (probably), but there's only the
+need to implement a single "receiver", that can handle the entire API of the
+used component. (Or multiple APIs - MPContext for example has only 1 wakeup
+callback that handles all AOs, VOs, input, demuxers, and more. It simple re-runs
+the playloop.)
+
+You could get something more advanced by turning this into a message queue. The
+API would append a message to the queue, and the API user can read it. But then
+you still need a way to "wakeup" the API user (unless you force the API user
+to block on your API, which will make things inconvenient for the API user). You
+also need to worry about what happens if the message queue overruns (you either
+lose messages or have unbounded memory usage). In the mpv public API, the
+distinction between message queue and wakeup callback is sort of blurry, because
+it does provide a message queue, but an additional wakeup callback, so API
+users are not required to call mpv_wait_event() with a high timeout.
+
+mpv itself prefers using wakeup callbacks over a generic event queue, because
+most times an event queue is not needed (or complicates things), and it is
+better to do it manually.
+
+(You could still abstract the API user side of wakeup callback handling, and
+avoid reimplementing it all the time. Although mp_dispatch_queue already
+provides mechanisms for this.)
+
+Condition variables
+-------------------
+
+They're used whenever a thread needs to wait for something, without nonsense
+like sleep calls or busy waiting. mpv uses the standard pthread API for this.
+There's a lot of literature on it. Read it.
+
+For initial understanding, it may be helpful to know that condition variables
+are not variables that signal a condition. pthread_cond_t does not have any
+state per-se. Maybe pthread_cond_t would better be named pthread_interrupt_t,
+because its sole purpose is to interrupt a thread waiting via pthread_cond_wait()
+(or similar). The "something" in "waiting for something" can be called
+predicate (to avoid confusing it with "condition"). Consult literature for the
+proper terms.
+
+The very short version is...
+
+Shared declarations:
+
+    pthread_mutex_t lock;
+    pthread_cond_t cond_var;
+    struct something state_var; // protected by lock, changes signaled by cond_var
+
+Waiter thread:
+
+    pthread_mutex_lock(&lock);
+
+    // Wait for a change in state_var. We want to wait until predicate_fulfilled()
+    // returns true.
+    // Must be a loop for 2 reasons:
+    //  1. cond_var may be associated with other conditions too
+    //  2. pthread_cond_wait() can have sporadic wakeups
+    while (!predicate_fulfilled(&state_var)) {
+        // This unlocks, waits for cond_var to be signaled, and then locks again.
+        // The _whole_ point of cond_var is that unlocking and waiting for the
+        // signal happens atomically.
+        pthread_cond_wait(&cond_var, &lock);
+    }
+
+    // Here you may react to the state change. The state cannot change
+    // asynchronously as long as you still hold the lock (and didn't release
+    // and reacquire it).
+    // ...
+
+    pthread_mutex_unlock(&lock);
+
+Signaler thread:
+
+    pthread_mutex_lock(&lock);
+
+    // Something changed. Update the shared variable with the new state.
+    update_state(&state_var);
+
+    // Notify that something changed. This will wake up the waiter thread if
+    // it's blocked in pthread_cond_wait(). If not, nothing happens.
+    pthread_cond_broadcast(&cond_var);
+
+    // Fun fact: good implementations wake up the waiter only when the lock is
+    // released, to reduce kernel scheduling overhead.
+    pthread_mutex_unlock(&lock);
+
+Some basic rules:
+    1. Always access your state under proper locking
+    2. Always check your predicate before every call to pthread_cond_wait()
+       (And don't call pthread_cond_wait() if the predicate is fulfilled.)
+    3. Always call pthread_cond_wait() in a loop
+       (And only if your predicate failed without releasing the lock..)
+    4. Always call pthread_cond_broadcast()/_signal() inside of its associated
+       lock
+
+mpv sometimes violates rule 3, and leaves "retrying" (i.e. looping) to the
+caller.
+
+Common pitfalls:
+    - Thinking that pthread_cond_t is some kind of semaphore, or holds any
+       application state or the user predicate (it _only_ wakes up threads
+       that are at the same time blocking on pthread_cond_wait() and friends,
+       nothing else)
+    - Changing the predicate, but not updating all pthread_cond_broadcast()/
+      _signal() calls correctly
+    - Forgetting that pthread_cond_wait() unlocks the lock (other threads can
+      and must acquire the lock)
+    - Holding multiple nested locks while trying to wait (=> deadlock, violates
+      the lock order anyway)
+    - Waiting for a predicate correctly, but unlocking/relocking before acting
+      on it (unlocking allows arbitrary state changes)
+    - Confusing which lock/condition var. is used to manage a bit of state
+
+Generally available literature probably has better examples and explanations.
+
+Using condition variables the proper way is generally preferred over using more
+messy variants of them. (Just saying because on win32, "SetEvent" exists, and
+it's inferior to condition variables. Try to avoid the win32 primitives, even if
+you're dealing with Windows-only code.)
+
+Threads
+-------
+
+Threading should be conservatively used. Normally, mpv code pretends to be
+single-threaded, and provides thread-unsafe APIs. Threads are used coarsely,
+and if you can avoid messing with threads, you should. For example, VOs and AOs
+do not need to deal with threads normally, even though they run on separate
+threads. The glue code "isolates" them from any threading issues.
