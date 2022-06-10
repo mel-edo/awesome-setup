@@ -13,16 +13,16 @@ local theme = {}
 
 theme.font          = "JetBrainsMono Nerd Font 8"
 
-theme.bg_normal     = "#222222"
-theme.bg_focus      = "#535d6c"
-theme.bg_urgent     = "#ff0000"
-theme.bg_minimize   = "#444444"
+theme.bg_normal     = "#1e1e2e"
+theme.bg_focus      = "#6c7086"
+theme.bg_urgent     = "#eba0ac"
+theme.bg_minimize   = "#313244"
 theme.bg_systray    = theme.bg_normal
 
-theme.fg_normal     = "#1e1e2e"
-theme.fg_focus      = "#313244"
-theme.fg_urgent     = "#45475a"
-theme.fg_minimize   = "#b4befe"
+theme.fg_normal     = "#cdd6f4"
+theme.fg_focus      = "#737994"
+theme.fg_urgent     = "#ea999c"
+theme.fg_minimize   = "#99d1db"
 
 theme.useless_gap   = dpi(5)
 theme.border_width  = dpi(1)
@@ -38,24 +38,6 @@ theme.taglist_squares_sel = theme_assets.taglist_squares_sel(
 theme.taglist_squares_unsel = theme_assets.taglist_squares_unsel(
     taglist_square_size, theme.fg_normal
 )
-
--- Variables set for theming notifications:
--- notification_font
--- notification_[bg|fg]
--- notification_[width|height|margin]
--- notification_[border_color|border_width|shape|opacity]
-
--- Variables set for theming the menu:
--- menu_[bg|fg]_[normal|focus]
--- menu_[border_color|border_width]
-theme.menu_submenu_icon = themes_path.."default/submenu.png"
-theme.menu_height = dpi(15)
-theme.menu_width  = dpi(100)
-
--- You can add as many variables as
--- you wish and access them by using
--- beautiful.variable in your rc.lua
---theme.bg_widget = "#cc0000"
 
 theme.wallpaper = "/home/meledo/Downloads/alena-aenami-reflect1k.jpg"
 

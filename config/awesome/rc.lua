@@ -63,20 +63,6 @@ modkey = "Mod4"
 awful.layout.layouts = {
     --awful.layout.suit.floating,
     awful.layout.suit.tile,
-    --awful.layout.suit.tile.left,
-    --awful.layout.suit.tile.bottom,
-    --awful.layout.suit.tile.top,
-    --awful.layout.suit.fair,
-    --awful.layout.suit.fair.horizontal,
-    --awful.layout.suit.spiral,
-    --awful.layout.suit.spiral.dwindle,
-    --awful.layout.suit.max,
-    --awful.layout.suit.max.fullscreen,
-    --awful.layout.suit.magnifier,
-    --awful.layout.suit.corner.nw,
-    -- awful.layout.suit.corner.ne,
-    -- awful.layout.suit.corner.sw,
-    -- awful.layout.suit.corner.se,
 }
 -- }}}
 
@@ -223,11 +209,13 @@ globalkeys = gears.table.join(
     awful.spawn.with_shell("nemo")                                                       end,
               {description = "run nemo", group = "launcher"}),
     
-    awful.key({ modkey, "Shift" },            "l",        function ()
+    awful.key({ modkey, "Shift" },            "Escape",        function ()
     awful.spawn.with_shell("betterlockscreen --lock")                                                       end,
               {description = "lock the screen", group = "awesome"}),
     
-
+    awful.key({},            "F4",        function ()
+    awful.spawn.with_shell("flameshot gui")                                                       end,
+              {description = "run flameshot", group = "launcher"}),
     
     awful.key({ modkey }, "x",
               function ()
@@ -419,9 +407,6 @@ awful.rules.rules = {
     { rule = { instance = "mpv" },
     properties = { tag = "3" } },
 
-    { rule = { instance = "Youtube Music" },
-    properties = { tag = "3" } },
-
     { rule = { instance = "feh"},
     properties = { floating = true } },
     
@@ -445,6 +430,15 @@ client.connect_signal("manage", function (c)
     end
 end)
 
+-- Notifications
+
+beautiful.notification_font = "Product Sans 10"
+beautiful.notification_max_width = 300
+beautiful.notification_max_height = 200
+naughty.config.defaults.timeout = 4
+naughty.config.padding = 10
+naughty.config.spacing = 5
+
 -- Autostart
 
 awful.spawn.with_shell("picom --experimental-backends")
@@ -453,5 +447,4 @@ awful.spawn.with_shell("xinput disable 13")
 awful.spawn.with_shell("firefox")
 awful.spawn.with_shell("discord")
 awful.spawn.with_shell("polybar")
-awful.spawn.with_shell("Youtube Music")
-
+awful.spawn.with_shell('xinput set-prop "MOSART Semi. MI Mouse A1w Mouse" "Coordinate Transformation Matrix" 2.4 0 0 0 2.4 0 0 0 1')
