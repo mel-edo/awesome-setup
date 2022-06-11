@@ -8,12 +8,20 @@
 
 ## List of programs:-
 
-gcolor3 firefox kdeconnect kitty krita mpv nemo astronvim okular qbittorent
+
+```
+sudo pacman -S yay
+```
+
+
+```
+gcolor3 firefox kitty krita mpv nemo astronvim okular qbittorent
 winetricks ani-cli awesome-git betterlockscreen cava feh grapejuice-git
 imagemagick lxappearance mariadb neofetch opentabletdriver picom pipewire
 playerctl polybar rofi scrcpy unclutter wine-staging xorg-xbacklight
-yay zsh zsh-autosuggestions zsh-completions zsh-history-substring-search
-zsh-syntax-highlighting nerd-fonts-jetbrains-mono flameshot
+zsh zsh-autosuggestions zsh-completions zsh-history-substring-search
+zsh-syntax-highlighting nerd-fonts-jetbrains-mono flameshot polymc-bin
+```
 
 ## Helpful links:-
 
