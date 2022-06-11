@@ -40,7 +40,6 @@ theme.taglist_squares_unsel = theme_assets.taglist_squares_unsel(
 )
 
 theme.wallpaper = "/home/meledo/Downloads/alena-aenami-reflect1k.jpg"
-
 --Signals
 client.connect_signal("focus", function(c)
     c.border_color = theme.border_focus end)

@@ -84,7 +84,6 @@ screen.connect_signal("property::geometry", set_wallpaper)
 awful.screen.connect_for_each_screen(function(s)
     -- Wallpaper
     set_wallpaper(s)
-    awful.screen.padding(s, {top = 28})
 
     -- Each screen has its own tag table.
     awful.tag({ "1", "2", "3", "4", "5"}, s, awful.layout.layouts[1])
@@ -433,10 +432,10 @@ end)
 -- Notifications
 
 beautiful.notification_font = "Product Sans 10"
-beautiful.notification_max_width = 300
+beautiful.notification_max_width = 400
 beautiful.notification_max_height = 200
 naughty.config.defaults.timeout = 4
-naughty.config.padding = 10
+naughty.config.padding = 11
 naughty.config.spacing = 5
 
 -- Autostart
