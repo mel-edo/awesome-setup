@@ -15,7 +15,7 @@ sudo pacman -S yay
 
 
 ```
-gcolor3 firefox kitty krita mpv nemo astronvim okular qbittorent
+yay -S gcolor3 firefox kitty krita mpv nemo astronvim okular qbittorent
 winetricks ani-cli awesome-git betterlockscreen cava feh grapejuice-git
 imagemagick lxappearance mariadb neofetch opentabletdriver picom pipewire
 playerctl polybar rofi scrcpy unclutter wine-staging xorg-xbacklight
