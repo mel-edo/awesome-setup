@@ -1,10 +1,8 @@
 # Current Config files for AwesomeWM
 
 ## TODO:-
-1) Make list of programs used in this config
-2) Make polybar look better (icons in the bar etc.)
-3) Add screenshots to the readme
-4) figure out kdeconnect
+1) Make polybar look better (take inspiration from https://github.com/mariejie/Dotfiles-AxylOS-bspwm-2022)
+2) Add screenshots to the readme
 
 ## List of programs:-
 
