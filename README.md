@@ -13,7 +13,7 @@ sudo pacman -S yay
 
 
 ```
-yay -S gcolor3 firefox kitty krita mpv nemo astronvim okular qbittorent winetricks ani-cli awesome-git betterlockscreen cava feh grapejuice-git imagemagick lxappearance mariadb neofetch opentabletdriver picom pipewire playerctl polybar rofi scrcpy unclutter wine-staging xorg-xbacklight zsh zsh-autosuggestions zsh-completions zsh-history-substring-search zsh-syntax-highlighting nerd-fonts-jetbrains-mono flameshot polymc-bin
+yay -S gcolor3 firefox kitty krita mpv nemo astronvim okular qbittorent winetricks ani-cli awesome-git betterlockscreen cava feh grapejuice-git imagemagick lxappearance mariadb neofetch opentabletdriver picom pipewire playerctl polybar rofi scrcpy unclutter wine-staging xorg-xbacklight zsh zsh-autosuggestions zsh-completions zsh-history-substring-search zsh-syntax-highlighting nerd-fonts-jetbrains-mono flameshot polymc-bin youtube-music-bin redshift
 ```
 
 ## Helpful links:-
