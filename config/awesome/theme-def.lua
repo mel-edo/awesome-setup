@@ -11,7 +11,7 @@ local themes_path = gfs.get_themes_dir()
 
 local theme = {}
 
-theme.font          = "JetBrainsMono Nerd Font 8"
+theme.font          = "Product Sans 8"
 
 theme.bg_normal     = "#1e1e2e"
 theme.bg_focus      = "#6c7086"
@@ -39,7 +39,7 @@ theme.taglist_squares_unsel = theme_assets.taglist_squares_unsel(
     taglist_square_size, theme.fg_normal
 )
 
-theme.wallpaper = "/home/meledo/Downloads/alena-aenami-reflect1k.jpg"
+theme.wallpaper = "/home/meledo/Downloads/alena-aenami-endless-1k.jpg"
 --Signals
 client.connect_signal("focus", function(c)
     c.border_color = theme.border_focus end)

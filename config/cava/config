@@ -137,7 +137,7 @@
 
 # SDL only support hex code colors, these are the default:
 ; background = '#1b1923'
-foreground = '#C9CBFF'
+foreground = '#cba6f7'
 
 
 # Gradient mode, only hex defined colors (and thereby ncurses mode) are supported,

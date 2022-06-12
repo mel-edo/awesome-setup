@@ -441,10 +441,10 @@ naughty.config.spacing = 5
 -- Autostart
 
 awful.spawn.with_shell("picom --experimental-backends")
-awful.spawn.with_shell("unclutter")
 awful.spawn.with_shell("xinput disable 13")
-awful.spawn.with_shell("firefox")
-awful.spawn.with_shell("discord")
-awful.spawn.with_shell("polybar")
 awful.spawn.with_shell('xinput set-prop "MOSART Semi. MI Mouse A1w Mouse" "Coordinate Transformation Matrix" 2.4 0 0 0 2.4 0 0 0 1')
 awful.spawn.with_shell("redshift -l 26.449923:80.331871")
+awful.spawn.with_shell("~/.config/awesome/autorun.sh")
+awful.spawn.with_shell("polybar left")
+awful.spawn.with_shell("polybar right")
+awful.spawn.with_shell("polybar middle")
