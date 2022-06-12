@@ -3,8 +3,8 @@ configuration{
     lines: 5;
     font: "JetBrainsMono Nerd Font 10";
     show-icons: true;
-    icon-theme: "Oranchelo";
-    terminal: "konsole";
+    icon-theme: "Tela circle purple dark";
+    terminal: "kitty";
     drun-display-format: "{icon} {name}";
     location: 0;
     disable-history: false;

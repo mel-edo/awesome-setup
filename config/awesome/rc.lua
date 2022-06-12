@@ -121,8 +121,6 @@ globalkeys = gears.table.join(
         end,
         {description = "focus previous by index", group = "client"}
     ),
---    awful.key({ modkey,           }, "w", function () mymainmenu:show() end,
---              {description = "show main menu", group = "awesome"}),
 
     awful.key({}, "XF86AudioRaiseVolume", function() awful.spawn.with_shell("pactl set-sink-volume @DEFAULT_SINK@ +5%")end),
 
@@ -225,10 +223,7 @@ globalkeys = gears.table.join(
                     history_path = awful.util.get_cache_dir() .. "/history_eval"
                   }
               end,
-              {description = "lua execute prompt", group = "awesome"}),
-    -- Menubar
-    awful.key({ modkey }, "p", function() menubar.show() end,
-              {description = "show the menubar", group = "launcher"})
+              {description = "lua execute prompt", group = "awesome"})
 
 )
 
@@ -411,6 +406,9 @@ awful.rules.rules = {
     
     { rule = { instance = "scrcpy"},
     properties = { floating = true } },
+
+    { rule = { instance = "polybar"},
+    properties = { border_width = 0 } },
 }
 -- }}}
 
