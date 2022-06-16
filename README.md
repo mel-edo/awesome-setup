@@ -1,19 +1,14 @@
 # Current Config files for AwesomeWM
 
 ## TODO:-
-1) Make polybar look better (take inspiration from https://github.com/mariejie/Dotfiles-AxylOS-bspwm-2022)
-2) Add screenshots to the readme
+1) Add screenshots to the readme
 
 ## List of programs:-
 
 
-```
-sudo pacman -S yay
-```
-
 
 ```
-yay -S gcolor3 firefox kitty krita mpv nemo astronvim okular qbittorent winetricks ani-cli awesome-git betterlockscreen cava feh grapejuice-git imagemagick lxappearance mariadb neofetch opentabletdriver picom pipewire playerctl polybar rofi scrcpy unclutter wine-staging xorg-xbacklight zsh zsh-autosuggestions zsh-completions zsh-history-substring-search zsh-syntax-highlighting nerd-fonts-jetbrains-mono flameshot polymc-bin youtube-music-bin redshift zathura
+gcolor3 firefox kitty mpv nemo winetricks ani-cli awesome betterlockscreen cava feh grapejuice-git imagemagick lxappearance mariadb neofetch opentabletdriver picom pipewire playerctl polybar rofi scrcpy unclutter wine-staging xorg-xbacklight zsh zsh-autosuggestions zsh-history-substring-search zsh-syntax-highlighting nerd-fonts-jetbrains-mono flameshot polymc-bin youtube-music-bin redshift zathura
 ```
 
 ## Helpful links:-

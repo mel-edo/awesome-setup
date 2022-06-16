@@ -61,8 +61,8 @@ modkey = "Mod4"
 
 -- Table of layouts to cover with awful.layout.inc, order matters.
 awful.layout.layouts = {
-    --awful.layout.suit.floating,
     awful.layout.suit.tile,
+    awful.layout.suit.floating,
 }
 -- }}}
 
@@ -86,7 +86,11 @@ awful.screen.connect_for_each_screen(function(s)
     set_wallpaper(s)
 
     -- Each screen has its own tag table.
-    awful.tag({ "1", "2", "3", "4", "5"}, s, awful.layout.layouts[1])
+    --awful.tag({ "1", "2", "3", "4", "5"}, s, awful.layout.layouts[1])
+    local names = { "1", "2", "3", "4", "5"}
+    local l = awful.layout.suit
+    local layouts = { l.tile, l.tile, l.tile, l.tile, l.floating }
+    awful.tag(names, s, layouts)
 
 end)
 -- }}}
@@ -177,7 +181,7 @@ globalkeys = gears.table.join(
     awful.key({ modkey, "Shift"   }, "space", function () awful.layout.inc(-1)                end,
               {description = "select previous", group = "layout"}),
 
-    awful.key({ modkey, "Control" }, "n",
+    awful.key({ modkey, "Control" }, "d",
               function ()
                   local c = awful.client.restore()
                   -- Focus restored client
@@ -244,7 +248,7 @@ clientkeys = gears.table.join(
               {description = "move to screen", group = "client"}),
     awful.key({ modkey,           }, "t",      function (c) c.ontop = not c.ontop            end,
               {description = "toggle keep on top", group = "client"}),
-    awful.key({ modkey,           }, "n",
+    awful.key({ modkey,           }, "d",
         function (c)
             -- The client currently has the input focus, so it cannot be
             -- minimized, since minimized clients can't have the focus.
@@ -398,9 +402,6 @@ awful.rules.rules = {
     { rule = { instance = "discord" },
     properties = { tag = "2" } },
 
-    { rule = { instance = "mpv" },
-    properties = { tag = "3" } },
-
     { rule = { instance = "feh"},
     properties = { floating = true } },
     
@@ -409,6 +410,7 @@ awful.rules.rules = {
 
     { rule = { instance = "polybar"},
     properties = { border_width = 0 } },
+
 }
 -- }}}
 
@@ -429,7 +431,7 @@ end)
 
 -- Notifications
 
-beautiful.notification_font = "Product Sans 10"
+beautiful.notification_font = "Product Sans 10, Noto Color Emoji 9"
 beautiful.notification_max_width = 400
 beautiful.notification_max_height = 200
 naughty.config.defaults.timeout = 4
@@ -439,10 +441,15 @@ naughty.config.spacing = 5
 -- Autostart
 
 awful.spawn.with_shell("picom --experimental-backends")
-awful.spawn.with_shell("xinput disable 13")
+awful.spawn.with_shell('xinput disable "ETPS/2 Elantech Touchpad"')
 awful.spawn.with_shell('xinput set-prop "MOSART Semi. MI Mouse A1w Mouse" "Coordinate Transformation Matrix" 2.4 0 0 0 2.4 0 0 0 1')
 awful.spawn.with_shell("redshift -l 26.449923:80.331871")
 awful.spawn.with_shell("~/.config/awesome/autorun.sh")
 awful.spawn.with_shell("polybar left")
 awful.spawn.with_shell("polybar right")
 awful.spawn.with_shell("polybar middle")
+awful.spawn.with_shell("unclutter")
+awful.spawn.with_shell("firefox")
+awful.spawn.with_shell("discord")
+awful.spawn.with_shell("xautolock -time 25 -locker 'betterlockscreen -l'")
+awful.spawn.with_shell("xautolock -time 30 -locker 'systemctl suspend'")
