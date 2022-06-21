@@ -210,8 +210,8 @@ globalkeys = gears.table.join(
     awful.spawn.with_shell("nemo")                                                       end,
               {description = "run nemo", group = "launcher"}),
     
-    awful.key({ modkey, "Shift" },            "Escape",        function ()
-    awful.spawn.with_shell("betterlockscreen --lock")                                                       end,
+    awful.key({ modkey },            "`",        function ()
+    awful.spawn.with_shell("sh ~/.local/bin/powermenu")                                                       end,
               {description = "lock the screen", group = "awesome"}),
     
     awful.key({},            "F4",        function ()
@@ -404,7 +404,7 @@ awful.rules.rules = {
 
     { rule = { instance = "feh"},
     properties = { floating = true } },
-    
+
     { rule = { instance = "scrcpy"},
     properties = { floating = true } },
 
@@ -426,12 +426,13 @@ client.connect_signal("manage", function (c)
       and not c.size_hints.program_position then
         -- Prevent clients from being unreachable after screen count changes.
         awful.placement.no_offscreen(c)
+        awful.placement.centered(c)
     end
 end)
 
 -- Notifications
 
-beautiful.notification_font = "Product Sans 10, Noto Color Emoji 9"
+beautiful.notification_font = "Product Sans 10"
 beautiful.notification_max_width = 400
 beautiful.notification_max_height = 200
 naughty.config.defaults.timeout = 4
@@ -444,7 +445,6 @@ awful.spawn.with_shell("picom --experimental-backends")
 awful.spawn.with_shell('xinput disable "ETPS/2 Elantech Touchpad"')
 awful.spawn.with_shell('xinput set-prop "MOSART Semi. MI Mouse A1w Mouse" "Coordinate Transformation Matrix" 2.4 0 0 0 2.4 0 0 0 1')
 awful.spawn.with_shell("redshift -l 26.449923:80.331871")
-awful.spawn.with_shell("~/.config/awesome/autorun.sh")
 awful.spawn.with_shell("polybar left")
 awful.spawn.with_shell("polybar right")
 awful.spawn.with_shell("polybar middle")

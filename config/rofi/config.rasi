@@ -3,8 +3,7 @@ configuration{
     lines: 5;
     font: "JetBrainsMono Nerd Font 10";
     show-icons: true;
-    icon-theme: "Tela circle purple dark";
-    terminal: "kitty";
+    icon-theme: "Oranchelo";
     drun-display-format: "{icon} {name}";
     location: 0;
     disable-history: false;
@@ -12,7 +11,6 @@ configuration{
     display-drun: "   Apps ";
     display-run: "   Run ";
     display-window: " 﩯  window";
-    display-Network: " 󰤨  Network";
     sidebar-mode: true;
 }
 

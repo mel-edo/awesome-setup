@@ -17,6 +17,8 @@ https://wiki.archlinux.org/title/Hybrid_graphics#Fully_power_down_discrete_GPU
 
 https://github.com/lutris/docs/blob/master/InstallingDrivers.md
 
+https://github.com/lutris/docs/blob/master/WineDependencies.md
+
 https://github.com/catppuccin/catppuccin
 
 https://wiki.archlinux.org/title/Mouse_acceleration#Disabling_mouse_acceleration

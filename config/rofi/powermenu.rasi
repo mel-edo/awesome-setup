@@ -1,0 +1,47 @@
+configuration {
+    font:                         "JetBrainsMono Nerd Font 16";
+    show-icons:                   false;
+    click-to-exit: 		  true;
+    location:                     4;
+}
+
+@import "colors.rasi"
+
+window {
+    transparency:                   "real";
+    background-color:               @background;
+    text-color:                     @foreground;
+    height:                         250px;
+    width:                          80px;
+    border:                         0px;
+    border-radius:                  0px;
+    x-offset:                       -11px;
+    y-offset:                       0px;
+}
+
+listview {
+    background-color:               @background;
+    columns:                        1;
+    lines:			    4;
+    spacing:                        25px;
+    layout:                         vertical;
+}
+
+mainbox {
+    background-color:               @background;
+    children:                       [ listview ];
+    padding:                        2px;
+}
+
+element {
+    background-color:               @background;
+    text-color:                     @background-alt;
+    padding:                        5px 5px 2px -7px;
+    margin:                         0px;
+}
+
+element selected {
+    background-color:               @background;
+    text-color:                     @foreground;
+}
+
