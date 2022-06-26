@@ -1,8 +1,10 @@
-# Current Config files for AwesomeWM
+# Config files for AwesomeWM
 
 Wallpaper source:- [ArtStation](https://www.artstation.com/artwork/4bX4eY)
 
 Config as seen in the r/unixporn post:- [Github](https://github.com/MeledoJames/awesome-setup/tree/cb2c38a1f70b3ea89b1142b3f68966697232cba6)
+
+Current config:-
 
 ![alt text](/images/1.png?raw=true)
 
