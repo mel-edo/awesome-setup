@@ -6,5 +6,3 @@ Wallpaper source:- [ArtStation](https://www.artstation.com/artwork/4bX4eY)
 
 ![a](/images/2.png?raw=true)
 
-![lmao](/images/3.png?raw=true)
-
