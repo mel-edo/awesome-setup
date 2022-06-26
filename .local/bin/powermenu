@@ -1,11 +1,11 @@
 #!/bin/sh
 
-chosen=$(printf " \n \n \n 鈴" | rofi -dmenu -i -theme-str '@import "powermenu.rasi"')
+chosen=$(printf "\n\n\n" | rofi -dmenu -i -theme-str '@import "powermenu.rasi"')
 
 case "$chosen" in
-  " ") poweroff ;;
-    " ") reboot ;;
-    " ") betterlockscreen -l ;;
-    " 鈴") systemctl suspend ;;
+  "") poweroff ;;
+    "") reboot ;;
+    "") betterlockscreen -l ;;
+    "") systemctl suspend ;;
     *) exit 1 ;;
 esac

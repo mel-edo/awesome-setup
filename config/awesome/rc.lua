@@ -202,22 +202,26 @@ globalkeys = gears.table.join(
     awful.util.spawn("rofi -show run")                                            end,
               {description = "run rofi programs", group = "launcher"}),
 
-    awful.key({ modkey },            "w",     function () 
+    awful.key({ modkey },            "w",     function ()
     awful.util.spawn("rofi -show window")                                            end,
               {description = "run rofi windows", group = "launcher"}),
 
     awful.key({ modkey },            "e",        function ()
     awful.spawn.with_shell("nemo")                                                       end,
               {description = "run nemo", group = "launcher"}),
-    
+
     awful.key({ modkey },            "`",        function ()
     awful.spawn.with_shell("sh ~/.local/bin/powermenu")                                                       end,
-              {description = "lock the screen", group = "awesome"}),
-    
+              {description = "power options", group = "awesome"}),
+
     awful.key({},            "F4",        function ()
     awful.spawn.with_shell("flameshot gui")                                                       end,
               {description = "run flameshot", group = "launcher"}),
-    
+
+    awful.key({ modkey },            "p",        function ()
+    awful.spawn.with_shell("scrcpy -S --power-off-on-close --window-x 10")                                                       end,
+              {description = "run scrcpy", group = "launcher"}),
+
     awful.key({ modkey }, "x",
               function ()
                   awful.prompt.run {
@@ -433,8 +437,11 @@ end)
 -- Notifications
 
 beautiful.notification_font = "Product Sans 10"
-beautiful.notification_max_width = 400
-beautiful.notification_max_height = 200
+beautiful.notification_width = 325
+beautiful.notification_height = 125
+beautiful.notification_icon_size = 125
+beautiful.notification_border_color = "#1e1e2e"
+beautiful.notification_fg = "#f5e0dc"
 naughty.config.defaults.timeout = 4
 naughty.config.padding = 11
 naughty.config.spacing = 5

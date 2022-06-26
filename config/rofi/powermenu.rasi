@@ -36,7 +36,7 @@ mainbox {
 element {
     background-color:               @background;
     text-color:                     @background-alt;
-    padding:                        5px 5px 2px -7px;
+    padding:                        0px 0px 10px 6px;
     margin:                         0px;
 }
 
