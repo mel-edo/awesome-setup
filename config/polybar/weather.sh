@@ -1,9 +1,9 @@
 #!/bin/sh
 
 
-APIKEY='ccde65c11291847a9c378335f65e18ce'
-CITY_NAME='1267995'
-COUNTRY_CODE='IN'
+APIKEY='' # Enter your own api key here, get them from openweathermap
+CITY_NAME='' # Do the same for CITY_NAME and COUNTRY_CODE too!
+COUNTRY_CODE=''
 # Desired output language
 LANG="en"
 # UNITS can be "metric", "imperial" or "kelvin". Set KNOTS to "yes" if you
