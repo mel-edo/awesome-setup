@@ -133,9 +133,9 @@ globalkeys = gears.table.join(
     awful.key({}, "XF86AudioLowerVolume", function() awful.spawn.with_shell("pactl set-sink-volume @DEFAULT_SINK@ -5%")end),
 
     awful.key({}, "XF86MonBrightnessDown", function() awful.util.spawn("xbacklight -dec 10") end),
-    
-    awful.key({}, "XF86MonBrightnessUp", function() awful.util.spawn("xbacklight -inc 10") end),   
-    
+
+    awful.key({}, "XF86MonBrightnessUp", function() awful.util.spawn("xbacklight -inc 10") end),
+
     -- Layout manipulation
     awful.key({ modkey, "Shift"   }, "j", function () awful.client.swap.byidx(  1)    end,
               {description = "swap with next client by index", group = "client"}),
@@ -194,11 +194,11 @@ globalkeys = gears.table.join(
               {description = "restore minimized", group = "client"}),
 
     -- Prompt
-    awful.key({ modkey },            "a",     function () 
+    awful.key({ modkey },            "a",     function ()
     awful.util.spawn("rofi -show drun")                                            end,
               {description = "run rofi apps", group = "launcher"}),
 
-    awful.key({ modkey },            "r",     function () 
+    awful.key({ modkey },            "r",     function ()
     awful.util.spawn("rofi -show run")                                            end,
               {description = "run rofi programs", group = "launcher"}),
 
@@ -220,20 +220,7 @@ globalkeys = gears.table.join(
 
     awful.key({ modkey },            "p",        function ()
     awful.spawn.with_shell("scrcpy -S --power-off-on-close --window-x 10")                                                       end,
-              {description = "run scrcpy", group = "launcher"}),
-
-    awful.key({ modkey }, "x",
-              function ()
-                  awful.prompt.run {
-                    prompt       = "Run Lua code: ",
-                    textbox      = awful.screen.focused().mypromptbox.widget,
-                    exe_callback = awful.util.eval,
-                    history_path = awful.util.get_cache_dir() .. "/history_eval"
-                  }
-              end,
-              {description = "lua execute prompt", group = "awesome"})
-
-)
+              {description = "run scrcpy", group = "launcher"}))
 
 clientkeys = gears.table.join(
     awful.key({ modkey,           }, "f",
@@ -439,7 +426,7 @@ end)
 beautiful.notification_font = "Product Sans 10"
 beautiful.notification_width = 325
 beautiful.notification_height = 125
-beautiful.notification_icon_size = 125
+beautiful.notification_icon_size = 115
 beautiful.notification_border_color = "#1e1e2e"
 beautiful.notification_fg = "#f5e0dc"
 naughty.config.defaults.timeout = 4
