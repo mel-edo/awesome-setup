@@ -30,9 +30,9 @@ by Miguel Avila
 /* want to show the URL Bar    */
 /*─────────────────────────────*/
 
-.urlbarView {
-  display: none !important;
-}
+/* .urlbarView { */
+  /* display: none !important; */
+/* } */
 
 /*─────────────────────────────*/
 
@@ -92,9 +92,9 @@ by Miguel Avila
   display: none;
 }
 
-.tabbrowser-tab:not([pinned]) .tab-icon-image {
-  display: none !important;
-}
+/* .tabbrowser-tab:not([pinned]) .tab-icon-image { */
+  /* display: none !important; */
+/* } */
 
 #nav-bar:not([tabs-hidden='true']) {
   box-shadow: none;
