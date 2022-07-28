@@ -6,7 +6,7 @@ Config as seen in the r/unixporn post:- [Github](https://github.com/MeledoJames/
 
 r/unixporn post:- [Reddit](https://www.reddit.com/r/unixporn/comments/vhgkbm/awesomewm_decided_to_switch_to_a_wm_first_rice/)
 
-NvChad config using catppucin theme:- [NvChad Github](https://github.com/NvChad/NvChad)
+NvChad config using catppuccin theme:- [NvChad Github](https://github.com/NvChad/NvChad)
 
 Current config:-
 
