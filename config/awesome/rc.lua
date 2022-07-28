@@ -61,7 +61,7 @@ modkey = "Mod4"
 
 -- Table of layouts to cover with awful.layout.inc, order matters.
 awful.layout.layouts = {
-    awful.layout.suit.tile,
+    awful.layout.suit.spiral.dwindle,
     awful.layout.suit.floating,
 }
 -- }}}
@@ -89,7 +89,7 @@ awful.screen.connect_for_each_screen(function(s)
     --awful.tag({ "1", "2", "3", "4", "5"}, s, awful.layout.layouts[1])
     local names = { "1", "2", "3", "4", "5"}
     local l = awful.layout.suit
-    local layouts = { l.tile, l.tile, l.tile, l.tile, l.floating }
+    local layouts = { l.spiral.dwindle, l.spiral.dwindle, l.spiral.dwindle, l.spiral.dwindle, l.floating }
     awful.tag(names, s, layouts)
 
 end)
@@ -424,8 +424,8 @@ end)
 -- Notifications
 
 beautiful.notification_font = "Product Sans 10"
-beautiful.notification_width = 325
-beautiful.notification_height = 125
+beautiful.notification_max_width = 325
+beautiful.notification_max_height = 125
 beautiful.notification_icon_size = 115
 beautiful.notification_border_color = "#1e1e2e"
 beautiful.notification_fg = "#f5e0dc"
