@@ -4,11 +4,11 @@
 
 ### This config was made for a 1920x1080 display 
 
-Wallpaper source:- [ArtStation](https://www.artstation.com/artwork/4Xa124)
+Wallpaper - [ArtStation](https://www.artstation.com/artwork/4Xa124)
 
 ---
 
-NvChad config using catppuccin theme:- [NvChad Github](https://github.com/NvChad/NvChad)
+[NvChad](https://github.com/NvChad/NvChad) config using catppuccin theme
 
 I edited [adi1090x's rofi](https://github.com/adi1090x/rofi)
 
