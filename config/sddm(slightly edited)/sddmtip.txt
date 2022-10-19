@@ -1,0 +1,1 @@
+put cursor folder (catppuccin-mocha-dark-cursors) in usr/share/icons

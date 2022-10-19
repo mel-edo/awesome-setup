@@ -61,7 +61,7 @@ modkey = "Mod4"
 
 -- Table of layouts to cover with awful.layout.inc, order matters.
 awful.layout.layouts = {
-    awful.layout.suit.spiral.dwindle,
+    awful.layout.suit.tile,
     awful.layout.suit.floating,
 }
 -- }}}
@@ -89,7 +89,7 @@ awful.screen.connect_for_each_screen(function(s)
     --awful.tag({ "1", "2", "3", "4", "5"}, s, awful.layout.layouts[1])
     local names = { "1", "2", "3", "4", "5"}
     local l = awful.layout.suit
-    local layouts = { l.spiral.dwindle, l.spiral.dwindle, l.spiral.dwindle, l.spiral.dwindle, l.floating }
+    local layouts = { l.tile, l.tile, l.tile, l.tile, l.floating }
     awful.tag(names, s, layouts)
 
 end)
@@ -102,6 +102,14 @@ root.buttons(gears.table.join(
 ))
 -- }}}
 
+local calendar_widget = require("calendar")
+local cw = calendar_widget({
+    theme = 'catppuccin',
+    placement = 'top center',
+    start_sunday = false,
+    radius = 8,
+})
+
 -- {{{ Key bindings
 globalkeys = gears.table.join(
     awful.key({ modkey,           }, "s",      hotkeys_popup.show_help,
@@ -113,17 +121,11 @@ globalkeys = gears.table.join(
     awful.key({ modkey,           }, "Escape", awful.tag.history.restore,
               {description = "go back", group = "tag"}),
 
-    awful.key({ modkey,           }, "j",
+    awful.key({"Mod1"           }, "Tab",
         function ()
             awful.client.focus.byidx( 1)
         end,
         {description = "focus next by index", group = "client"}
-    ),
-    awful.key({ modkey,           }, "k",
-        function ()
-            awful.client.focus.byidx(-1)
-        end,
-        {description = "focus previous by index", group = "client"}
     ),
 
     awful.key({}, "XF86AudioRaiseVolume", function() awful.spawn.with_shell("pactl set-sink-volume @DEFAULT_SINK@ +5%")end),
@@ -132,29 +134,23 @@ globalkeys = gears.table.join(
 
     awful.key({}, "XF86AudioLowerVolume", function() awful.spawn.with_shell("pactl set-sink-volume @DEFAULT_SINK@ -5%")end),
 
-    awful.key({}, "XF86MonBrightnessDown", function() awful.util.spawn("xbacklight -dec 10") end),
+    awful.key({}, "XF86MonBrightnessDown", function() awful.util.spawn("brightnessctl s 10%-") end),
 
-    awful.key({}, "XF86MonBrightnessUp", function() awful.util.spawn("xbacklight -inc 10") end),
+    awful.key({}, "XF86MonBrightnessUp", function() awful.util.spawn("brightnessctl s +10%") end),
 
     -- Layout manipulation
     awful.key({ modkey, "Shift"   }, "j", function () awful.client.swap.byidx(  1)    end,
               {description = "swap with next client by index", group = "client"}),
     awful.key({ modkey, "Shift"   }, "k", function () awful.client.swap.byidx( -1)    end,
               {description = "swap with previous client by index", group = "client"}),
+    awful.key({ modkey }, "Tab", function () awful.client.swap.byidx(  1)    end,
+              {description = "swap with next client by index", group = "client"}),
     awful.key({ modkey, "Control" }, "j", function () awful.screen.focus_relative( 1) end,
               {description = "focus the next screen", group = "screen"}),
     awful.key({ modkey, "Control" }, "k", function () awful.screen.focus_relative(-1) end,
               {description = "focus the previous screen", group = "screen"}),
     awful.key({ modkey,           }, "u", awful.client.urgent.jumpto,
               {description = "jump to urgent client", group = "client"}),
-    awful.key({ "Mod1",           }, "Tab",
-        function ()
-            awful.client.focus.history.previous()
-            if client.focus then
-                client.focus:raise()
-            end
-        end,
-        {description = "go back", group = "client"}),
 
     -- Standard program
     awful.key({ modkey,           }, "Return", function () awful.spawn(terminal) end,
@@ -195,15 +191,15 @@ globalkeys = gears.table.join(
 
     -- Prompt
     awful.key({ modkey },            "a",     function ()
-    awful.util.spawn("rofi -show drun")                                            end,
+    awful.spawn.with_shell("sh ~/.config/rofi/launchers/type-6/launcher.sh")                                            end,
               {description = "run rofi apps", group = "launcher"}),
 
     awful.key({ modkey },            "r",     function ()
-    awful.util.spawn("rofi -show run")                                            end,
+    awful.spawn.with_shell("sh ~/.config/rofi/launchers/type-6/launcher2.sh")                                            end,
               {description = "run rofi programs", group = "launcher"}),
 
     awful.key({ modkey },            "w",     function ()
-    awful.util.spawn("rofi -show window")                                            end,
+    awful.spawn.with_shell("sh ~/.config/rofi/launchers/type-6/launcher1.sh")                                            end,
               {description = "run rofi windows", group = "launcher"}),
 
     awful.key({ modkey },            "e",        function ()
@@ -211,8 +207,12 @@ globalkeys = gears.table.join(
               {description = "run nemo", group = "launcher"}),
 
     awful.key({ modkey },            "`",        function ()
-    awful.spawn.with_shell("sh ~/.local/bin/powermenu")                                                       end,
+    awful.spawn.with_shell("sh ~/.config/rofi/powermenu/type-6/powermenu.sh")                                                       end,
               {description = "power options", group = "awesome"}),
+
+    awful.key({ modkey },            "c",        function ()
+    cw.toggle()                                                       end,
+              {description = "calendar popup", group = "launcher"}),
 
     awful.key({},            "F4",        function ()
     awful.spawn.with_shell("flameshot gui")                                                       end,
@@ -231,7 +231,13 @@ clientkeys = gears.table.join(
         {description = "toggle fullscreen", group = "client"}),
     awful.key({ "Control",        }, "q",      function (c) c:kill()                         end,
               {description = "close", group = "client"}),
-    awful.key({ "Control" }, "space",  awful.client.floating.toggle                     ,
+    awful.key({ "Control" }, "space",
+              function (c)
+              awful.client.floating.toggle(c)
+              c.width = 1000
+              c.height = 550
+              awful.placement.centered(c)
+              end,
               {description = "toggle floating", group = "client"}),
     awful.key({ modkey, "Control" }, "Return", function (c) c:swap(awful.client.getmaster()) end,
               {description = "move to master", group = "client"}),
@@ -435,9 +441,7 @@ naughty.config.spacing = 5
 
 -- Autostart
 
-awful.spawn.with_shell("picom --experimental-backends")
-awful.spawn.with_shell('xinput disable "ETPS/2 Elantech Touchpad"')
-awful.spawn.with_shell('xinput set-prop "MOSART Semi. MI Mouse A1w Mouse" "Coordinate Transformation Matrix" 2.4 0 0 0 2.4 0 0 0 1')
+awful.spawn.with_shell("picom")
 awful.spawn.with_shell("redshift -l 26.449923:80.331871")
 awful.spawn.with_shell("polybar left")
 awful.spawn.with_shell("polybar right")
@@ -445,4 +449,6 @@ awful.spawn.with_shell("polybar middle")
 awful.spawn.with_shell("unclutter")
 awful.spawn.with_shell("firefox")
 awful.spawn.with_shell("discord")
-awful.spawn.with_shell("xautolock -time 30 -locker 'systemctl suspend'")
+awful.spawn.with_shell("sh ~/.fehbg")
+awful.spawn.with_shell("/usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1 &")
+awful.spawn.with_shell("sleep 2 && nmcli device connect wlan0")

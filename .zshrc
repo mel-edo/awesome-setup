@@ -23,3 +23,4 @@ source $ZSH/oh-my-zsh.sh
 
 alias ls="logo-ls -A"
 alias osu="sh ~/.wineosu/osu/start.sh"
+alias btop="btop --utf-force"

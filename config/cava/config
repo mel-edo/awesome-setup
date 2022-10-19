@@ -137,7 +137,7 @@
 
 # SDL only support hex code colors, these are the default:
 ; background = '#1b1923'
-foreground = '#cba6f7'
+foreground = '#89b4fa'
 
 
 # Gradient mode, only hex defined colors (and thereby ncurses mode) are supported,
@@ -145,9 +145,9 @@ foreground = '#cba6f7'
 # You can define as many as 8 different colors. They range from bottom to top of screen
 gradient = 1
 gradient_count = 3
-gradient_color_1 = '#ca9ee6'
-gradient_color_2 = '#f4b8e4'
-gradient_color_3 = '#eebebe'
+gradient_color_1 = '#b4befe'
+gradient_color_2 = '#b7bdf8'
+gradient_color_3 = '#babbf1'
 
 [smoothing]
 
