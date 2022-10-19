@@ -30,4 +30,8 @@ Current config:-
 
 ![c](/images/3.png?raw=true)
 
-![c](/images/4.png?raw=true)
+![d](/images/4.png?raw=true)
+
+![e](/images/5.png?raw=true)
+
+![f](/images/6.png?raw=true)
