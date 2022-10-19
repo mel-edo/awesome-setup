@@ -12,18 +12,22 @@ NvChad config using catppuccin theme:- [NvChad Github](https://github.com/NvChad
 
 Edited version of [adi1090x's rofi](https://github.com/adi1090x/rofi)
 
-[Sugar Candy theeme for SDDM]{https://www.opendesktop.org/p/1312658/}
+[Sugar Candy theeme for SDDM](https://www.opendesktop.org/p/1312658/)
 
 [Pijulius picom](https://github.com/pijulius/picom) is used
 
 [Catppuccin mocha dark cursors](https://github.com/catppuccin/cursors)
+
 [Cappuccin mocha mauve papirus dark folders](https://github.com/catppuccin/papirus-folders)
+
 [catppuccin mocha mauve gtk theme](https://github.com/catppuccin/gtk)
 
 Current config:-
 
-![alt text](/images/1.png?raw=true)
+![a](/images/1.png?raw=true)
 
-![a](/images/2.png?raw=true)
+![b](/images/2.png?raw=true)
 
-![b](/images/3.png?raw=true)
+![c](/images/3.png?raw=true)
+
+![c](/images/4.png?raw=true)
