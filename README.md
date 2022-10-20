@@ -4,6 +4,8 @@
 
 ### This config was made for a 1920x1080 display 
 
+**Made for Awesome Stable version**
+
 Wallpaper - [ArtStation](https://www.artstation.com/artwork/4Xa124)
 
 ---
@@ -17,8 +19,6 @@ I edited [adi1090x's rofi](https://github.com/adi1090x/rofi)
 [Pijulius picom](https://github.com/pijulius/picom) for cool animations
 
 [Cappuccin mocha mauve papirus dark folders](https://github.com/catppuccin/papirus-folders)
-
-**Made for Awesome Stable version**
 
 ---
 
@@ -40,7 +40,7 @@ I edited [adi1090x's rofi](https://github.com/adi1090x/rofi)
 
 ---
 
-### Current config:-
+### Screenshots:-
 
 ![a](/images/1.png?raw=true)
 
@@ -53,3 +53,5 @@ I edited [adi1090x's rofi](https://github.com/adi1090x/rofi)
 ![e](/images/5.png?raw=true)
 
 ![f](/images/6.png?raw=true)
+
+---
