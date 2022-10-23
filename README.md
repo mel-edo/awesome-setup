@@ -14,7 +14,7 @@ Wallpaper - [ArtStation](https://www.artstation.com/artwork/4Xa124)
 
 I edited [adi1090x's rofi](https://github.com/adi1090x/rofi)
 
-[Sugar Candy theeme for SDDM](https://www.opendesktop.org/p/1312658/)
+[Sugar Candy theme for SDDM](https://www.opendesktop.org/p/1312658/)
 
 [Pijulius picom](https://github.com/pijulius/picom) for cool animations
 
