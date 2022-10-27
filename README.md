@@ -4,8 +4,6 @@
 
 ### This config was made for a 1920x1080 display 
 
-**Made for Awesome Stable version**
-
 Wallpaper - [ArtStation](https://www.artstation.com/artwork/4Xa124)
 
 ---
@@ -14,11 +12,13 @@ Wallpaper - [ArtStation](https://www.artstation.com/artwork/4Xa124)
 
 I edited [adi1090x's rofi](https://github.com/adi1090x/rofi)
 
-[Sugar Candy theme for SDDM](https://www.opendesktop.org/p/1312658/)
+[Sugar Candy theeme for SDDM](https://www.opendesktop.org/p/1312658/)
 
 [Pijulius picom](https://github.com/pijulius/picom) for cool animations
 
 [Cappuccin mocha mauve papirus dark folders](https://github.com/catppuccin/papirus-folders)
+
+**Made for Awesome Stable version**
 
 ---
 
@@ -40,7 +40,7 @@ I edited [adi1090x's rofi](https://github.com/adi1090x/rofi)
 
 ---
 
-### Screenshots:-
+### Current config:-
 
 ![a](/images/1.png?raw=true)
 
@@ -55,3 +55,9 @@ I edited [adi1090x's rofi](https://github.com/adi1090x/rofi)
 ![f](/images/6.png?raw=true)
 
 ---
+
+### Todo:-
+
+1) Volume and Brightness OSD
+
+2) Add more screenshots/update screenshots

@@ -39,15 +39,12 @@ theme.taglist_squares_unsel = theme_assets.taglist_squares_unsel(
     taglist_square_size, theme.fg_normal
 )
 
--- theme.wallpaper = "/home/meledo/Downloads/keq.jpg"
 --Signals
 client.connect_signal("focus", function(c)
     c.border_color = theme.border_focus end)
 client.connect_signal("unfocus", function(c)
     c.border_color = theme.border_normal end)
 
--- Define the icon theme for application icons. If not set then the icons
--- from /usr/share/icons and /usr/share/icons/hicolor will be used.
 theme.icon_theme = nil
 
 return theme
