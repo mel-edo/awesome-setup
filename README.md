@@ -2,41 +2,25 @@
 
 <img src="https://img.shields.io/github/stars/MeledoJames/awesome-setup?color=b4befe&labelColor=1e1e2e&style=for-the-badge" align="right" />
 
-### This config was made for a 1920x1080 display 
+### This was made on a 1920x1080 display 
 
 Wallpaper - [ArtStation](https://www.artstation.com/artwork/4Xa124)
 
 ---
 
-[NvChad](https://github.com/NvChad/NvChad) config using catppuccin theme
+- **Window Manager:** [awesome-git](https://github.com/awesomeWM/awesome)
+- **Terminal:** [alacritty](https://github.com/alacritty/alacritty)
+- **Shell:** [zsh](https://www.zsh.org/)
+- **Bar:** [polybar](https://github.com/polybar/polybar)
+- **Compositor:** [pijulius-picom](github.com/pijulius/picom)
+- **Editor:** [neovim(nvchad)](https://github.com/NvChad/NvChad)
+- **Browser:** [firefox](https://www.mozilla.org/en-US/firefox)
+- **File Manager:** [nemo](https://github.com/linuxmint/nemo)
+- **Application Launcher:** [adi1090x's rofi](https://github.com/adi1090x/rofi)
+- **SDDM theme:** [Sugar Candy theme for SDDM](https://www.opendesktop.org/p/1312658/)
+- **Color scheme:** [Catppuccin](github.com/catppuccin/catppuccin)
 
-I edited [adi1090x's rofi](https://github.com/adi1090x/rofi)
-
-[Sugar Candy theme for SDDM](https://www.opendesktop.org/p/1312658/)
-
-[Pijulius picom](https://github.com/pijulius/picom) for cool animations
-
-[Cappuccin mocha mauve papirus dark folders](https://github.com/catppuccin/papirus-folders)
-
-**Made for Awesome Git version**
-
----
-
-### Programs used in the screenshots below
-
-**Arranged in order of screenshots**
-
-1) nemo file manager, neofetch, cbonsai
-
-2) nvim, cava, pipes.sh, logo-ls
-
-3) [youtube music](https://github.com/th-ch/youtube-music)
-
-4) rofi app menu
-
-5) rofi power menu
-
-6) SDDM login screen
+> You can view all keybind in awesomewm using Mod + s
 
 ---
 
@@ -58,6 +42,7 @@ I edited [adi1090x's rofi](https://github.com/adi1090x/rofi)
 
 1) Volume and Brightness OSD
 
-2) Add more screenshots/update screenshots
+### Sources of inspiration:
 
-3) Give credits
+- [rklyz](https://github.com/rklyz/MyRice)
+- [janleigh](https://github.com/janleigh/dotfiles)
