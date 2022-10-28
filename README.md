@@ -12,13 +12,13 @@ Wallpaper - [ArtStation](https://www.artstation.com/artwork/4Xa124)
 
 I edited [adi1090x's rofi](https://github.com/adi1090x/rofi)
 
-[Sugar Candy theeme for SDDM](https://www.opendesktop.org/p/1312658/)
+[Sugar Candy theme for SDDM](https://www.opendesktop.org/p/1312658/)
 
 [Pijulius picom](https://github.com/pijulius/picom) for cool animations
 
 [Cappuccin mocha mauve papirus dark folders](https://github.com/catppuccin/papirus-folders)
 
-**Made for Awesome Stable version**
+**Made for Awesome Git version**
 
 ---
 
@@ -40,8 +40,6 @@ I edited [adi1090x's rofi](https://github.com/adi1090x/rofi)
 
 ---
 
-### Current config:-
-
 ![a](/images/1.png?raw=true)
 
 ![b](/images/2.png?raw=true)
@@ -61,3 +59,5 @@ I edited [adi1090x's rofi](https://github.com/adi1090x/rofi)
 1) Volume and Brightness OSD
 
 2) Add more screenshots/update screenshots
+
+3) Give credits
