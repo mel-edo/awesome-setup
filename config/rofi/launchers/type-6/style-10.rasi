@@ -57,9 +57,9 @@ mainbox {
 }
 
 imagebox {
-    padding:                     10px;
+    padding:                     20px;
     background-color:            transparent;
-    background-image:            url("~/.config/rofi/images/alena-aenami-bluehour-1k-crop.png");
+    background-image:            url("~/.config/rofi/images/yoi1-crop.png", height);
     orientation:                 vertical;
     children:                    [ "inputbar", "dummy", "mode-switcher" ];
 }

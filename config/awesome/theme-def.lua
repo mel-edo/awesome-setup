@@ -25,10 +25,12 @@ theme.fg_urgent     = "#ea999c"
 theme.fg_minimize   = "#99d1db"
 
 theme.useless_gap   = dpi(5)
-theme.border_width  = dpi(0)
-theme.border_normal = "#303446"
-theme.border_focus  = "#babbf1"
+theme.border_normal = "#181825"
+theme.border_focus  = "#b4befe"
 theme.border_marked = "#A54242"
+theme.border_radius = dpi(8)
+theme.border_width = dpi(0)
+
 
 -- Generate taglist squares:
 local taglist_square_size = dpi(4)

@@ -22,5 +22,5 @@ plugins=(zsh-autosuggestions git zsh-syntax-highlighting history-substring-searc
 source $ZSH/oh-my-zsh.sh
 
 alias ls="logo-ls -A"
-alias osu="sh ~/.wineosu/osu/start.sh"
+alias radeontop="radeontop -c -T"
 alias btop="btop --utf-force"

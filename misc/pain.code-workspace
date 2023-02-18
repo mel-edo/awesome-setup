@@ -1,0 +1,17 @@
+{
+	"folders": [
+		{
+			"path": "Documents/Code Stuff"
+		},
+		{
+			"path": ".config"
+		},
+		{
+			"path": "awesome-setup"
+		}
+	],
+	"settings": {
+		"editor.fontFamily": "'JetBrainsMono Nerd Font'",
+		"editor.fontSize": 15
+	}
+}
