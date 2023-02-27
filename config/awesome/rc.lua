@@ -37,7 +37,7 @@ end)
 
 -- {{{ Variable definitions
 -- Themes define colours, icons, font and wallpapers.
-beautiful.init("/home/meledo/.config/awesome/theme-def.lua")
+beautiful.init("~/.config/awesome/theme-def.lua")
 
 -- This is used later as the default terminal and editor to run.
 terminal = "alacritty"
@@ -404,8 +404,18 @@ ruled.client.connect_signal("request::rules", function()
     properties = { screen = 1, tag = "2" }
   }
   ruled.client.append_rule {
+    rule       = { instance = "discord-screenaudio" },
+    properties = { screen = 1, tag = "2" }
+  }
+  ruled.client.append_rule {
     rule_any   = {
       instance = { "youtube music" }
+    },
+    properties = { screen = 1, tag = "3" }
+  }
+  ruled.client.append_rule {
+    rule_any = {
+      class = { "thunderbird" }
     },
     properties = { screen = 1, tag = "3" }
   }
