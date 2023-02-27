@@ -18,9 +18,9 @@ Wallpaper - [ArtStation](https://www.artstation.com/artwork/4Xa124)
 - **File Manager:** [nemo](https://github.com/linuxmint/nemo)
 - **Application Launcher:** [adi1090x's rofi](https://github.com/adi1090x/rofi)
 - **SDDM theme:** [Sugar Candy theme for SDDM](https://www.opendesktop.org/p/1312658/)
-- **Color scheme:** [Catppuccin](github.com/catppuccin/catppuccin)
+- **Color scheme:** [Catppuccin](https://github.com/catppuccin/catppuccin)
 
-> You can view all keybind in awesomewm using Mod + s
+> You can view all keybindings in awesomewm using Mod + s
 
 ---
 
