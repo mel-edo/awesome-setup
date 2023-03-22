@@ -20,7 +20,7 @@ configuration {
 
 /*****----- Global Properties -----*****/
 * {
-    font:                        "JetBrains Mono Nerd Font 10";
+    font:                        "ProductSans 11";
     background:                  #181825;
     background-alt:              #181825;
     foreground:                  #FFFFFF;
@@ -59,7 +59,7 @@ mainbox {
 imagebox {
     padding:                     20px;
     background-color:            transparent;
-    background-image:            url("~/.config/rofi/images/yoi1-crop.png", height);
+    background-image:            url("~/.config/rofi/images/alena-aenami-bluehour-1k-crop.png", height);
     orientation:                 vertical;
     children:                    [ "inputbar", "dummy", "mode-switcher" ];
 }

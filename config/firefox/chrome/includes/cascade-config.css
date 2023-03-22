@@ -23,11 +23,11 @@
 
 
 #pageActionButton { display: none !important; }
-
+/*
 #PanelUI-menu-button { padding: 0px !important; }
 #PanelUI-menu-button .toolbarbutton-icon { width: 1px !important; }
 #PanelUI-menu-button .toolbarbutton-badge-stack { padding: 0px !important; }
-
+*/
 
 
 
@@ -66,7 +66,7 @@
   /*  Width of the URL Bar for the Oneline layout
    *  If enabled the max-width is applied on focus
    *  otherwise the URL Bar will always be it's min-width
-   */ --uc-urlbar-min-width: 0vw;
+   */ --uc-urlbar-min-width: 30vw;
       --uc-urlbar-max-width: 35vw;
 
   /*  Position of the URL Bar
@@ -102,9 +102,10 @@
 /* Hide the »Go«-arrow in the URL Bar */
 #urlbar-go-button { display: none !important; }
 
-
-
-
+#nav-bar toolbarspring {
+    min-width: 45px !important;
+    max-width: 45px !important;
+}
 
 /*---+---+---+---+---+---+---+
  | T | A | B | — | B | A | R |
@@ -117,6 +118,7 @@
    *  the Tab Bars maximum width
    */ --uc-active-tab-width:   clamp(100px, 25vw, 250px);
       --uc-inactive-tab-width: clamp(100px, 20vw, 200px);
+      
 
 
   /*  Enable this to always show the Tab Close button

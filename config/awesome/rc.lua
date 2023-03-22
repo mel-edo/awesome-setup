@@ -15,7 +15,6 @@ local beautiful = require("beautiful")
 local naughty = require("naughty")
 -- Declarative object management
 local ruled = require("ruled")
-local menubar = require("menubar")
 local hotkeys_popup = require("awful.hotkeys_popup")
 -- Enable hotkeys help widget for VIM and other apps
 -- when client with a matching name is opened:
@@ -51,6 +50,23 @@ editor_cmd = terminal .. " -e " .. editor
 -- However, you can use another modifier like Mod1, but it may interact with others.
 modkey = "Mod4"
 -- }}}
+
+-- {{{ Menu
+
+polybar = {
+   { "Kill bar",function() awful.spawn.with_shell("sh ~/.config/awesome/kpolybar.sh") end },
+   { "Spawn bar", function() awful.spawn.with_shell("sh ~/.config/awesome/spolybar.sh") end },
+}
+
+mymainmenu = awful.menu({ items = {
+   { "Apps",function() awful.spawn.with_shell("sleep 0.5s && sh ~/.config/rofi/launchers/type-6/launcher.sh") end },
+   { "Nemo",function() awful.spawn.with_shell("nemo") end },
+   { "Scrshot",function() awful.spawn.with_shell("sleep 0.5s && flameshot full") end },
+   { "Terminal", terminal },
+   { "Polybar", polybar, beautiful.menu_submenu_icon},
+   { "Restart", awesome.restart },
+   { "Quit", function() awesome.quit() end },
+                                  }})
 
 -- {{{ Tag layout
 -- Table of layouts to cover with awful.layout.inc, order matters.
@@ -94,6 +110,7 @@ end)
 
 -- {{{ Mouse bindings
 awful.mouse.append_global_mousebindings({
+  awful.button({ }, 3, function () mymainmenu:toggle() end),
   awful.button({}, 4, awful.tag.viewprev),
   awful.button({}, 5, awful.tag.viewnext),
 })
@@ -392,12 +409,15 @@ ruled.client.connect_signal("request::rules", function()
     properties = { titlebars_enabled = false }
   }
 
-  -- Set Firefox to always map on the tag named "1" on screen 1.
   ruled.client.append_rule {
     rule_any   = {
       class = { "firefox" }
     },
-    properties = { screen = 1, tag = "1", border_width = 0 }
+    properties = { screen = 1, border_width = 0 }
+  }
+  ruled.client.append_rule {
+    rule       = { instance = "Steam" },
+    properties = { screen = 1, tag = "4", floating = true }
   }
   ruled.client.append_rule {
     rule       = { instance = "discord" },
@@ -422,6 +442,14 @@ ruled.client.connect_signal("request::rules", function()
   ruled.client.append_rule {
     rule       = { instance = "vscodium" },
     properties = { screen = 1, tag = "4" }
+  }
+  ruled.client.append_rule {
+    rule       = { instance = "dolphin-emu" },
+    properties = { floating = true }
+  }
+  ruled.client.append_rule {
+    rule       = { instance = "Windscribe" },
+    properties = { floating = true }
   }
   ruled.client.append_rule {
     rule       = { instance = "feh" },
@@ -589,6 +617,8 @@ end)
 
 awful.spawn.with_shell("sh ~/.fehbg")
 awful.spawn.with_shell("sh ~/.config/awesome/autorun.sh")
+awful.spawn.with_shell("pkill http-server")
+awful.spawn.with_shell("http-server ~/.config/chevron/dist")
 
 -- Garbage collection
 
