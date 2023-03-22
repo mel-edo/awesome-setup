@@ -19,6 +19,7 @@ Wallpaper - [ArtStation](https://www.artstation.com/artwork/4Xa124)
 - **Application Launcher:** [adi1090x's rofi](https://github.com/adi1090x/rofi)
 - **SDDM theme:** [Sugar Candy theme for SDDM](https://www.opendesktop.org/p/1312658/)
 - **Color scheme:** [Catppuccin](https://github.com/catppuccin/catppuccin)
+- **Startpage:** [Chevron](https://github.com/kholmogorov27/chevron)
 
 > You can view all keybindings in awesomewm using Mod + s
 
@@ -38,10 +39,6 @@ Wallpaper - [ArtStation](https://www.artstation.com/artwork/4Xa124)
 
 ![g](/images/7.png?raw=true)
 ---
-
-### Todo:-
-
-1) Volume and Brightness OSD
 
 ### Sources of inspiration:
 
