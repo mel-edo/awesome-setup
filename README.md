@@ -33,7 +33,7 @@ List of the required programs for this rice
 (For yay in Arch Linux)
 
 ```
-yay -S --needed awesome-git polybar picom-pijulius-git alacritty betterlockscreen catppuccin-gtk-theme-mocha conky logo-ls lxappearance neovim neofetch papirus-icon-theme feh sddm qt5-graphicaleffects qt5-quickcontrols2 qt5-svg
+yay -S --needed awesome-git polybar picom-pijulius-git alacritty betterlockscreen catppuccin-gtk-theme-mocha conky logo-ls lxappearance neovim neofetch papirus-icon-theme feh rofi xidlehook sddm qt5-graphicaleffects qt5-quickcontrols2 qt5-svg
 ```
 
 ### Manual Method:
