@@ -60,7 +60,7 @@ Thanks to [ka1ry](https://github.com/ka1ry) for testing on different hardware!
 6. ``` sudo cp -r ~/.config/sddm/sugar-candy /usr/share/sddm/themes/ ```
 7. ``` sudo cp -r ~/.config/sddm/sddm.conf /etc/ ```
 8. ``` systemctl enable betterlockscreen@$USER ```
-9. ``` cp -r ~/awesome-setup/cmatrix.sh ~/awesome-setup/grubupdate.sh ~/awesome-setup/.xinitrc ~/awesome-setup/.Xresources ~/awesome-setup/.zprofile ~/awesome-setup/.zshrc ```
+9. ``` cp -r ~/awesome-setup/cmatrix.sh ~/awesome-setup/grubupdate.sh ~/awesome-setup/.xinitrc ~/awesome-setup/.Xresources ~/awesome-setup/.zprofile ~/awesome-setup/.zshrc ~/ ```
 
 > You can view all keybindings in awesomewm using Mod + s
 

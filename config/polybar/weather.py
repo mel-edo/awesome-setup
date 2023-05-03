@@ -77,8 +77,8 @@ def json_extract(obj, path):
             outer_arr.append(extract(item, path, 0, []))
         return outer_arr
 
-latitude = 26.50
-longitude = 80.24
+latitude =
+longitude =
 
 wurl = "https://api.open-meteo.com/v1/forecast?latitude=" + str(latitude) + "&longitude=" + str(longitude) + "&hourly=temperature_2m,is_day&current_weather=true&timezone=auto"
 
