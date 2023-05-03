@@ -50,7 +50,7 @@ yay -S --needed awesome-git polybar picom-pijulius-git alacritty betterlockscree
 
 Thanks to [ka1ry](https://github.com/ka1ry) for testing on different hardware!
 
->Proceed with caution
+> ⚠️ Proceed with caution
 
 1. ``` git clone https://github.com/MeledoJames/awesome-setup ```
 2. Backup your .config folder or make it if it doesen't already exist
@@ -89,6 +89,8 @@ Thanks to [ka1ry](https://github.com/ka1ry) for testing on different hardware!
 1. cd into ~/.mozilla/firefox/(release).default-release/chrome (make chrome folder if it doesen't exist already)
 2. copy files inside ~/awesome-setup/firefox/chrome to the folder in the above point
 3. Install Tab center reborn extension -> More details here [Cascade](https://github.com/andreasgrafen/cascade#tab-center-reborn--vertical-tabs)
+
+---
 
 ### Startpage
 
