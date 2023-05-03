@@ -8,7 +8,7 @@ Wallpaper - [ArtStation](https://www.artstation.com/artwork/4Xa124)
 
 ---
 
-## [Images for the finished rice](#final-images)
+## [Images of the finished rice](#final-images)
 
 - **Window Manager:** [awesome-git](https://github.com/awesomeWM/awesome)
 - **Terminal:** [alacritty](https://github.com/alacritty/alacritty)
