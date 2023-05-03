@@ -64,6 +64,7 @@ mymainmenu = awful.menu({ items = {
    { "Scrshot",function() awful.spawn.with_shell("sleep 0.5s && flameshot full") end },
    { "Terminal", terminal },
    { "Polybar", polybar, beautiful.menu_submenu_icon},
+   { "Xkill", function() awful.spawn.with_shell("sleep 0.5s && xkill") end },
    { "Restart", awesome.restart },
    { "Quit", function() awesome.quit() end },
                                   }})
@@ -141,6 +142,8 @@ awful.keyboard.append_global_keybindings({
 
   awful.key({}, "XF86AudioRaiseVolume", function() awful.spawn.with_shell("pactl set-sink-volume @DEFAULT_SINK@ +5%") end),
 
+  awful.key({}, "XF86AudioMute", function() awful.spawn.with_shell("pactl set-sink-mute @DEFAULT_SINK@ toggle") end),
+
   awful.key({}, "F6", function() awful.util.spawn("playerctl play-pause", false) end),
 
   awful.key({}, "F8", function() awful.util.spawn("playerctl next", false) end),
@@ -208,7 +211,7 @@ awful.keyboard.append_global_keybindings({
     { description = "increase the number of columns", group = "layout" }),
   awful.key({ modkey, "Control" }, "l", function() awful.tag.incncol(-1, nil, true) end,
     { description = "decrease the number of columns", group = "layout" }),
-  awful.key({ modkey, }, "space", function() awful.layout.inc(1) end,
+  awful.key({ modkey, "Control" }, "space", function() awful.layout.inc(1) end,
     { description = "select next", group = "layout" }),
   awful.key({ modkey, "Shift" }, "space", function() awful.layout.inc(-1) end,
     { description = "select previous", group = "layout" }),
@@ -320,7 +323,7 @@ client.connect_signal("request::default_keybindings", function()
       { description = "toggle fullscreen", group = "client" }),
     awful.key({ modkey }, "q", function(c) c:kill() end,
       { description = "close", group = "client" }),
-    awful.key({ "Control" }, "space",
+    awful.key({ modkey }, "space",
       function(c)
         awful.client.floating.toggle(c)
         c.width = 1000
@@ -413,7 +416,11 @@ ruled.client.connect_signal("request::rules", function()
     rule_any   = {
       class = { "firefox" }
     },
-    properties = { screen = 1, border_width = 0 }
+    properties = { screen = 1 }
+  }
+  ruled.client.append_rule {
+    rule       = { instance = "chromium" },
+    properties = { screen = 1, tag = "4",floating = true }
   }
   ruled.client.append_rule {
     rule       = { instance = "Steam" },
@@ -615,10 +622,12 @@ end)
 
 -- Autostart
 
-awful.spawn.with_shell("sh ~/.fehbg")
 awful.spawn.with_shell("sh ~/.config/awesome/autorun.sh")
 awful.spawn.with_shell("pkill http-server")
 awful.spawn.with_shell("http-server ~/.config/chevron/dist")
+awful.spawn.with_shell("sleep 20s && conky -c ~/.config/conky/mocha.conf")
+awful.spawn.with_shell("kdeconnect-indicator")
+awful.spawn.with_shell("feh --no-fehbg --bg-fill ~/Downloads/alena-aenami-stardust-1k.jpg")
 
 -- Garbage collection
 

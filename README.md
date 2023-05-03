@@ -28,13 +28,23 @@ Wallpaper - [ArtStation](https://www.artstation.com/artwork/4Xa124)
 
 ## Install Instructions:
 
-List of the required programs for this rice
+### List of the required programs for this rice
 
 (For yay in Arch Linux)
 
 ```
 yay -S --needed awesome-git polybar picom-pijulius-git alacritty betterlockscreen catppuccin-gtk-theme-mocha conky logo-ls lxappearance neovim neofetch papirus-icon-theme feh rofi xidlehook sddm qt5-graphicaleffects qt5-quickcontrols2 qt5-svg
 ```
+
+### Optional programs
+
+1. zsh and ohmyzsh
+2. brightnessctl
+3. cool-retro-term with cmatrix used as a screensaver
+4. neofetch
+5. neovim
+6. nemo (file manager)
+7. redshift
 
 ### Manual Method:
 
@@ -49,10 +59,16 @@ Thanks to [ka1ry](https://github.com/ka1ry) for testing on different hardware!
 5. ``` fc-cache -v -f ```
 6. ``` sudo cp -r ~/.config/sddm/sugar-candy /usr/share/sddm/themes/ ```
 7. ``` sudo cp -r ~/.config/sddm/sddm.conf /etc/ ```
+8. ``` systemctl enable betterlockscreen@$USER ```
+9. ``` cp -r ~/awesome-setup/cmatrix.sh ~/awesome-setup/grubupdate.sh ~/awesome-setup/.xinitrc ~/awesome-setup/.Xresources ~/awesome-setup/.zprofile ~/awesome-setup/.zshrc ```
 
 > You can view all keybindings in awesomewm using Mod + s
 
-> Check ```.config/awesome/autorun.sh``` and lines 623 - 630 in ```.config/awesome/rc.lua``` for startup programs. Modify to your liking
+> Download the wallpaper from the artstation link and put it in your ``` ~/Downloads ```
+
+> Change your latitude and longitude in ``` ~/.config/polybar/weather.py ``` on lines 80 and 81 and ``` ~/.config/redshift/redshift.conf ``` on lines 60 and 61
+
+> Check ``` ~/.config/awesome/autorun.sh ``` and lines 623 - 630 in ``` ~/.config/awesome/rc.lua ``` for startup programs. Modify to your liking
 
 > Theme your remaining apps from the [Catppuccin Github](https://github.com/catppuccin/catppuccin)
 
@@ -62,9 +78,25 @@ Thanks to [ka1ry](https://github.com/ka1ry) for testing on different hardware!
 
 > Missing Brightness Icon - [Backlight](https://github.com/polybar/polybar/wiki/Module:-backlight) and [xbacklight](https://github.com/polybar/polybar/wiki/Module:-xbacklight) modules
 
-> Missing Battery Icon - You probably don't have a battery in which case you can remove the battery module from line 85 of ```.config/polybar/config.ini```
+> Missing Battery Icon - You probably don't have a battery in which case you can remove the battery module from line 85 of ``` ~/.config/polybar/config.ini ```
 
 > Missing Network Icon - [Polybar network wiki](https://github.com/polybar/polybar/wiki/Module:-network)
+
+---
+
+### Firefox userchrome css
+
+1. cd into ~/.mozilla/firefox/(release).default-release/chrome (make chrome folder if it doesen't exist already)
+2. copy files inside ~/awesome-setup/firefox/chrome to the folder in the above point
+3. Install Tab center reborn extension -> More details here [Cascade](https://github.com/andreasgrafen/cascade#tab-center-reborn--vertical-tabs)
+
+### Startpage
+
+1. Install npm ``` yay -S npm ```
+2. ``` sudo npm install http-server -g ```
+3. run ``` http-server ~/.config/chevron/dist/ ``` and visit http://127.0.0.1:8080 in your browser
+4. I've already added this command in autostart (check end of rc.lua)
+5. For more details -> [Chevron](https://github.com/kholmogorov27/chevron) 
 
 ---
 
