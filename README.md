@@ -50,7 +50,9 @@ yay -S --needed awesome-git polybar picom-pijulius-git alacritty betterlockscree
 
 Thanks to [ka1ry](https://github.com/ka1ry) for testing on different hardware!
 
-> ⚠️ Proceed with caution
+> **Warning**
+>
+>Proceed with caution
 
 1. ``` git clone https://github.com/MeledoJames/awesome-setup ```
 2. Backup your .config folder or make it if it doesen't already exist
