@@ -100,7 +100,8 @@ Thanks to [ka1ry](https://github.com/ka1ry) for testing on different hardware!
 2. ``` sudo npm install http-server -g ```
 3. run ``` http-server ~/.config/chevron/dist/ ``` and visit http://127.0.0.1:8080 in your browser
 4. I've already added this command in autostart (check end of rc.lua)
-5. For more details -> [Chevron](https://github.com/kholmogorov27/chevron) 
+5. If you're on firefox you can use [new tab override](https://addons.mozilla.org/en-US/firefox/addon/new-tab-override/) to change the new tab and home page
+6. For more details -> [Chevron](https://github.com/kholmogorov27/chevron) 
 
 ---
 
