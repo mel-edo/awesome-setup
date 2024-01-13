@@ -126,3 +126,9 @@ Thanks to [ka1ry](https://github.com/ka1ry) for testing on different hardware!
 
 - [rklyz](https://github.com/rklyz/MyRice)
 - [janleigh](https://github.com/janleigh/dotfiles)
+---
+
+### Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=MeledoJames/awesome-setup&type=Date)](https://star-history.com/#MeledoJames/awesome-setup&Date)
+
