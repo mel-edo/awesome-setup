@@ -8,7 +8,11 @@ Wallpaper - [ArtStation](https://www.artstation.com/artwork/4Xa124)
 
 ---
 
-## [Images of the finished rice](#final-images)
+### Video showcasing the animations
+
+[](/images/theone.mp4)
+
+---
 
 - **Window Manager:** [awesome-git](https://github.com/awesomeWM/awesome)
 - **Terminal:** [alacritty](https://github.com/alacritty/alacritty)
@@ -94,6 +98,12 @@ Thanks to [ka1ry](https://github.com/ka1ry) for testing on different hardware!
 
 ---
 
+### Firefox keybindings via vimuium
+
+1. Get the extension [Vimium](https://vimium.github.io/)
+2. Copy text from firefox/vimium/vimium.css and paste it into "css for vimium ui" in the vimium settings
+
+---
 ### Startpage
 
 1. Install npm ``` yay -S npm ```
