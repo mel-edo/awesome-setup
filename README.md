@@ -10,7 +10,7 @@ Wallpaper - [ArtStation](https://www.artstation.com/artwork/4Xa124)
 
 ### Video showcasing the animations
 
-https://files.catbox.moe/tp4uy2.mp4
+https://github.com/mel-edo/awesome-setup/assets/90543784/25acfe82-682d-4f04-9ef8-c2461703d929
 
 ---
 
