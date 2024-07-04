@@ -10,7 +10,7 @@ Wallpaper - [ArtStation](https://www.artstation.com/artwork/4Xa124)
 
 ### Video showcasing the animations
 
-[](/images/theone.mp4)
+[video](/images/theone.mp4)
 
 ---
 
@@ -98,7 +98,7 @@ Thanks to [ka1ry](https://github.com/ka1ry) for testing on different hardware!
 
 ---
 
-### Firefox keybindings via vimuium
+### Firefox keybindings via vimium
 
 1. Get the extension [Vimium](https://vimium.github.io/)
 2. Copy text from firefox/vimium/vimium.css and paste it into "css for vimium ui" in the vimium settings
@@ -114,8 +114,6 @@ Thanks to [ka1ry](https://github.com/ka1ry) for testing on different hardware!
 6. For more details -> [Chevron](https://github.com/kholmogorov27/chevron) 
 
 ---
-
-## Final Images
 
 ![a](/images/1.png?raw=true)
 
