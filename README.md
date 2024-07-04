@@ -10,7 +10,6 @@ Wallpaper - [ArtStation](https://www.artstation.com/artwork/4Xa124)
 
 ### Video showcasing the animations
 
-[video](/images/theone.mp4)
 
 ---
 
