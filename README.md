@@ -136,8 +136,12 @@ Thanks to [ka1ry](https://github.com/ka1ry) for testing on different hardware!
 - [janleigh](https://github.com/janleigh/dotfiles)
 ---
 
-<picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=MeledoJames/awesome-setup&type=Date&theme=dark" />
-    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=MeledoJames/awesome-setup&type=Date" />
-    <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=MeledoJames/awesome-setup&type=Date" />
-</picture>
+### Star History:
+
+<a href="https://www.star-history.com/#mel-edo/awesome-setup&Date">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=mel-edo/awesome-setup&type=Date&theme=dark" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=mel-edo/awesome-setup&type=Date" />
+   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=mel-edo/awesome-setup&type=Date" />
+ </picture>
+</a>
