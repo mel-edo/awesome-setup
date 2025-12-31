@@ -1,0 +1,38 @@
+{
+  "position": "top-right",
+  "layer": "overlay",
+  "timeout": 7,
+  "timeout-low": 7,
+  "timeout-critical": 7,
+  "hide-on-clear": true,
+  "hide-on-action": true,
+  
+  "widgets": ["title", "inhibitors", "notifications", "mpris"],
+
+  "widget-config": {
+    "mpris": {
+      "image-size": 100,
+      "image-radius": 20,
+      "blacklist": ["firefox"]
+    },
+    "title": {
+      "text": "Notifications",
+      "clear-all-button": true,
+      "button-text": "Clear All"
+    }
+  },
+  
+  "notification-activation-action": "default",
+  "notification-window-width": 350,
+  "notification-window-height": 250,
+
+  "keyboard-shortcuts": {
+    "clear-all": "Mod4+Shift+C",
+    "toggle-panel": "Mod4+B"
+  },
+
+  "control-center-margin-top": 20,
+  "control-center-margin-bottom": 20,
+  "control-center-width": 400
+}
+

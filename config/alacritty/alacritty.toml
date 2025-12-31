@@ -1,0 +1,60 @@
+[colors.bright]
+black = "#303446"
+blue = "#8caaee"
+cyan = "#81c8be"
+green = "#a6d189"
+magenta = "#ca9ee6"
+red = "#e78284"
+white = "#c6d0f5"
+yellow = "#e5c890"
+
+[colors.normal]
+black = "#24273a"
+blue = "#8aadf4"
+cyan = "#8bd5ca"
+green = "#a6da95"
+magenta = "#c6a0f6"
+red = "#ed8796"
+white = "#cad3f5"
+yellow = "#eed49f"
+
+[colors.primary]
+background = "#1e1e2e"
+foreground = "#b4befe"
+
+# [colors.style]
+# blinking = "Off"
+# shape = "Block"
+
+[font]
+size = 14
+
+[font.bold]
+family = "RobotoMono Nerd Font"
+style = "Bold"
+
+[font.bold_italic]
+family = "RobotoMono Nerd Font"
+style = "Bold Italic"
+
+[font.italic]
+family = "RobotoMono Nerd Font"
+style = "Italic"
+
+[font.normal]
+family = "RobotoMono Nerd Font"
+style = "Regular"
+
+[[keyboard.bindings]]
+chars = "\u0017"
+key = "Back"
+mods = "Control"
+
+[scrolling]
+history = 10000
+multiplier = 3
+
+[window.padding]
+# dynamic_padding = true
+x = 5
+y = 0

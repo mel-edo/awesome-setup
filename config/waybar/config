@@ -1,0 +1,97 @@
+{
+    "margin-top" : 0,
+    "margin-left": 5,
+    "margin-right": 5,
+    "modules-left": [
+      "hyprland/workspaces",
+      "hyprland/window"
+    ],
+    "modules-center": [
+    ],
+    "modules-right": [
+    "tray",
+    "battery"
+    ],
+    "hyprland/window": {
+      "format": "{}",
+      "max-length": 30,
+      "rewrite": {
+        "": "~/"
+      },
+      "separate-outputs": true,
+    },
+    "hyprland/workspaces": {
+      "format": "{icon}",
+      "on-click": "activate",
+      "on-scroll-down": "sh ~/.config/waybar/scripts/workspace.sh",
+      "on-scroll-up": "hyprctl dispatch workspace r-1",
+      "format-icons": {
+        "active": " ",
+        "persistent": " ",
+        "empty": " ",
+      },
+      "sort-by-number": true,
+      "persistent-workspaces": {
+        "*": 5,
+      },
+    },
+    "clock": {
+      "on-click": "sh ~/.config/waybar/scripts/cal.sh",
+      "tooltip": false,
+      "format": "{:%a %b %d, %H:%M:%S}",
+      "interval": 1
+    },
+    "battery": {
+      "states": {
+        "warning": 30,
+        "critical": 15
+      },
+      "format": "{icon}  {capacity}%",
+      "format-full": "{icon}  {capacity}%",
+      "format-charging": "{icon}  {capacity}%",
+      "format-plugged": "  {capacity}%",
+      "format-alt": "{time} {icon}",
+      "format-icons": ["", "", "", "", ""]
+    },
+    "pulseaudio": {
+      "format": "{icon} {volume}%",
+      "format-muted": "",
+      "format-icons": {
+        "headphone": " ",
+        "hands-free": " ",
+        "headset": " ",
+        "phone": "",
+        "portable": "",
+        "car": "",
+        "default": [" ", " ", " "]
+      },
+      "on-click": "pavucontrol",
+      "on-scroll-up": "wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%+",
+      "on-scroll-down": "wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%-"
+    },
+    "tray": {
+      "icon-size": 16,
+      "spacing": 10
+    },
+    "custom/bluetooth-battery": {
+    "format": " {text}",
+    "exec": "python3 ~/.config/waybar/scripts/bluetooth_bat.py",
+    "interval": 60,
+    "on-click": "blueberry"
+    },
+    "custom/weather": {
+    "format": "{text}",
+    "exec": "sh ~/.config/waybar/scripts/weather.sh",
+    "interval": 600
+    },
+    "backlight": {
+        "device": "amdgpu_bl1",
+        "format": "{icon} {percent}%",
+        "format-icons": ["󰃞 ", "󰃟 ", "󰃝 ", "󰃠 "],
+        "on-scroll-down": "brightnessctl s 5-",
+        "on-scroll-up": "brightnessctl s +5"
+    },
+    "custom/separator": {
+      "format": "|"
+    }
+}

@@ -54,10 +54,11 @@ mainbox {
 
 /*****----- Imagebox -----*****/
 imagebox {
-    spacing:                     30px;
-    padding:                     20px;
+    spacing:                     190px;
+    padding:                     30px;
     background-color:            transparent;
-    background-image:            url("~/.config/rofi/images/alena-aenami-portal-crop.png", height);
+    /*background-image:            url("~/.config/rofi/images/alena-aenami-portal-crop.png", height);*/
+    background-image:            url("~/.config/rofi/images/yoi2.jpg", height);
     children:                    [ "inputbar", "dummy", "message" ];
 }
 
@@ -118,7 +119,7 @@ listview {
     fixed-height:                true;
     fixed-columns:               true;
     
-    spacing:                     30px;
+    spacing:                     50px;
     margin:                      30px;
     background-color:            transparent;
     cursor:                      "default";
@@ -127,7 +128,7 @@ listview {
 /*****----- Elements -----*****/
 element {
     enabled:                     true;
-    padding:                     40px 10px;
+    padding:                     45px 35px;
     border-radius:               10px;
     background-color:            @background-alt;
     text-color:                  @foreground;

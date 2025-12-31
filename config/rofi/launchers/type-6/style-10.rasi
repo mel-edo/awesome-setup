@@ -15,7 +15,7 @@ configuration {
     display-run:                "Run";
     display-window:             "Window";
 	drun-display-format:        "{name}";
-	window-format:              "{w} · {c} · {t}";
+	window-format:              "{c} · {t}";
 }
 
 /*****----- Global Properties -----*****/
@@ -59,7 +59,8 @@ mainbox {
 imagebox {
     padding:                     20px;
     background-color:            transparent;
-    background-image:            url("~/.config/rofi/images/alena-aenami-bluehour-1k-crop.png", height);
+    /*background-image:            url("~/.config/rofi/images/alena-aenami-bluehour-1k-crop.png", height);*/
+    background-image:            url("~/.config/rofi/images/yoi1-crop.png", height);
     orientation:                 vertical;
     children:                    [ "inputbar", "dummy", "mode-switcher" ];
 }
@@ -89,7 +90,7 @@ inputbar {
 textbox-prompt-colon {
     enabled:                     true;
     expand:                      false;
-    str:                         "";
+    str:                         " ";
     background-color:            inherit;
     text-color:                  inherit;
 }

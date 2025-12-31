@@ -72,7 +72,7 @@ run_cmd() {
 		elif [[ $1 == '--suspend' ]]; then
 			systemctl suspend
 		elif [[ $1 == '--logout' ]]; then
-		        betterlockscreen -l
+		  pkill awesome 
                 fi
 	else
 		exit 0

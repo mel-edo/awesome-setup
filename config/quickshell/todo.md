@@ -1,0 +1,14 @@
+- [x] other waybar items can be removed
+- [x] wallpaper switching button
+- [] find other gif to put there
+- [x] add osd for vol
+- [x] figure out how osd for brightness works
+- [] fix my tray (weird gray bars)
+- [x] change state to fully expanded after hover timer
+- [x] fix all colors
+- [x] fix colors redundancies
+- [] fix jitter in time and top bar when expanding
+- [x] implement tiles and their functionality
+- [x] change border color and background color of tiles
+- [x] weather impl
+- [x] weather somehow broke
