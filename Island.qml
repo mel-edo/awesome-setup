@@ -33,14 +33,16 @@ Scope {
         }
 
         function weatherIcon(code) {
-            if (code.startsWith("01")) return "󰖙"  // clear
-            if (code.startsWith("02")) return "󰖕"  // few clouds
-            if (code.startsWith("03") || code.startsWith("04")) return "󰖔"  // clouds
+            let isNight = code.endsWith("n")
+
+            if (code.startsWith("01")) return isNight ? "󰖔" : "󰖙"  // clear: Moon / Sun
+            if (code.startsWith("02")) return isNight ? "󰖡" : "󰖕"  // few clouds: Moon+Cloud / Sun+Cloud
+            if (code.startsWith("03") || code.startsWith("04")) return "󰖐"  // scattered/broken clouds
             if (code.startsWith("09") || code.startsWith("10")) return "󰖗"  // rain
-            if (code.startsWith("11")) return "󰖓"  // thunder
+            if (code.startsWith("11")) return "󰖓"  // thunderstorm
             if (code.startsWith("13")) return "󰖘"  // snow
-            if (code.startsWith("50")) return "󰖑"  // mist
-            return "󰖙"
+            if (code.startsWith("50")) return "󰖑"  // mist/fog
+            return isNight ? "󰖔" : "󰖙" // fallback
         }
 
         Timer {
@@ -194,7 +196,7 @@ Scope {
                 Text {
                     id: clockText
                     anchors.centerIn: parent
-                    text: Qt.formatDateTime(new Date(), "HH:mm:ss | ddd, MMM dd")
+                    text: Qt.formatDateTime(new Date(), "HH:mm:ss • ddd, MMM dd")
                     color: Theme.text
                     font.pixelSize: 14
                     property bool isActiveText: islandWindow.islandState === "idle" && 
@@ -484,20 +486,22 @@ Scope {
                             // Loaded State
                             Column {
                                 anchors.fill: parent
-                                anchors.margins: 16
+                                anchors.margins: 14
                                 spacing: 16
                                 visible: islandWindow.weatherToday !== null
 
-                                // Main Temp
+                                // --- TOP SECTION: Main Info ---
                                 Row {
                                     spacing: 16
                                     anchors.horizontalCenter: parent.horizontalCenter
+                                    
                                     Text {
                                         text: islandWindow.weatherToday ? islandWindow.weatherIcon(islandWindow.weatherToday.icon) : ""
                                         color: Theme.accent
-                                        font.pixelSize: 42
-                                        anchors.verticalCenter: parent.verticalCenter
+                                        font.pixelSize: 46
+                                        anchors.verticalCenter: parent.verticalCenter // Kept verticalCenter here because it's aligning with a multi-line column
                                     }
+                                    
                                     Column {
                                         anchors.verticalCenter: parent.verticalCenter
                                         Text {
@@ -508,9 +512,52 @@ Scope {
                                         }
                                         Text {
                                             text: islandWindow.weatherToday ? islandWindow.weatherToday.desc : ""
-                                            color: Theme.subtext
+                                            color: Theme.text
                                             font.pixelSize: 13
+                                            font.bold: true
                                         }
+                                        Text {
+                                            text: islandWindow.weatherToday ? "H: " + islandWindow.weatherToday.high + "°  L: " + islandWindow.weatherToday.low + "°" : ""
+                                            color: Theme.subtext
+                                            font.pixelSize: 12
+                                        }
+                                    }
+                                }
+
+                                // --- MIDDLE SECTION: Secondary Stats ---
+                                Row {
+                                    anchors.horizontalCenter: parent.horizontalCenter
+                                    spacing: 10 // Tightened slightly to comfortably fit all 5 items
+                                    
+                                    // Rain Chance (PoP)
+                                    Row {
+                                        spacing: 4
+                                        Text { text: "󰖎"; color: "#60A5FA"; font.pixelSize: 14; anchors.baseline: popTxt.baseline }
+                                        Text { id: popTxt; text: islandWindow.weatherToday ? islandWindow.weatherToday.pop + "%" : "--%"; color: Theme.subtext; font.pixelSize: 12; font.bold: true }
+                                    }
+                                    // Feels Like
+                                    Row {
+                                        spacing: 4
+                                        Text { text: ""; color: Theme.accentAlt; font.pixelSize: 13; anchors.baseline: feelsTxt.baseline }
+                                        Text { id: feelsTxt; text: islandWindow.weatherToday ? islandWindow.weatherToday.feels + "°" : "--°"; color: Theme.subtext; font.pixelSize: 12; font.bold: true }
+                                    }
+                                    // Wind
+                                    Row {
+                                        spacing: 4
+                                        Text { text: "󰖝"; color: Theme.accentAlt; font.pixelSize: 13; anchors.baseline: windTxt.baseline }
+                                        Text { id: windTxt; text: islandWindow.weatherToday ? islandWindow.weatherToday.wind + " km/h" : "--"; color: Theme.subtext; font.pixelSize: 12; font.bold: true }
+                                    }
+                                    // Sunrise
+                                    Row {
+                                        spacing: 4
+                                        Text { text: "󰖜"; color: Theme.accentAlt; font.pixelSize: 14; anchors.baseline: sunriseTxt.baseline }
+                                        Text { id: sunriseTxt; text: islandWindow.weatherToday ? islandWindow.weatherToday.sunrise : "--:--"; color: Theme.subtext; font.pixelSize: 12; font.bold: true }
+                                    }
+                                    // Sunset
+                                    Row {
+                                        spacing: 4
+                                        Text { text: "󰖛"; color: Theme.accentAlt; font.pixelSize: 14; anchors.baseline: sunsetTxt.baseline }
+                                        Text { id: sunsetTxt; text: islandWindow.weatherToday ? islandWindow.weatherToday.sunset : "--:--"; color: Theme.subtext; font.pixelSize: 12; font.bold: true }
                                     }
                                 }
 
@@ -520,27 +567,61 @@ Scope {
                                     color: Qt.rgba(Theme.subtext.r, Theme.subtext.g, Theme.subtext.b, 0.2) 
                                 }
 
-                                // Forecast Grid
+                                // --- BOTTOM SECTION: Forecast Grid ---
                                 Grid {
                                     anchors.horizontalCenter: parent.horizontalCenter
                                     columns: 2
-                                    columnSpacing: 32
-                                    rowSpacing: 12
+                                    columnSpacing: 24
+                                    rowSpacing: 10
+                                    
                                     Repeater {
                                         model: islandWindow.weatherForecast
                                         Row {
                                             spacing: 8
+                                            
+                                            // Day of the Week (Fixed width so the grid aligns perfectly)
+                                            Text {
+                                                text: modelData.day
+                                                color: Theme.subtext
+                                                font.pixelSize: 13
+                                                font.bold: true
+                                                width: 30 
+                                                anchors.baseline: forecastHigh.baseline
+                                            }
+                                            
+                                            // Icon
                                             Text {
                                                 text: islandWindow.weatherIcon(modelData.icon)
                                                 color: Theme.accentAlt
-                                                font.pixelSize: 16
+                                                font.pixelSize: 14
+                                                anchors.baseline: forecastHigh.baseline
                                             }
+                                            
+                                            // High Temp
                                             Text {
-                                                text: modelData.temp + "°"
+                                                id: forecastHigh
+                                                text: modelData.high + "°"
                                                 color: Theme.text
                                                 font.pixelSize: 13
                                                 font.bold: true
-                                                anchors.verticalCenter: parent.verticalCenter
+                                            }
+                                            
+                                            // Low Temp
+                                            Text {
+                                                text: modelData.low + "°"
+                                                color: Theme.subtext
+                                                font.pixelSize: 12
+                                                anchors.baseline: forecastHigh.baseline
+                                            }
+
+                                            // Rain Chance (Only shows if 20% or higher!)
+                                            Text {
+                                                text: "󰖎" + modelData.pop + "%"
+                                                color: "#60A5FA" 
+                                                font.pixelSize: 10
+                                                font.bold: true
+                                                anchors.baseline: forecastHigh.baseline 
+                                                visible: modelData.pop >= 20 
                                             }
                                         }
                                     }
