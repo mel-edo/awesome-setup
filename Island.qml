@@ -28,9 +28,8 @@ Scope {
 
         function closeToIdle() {
             islandState = "idle"
-            hubRetractTimer.stop()
-            idleRetractTimer.stop()
-            postHubCavaTimer.stop()
+            hubStayTimer.stop()
+            idleStayTimer.stop()
         }
 
         function weatherIcon(code) {
@@ -61,23 +60,18 @@ Scope {
             onTriggered: {
                 islandWindow.cavaActive = false
                 islandWindow.showClock = true
+                islandWindow.postHubCava = false
                 alternateTimer.stop()
             }
         }
 
         Timer {
-            id: hubRetractTimer
-            interval: 300
-            onTriggered: islandWindow.islandState = "idle"
-        }
-
-        Timer {
-            id: hubStepTimer
-            interval: 1200 // Stays expanded at the hub for 1.2 seconds before retracting fully
+            id: hubStayTimer
+            interval: 2000 // 2 solid seconds in the Expanded Cava state
             onTriggered: {
-                if (islandWindow.cavaActive) {
-                    islandWindow.postHubCava = true
-                    postHubCavaTimer.start()
+                islandWindow.islandState = "idle" // Shrink down!
+                if (islandWindow.cavaActive && islandWindow.postHubCava) {
+                    idleStayTimer.start() // Hand off to Phase 2
                 } else {
                     islandWindow.closeToIdle()
                 }
@@ -85,23 +79,14 @@ Scope {
         }
 
         Timer {
-            id: idleRetractTimer  
-            interval: 600
-            onTriggered: {
-                if (islandWindow.cavaActive) {
-                    islandWindow.postHubCava = true
-                    postHubCavaTimer.start()
-                } else {
-                    islandWindow.closeToIdle()
-                }
-            }
-        }
-
-        Timer {
-            id: postHubCavaTimer
-            interval: 4000
+            id: idleStayTimer
+            interval: 3000 // 3 solid seconds in the Idle Cava state before clock returns
             onTriggered: {
                 islandWindow.postHubCava = false
+                islandWindow.showClock = true 
+                if (islandWindow.cavaActive) {
+                    alternateTimer.restart() 
+                }
                 islandWindow.closeToIdle()
             }
         }
@@ -157,13 +142,13 @@ Scope {
             anchors.horizontalCenter: parent.horizontalCenter
             anchors.top: parent.top
             width: {
-                if (islandWindow.islandState === "idle" && !islandWindow.postHubCava) return 180
-                if (islandWindow.islandState === "calendar") return 520
+                if (islandWindow.islandState === "idle") return 180
+                if (islandWindow.islandState === "calendar") return 660
                 return 300
             }
             height: {
-                if (islandWindow.islandState === "idle" && !islandWindow.postHubCava) return 34
-                if (islandWindow.islandState === "calendar") return 320
+                if (islandWindow.islandState === "idle") return 34
+                if (islandWindow.islandState === "calendar") return 290
                 return 55
             }
             topLeftRadius: 0
@@ -180,19 +165,23 @@ Scope {
                 id: pillHover
                 onHoveredChanged: {
                     if (hovered) {
-                        idleRetractTimer.stop()
-                        hubRetractTimer.stop()
-                        postHubCavaTimer.stop()
-                        hubStepTimer.stop()
+                        hubStayTimer.stop()
+                        idleStayTimer.stop()
                         islandWindow.postHubCava = false
                         hubDelayTimer.start()
                     } else {
-                        // The Stepped Retraction Logic
-                        if (islandWindow.islandState !== "idle" && islandWindow.islandState !== "hub") {
-                            islandWindow.islandState = "hub"
-                            hubStepTimer.start() // Pause at hub, then go to idle
+                        hubDelayTimer.stop()
+                        
+                        if (islandWindow.cavaActive) {
+                            // Music is playing: Do the 2-phase smooth Cava step-down
+                            islandWindow.islandState = "hub" 
+                            islandWindow.postHubCava = true
+                            islandWindow.showClock = false
+                            alternateTimer.stop()
+                            hubStayTimer.start()
                         } else {
-                            idleRetractTimer.start()
+                            // No music: Shrink directly back to the idle clock!
+                            islandWindow.closeToIdle()
                         }
                     }
                 }
@@ -207,18 +196,20 @@ Scope {
                     anchors.centerIn: parent
                     text: Qt.formatDateTime(new Date(), "HH:mm:ss | ddd, MMM dd")
                     color: Theme.text
-                    font.pixelSize: 13
-                    opacity: islandWindow.islandState === "idle" && 
-                             !islandWindow.postHubCava && 
-                             (!islandWindow.cavaActive || islandWindow.showClock) ? 1 : 0
-                             
-                    Behavior on opacity { NumberAnimation { duration: 150 } }
+                    font.pixelSize: 14
+                    property bool isActiveText: islandWindow.islandState === "idle" && 
+                                        !islandWindow.postHubCava && 
+                                        (!islandWindow.cavaActive || islandWindow.showClock)
+                    visible: isActiveText
+                    opacity: isActiveText ? 1 : 0
+                    
+                    Behavior on opacity { NumberAnimation { duration: 250; easing.type: Easing.OutQuad } }
 
                     Timer {
                         interval: 1000
                         running: true
                         repeat: true
-                        onTriggered: parent.text = Qt.formatDateTime(new Date(), "HH:mm:ss | ddd, MMM dd")
+                        onTriggered: parent.text = Qt.formatDateTime(new Date(), "HH:mm:ss • ddd, MMM dd")
                     }
                 }
 
@@ -226,10 +217,11 @@ Scope {
                     id: cavaRow
                     anchors.fill: parent
                     spacing: 4
-                    opacity: islandWindow.postHubCava || 
-                             (islandWindow.islandState === "idle" && islandWindow.cavaActive && !islandWindow.showClock) ? 1 : 0
-                             
-                    Behavior on opacity { NumberAnimation { duration: 150 } }
+                    property bool isActiveCava: islandWindow.postHubCava || 
+                                        (islandWindow.islandState === "idle" && islandWindow.cavaActive && !islandWindow.showClock)
+                    visible: isActiveCava
+                    opacity: isActiveCava ? 1 : 0
+                    Behavior on opacity { NumberAnimation { duration: 250; easing.type: Easing.OutQuad } }
 
                     Repeater {
                         // Safely grab the length of the array
@@ -260,8 +252,10 @@ Scope {
                     id: hubRow
                     anchors.centerIn: parent
                     spacing: 16
-                    opacity: islandWindow.islandState === "hub" && !islandWindow.postHubCava ? 1 : 0
-                    Behavior on opacity { NumberAnimation { duration: 80 } }
+                    property bool isActiveHub: islandWindow.islandState === "hub" && !islandWindow.postHubCava
+                    visible: isActiveHub
+                    opacity: isActiveHub ? 1 : 0
+                    Behavior on opacity { NumberAnimation { duration: 250; easing.type: Easing.OutQuad } }
 
                     Repeater {
                         model: [
@@ -306,115 +300,114 @@ Scope {
                 }
                 Item {
                     id: calendarPanel
-                    width: 460
-                    height: 300
+                    width: 620
+                    height: 250
                     anchors.centerIn: parent
                     layer.enabled: true
                     
-                    opacity: islandWindow.islandState === "calendar" ? 1 : 0
-                    visible: opacity > 0
-                    Behavior on opacity { NumberAnimation { duration: islandWindow.islandState === "calendar" ? 200 : 0 } }
+                    property bool isActiveCalendar: islandWindow.islandState === "calendar"
+                    visible: isActiveCalendar
+                    opacity: isActiveCalendar ? 1 : 0
+                    Behavior on opacity { NumberAnimation { duration: 250; easing.type: Easing.OutQuad } }
 
                     onVisibleChanged: {
                         if (visible) {
                             weatherDelayTimer.start()
                         } else {
-                            calGrid.monthOffset = 0
+                            calGrid.monthOffset = 0 // Reset to current month on close
                         }
                     }
 
-                    Column {
-                        anchors.centerIn: parent
-                        width: 460
-                        spacing: 8
+                    Text {
+                        anchors.top: parent.top
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        text: Qt.formatDateTime(new Date(), "HH:mm:ss • ddd, MMM d")
+                        color: Theme.text
+                        font.pixelSize: 14
+                        font.bold: true
 
-                    // --- HEADER ---
-                        Item {
-                            width: parent.width
-                            height: 24
-
-                            // Left side: Icon and Current Month
-                            Row {
-                                anchors.left: parent.left
-                                spacing: 6
-                                anchors.verticalCenter: parent.verticalCenter
-                                
-                                Text {
-                                    text: "󰃮"
-                                    color: Theme.accent
-                                    font.pixelSize: 18
-                                    anchors.verticalCenter: parent.verticalCenter
-                                }
-                                Text {
-                                    // Crucial: This now binds to the grid's calculated date
-                                    text: Qt.formatDateTime(calGrid.calDate, "MMMM yyyy")
-                                    color: Theme.text
-                                    font.pixelSize: 16
-                                    font.bold: true
-                                    anchors.verticalCenter: parent.verticalCenter
-                                }
-                            }
-
-                            // Right side: Navigation Buttons
-                            Row {
-                                anchors.right: parent.right
-                                spacing: 4
-                                anchors.verticalCenter: parent.verticalCenter
-
-                                // Previous Month Button
-                                Rectangle {
-                                    width: 24
-                                    height: 24
-                                    radius: 6
-                                    color: prevMonthHover.hovered ? Theme.surfaceHover : "transparent"
-                                    Behavior on color { ColorAnimation { duration: 100 } }
-                                    
-                                    Text {
-                                        anchors.centerIn: parent
-                                        text: "<" // Swap with a Nerd Font icon like "󰁔" if preferred
-                                        color: Theme.accent
-                                        font.pixelSize: 14
-                                        font.bold: true
-                                    }
-                                    
-                                    HoverHandler { id: prevMonthHover; cursorShape: Qt.PointingHandCursor }
-                                    TapHandler { onTapped: calGrid.monthOffset-- }
-                                }
-
-                                // Next Month Button
-                                Rectangle {
-                                    width: 24
-                                    height: 24
-                                    radius: 6
-                                    color: nextMonthHover.hovered ? Theme.surfaceHover : "transparent"
-                                    Behavior on color { ColorAnimation { duration: 100 } }
-                                    
-                                    Text {
-                                        anchors.centerIn: parent
-                                        text: ">" // Swap with a Nerd Font icon like "󰁍" if preferred
-                                        color: Theme.accent
-                                        font.pixelSize: 14
-                                        font.bold: true
-                                    }
-                                    
-                                    HoverHandler { id: nextMonthHover; cursorShape: Qt.PointingHandCursor }
-                                    TapHandler { onTapped: calGrid.monthOffset++ }
-                                }
-                            }
+                        Timer {
+                            interval: 1000
+                            running: parent.visible
+                            repeat: true
+                            onTriggered: parent.text = Qt.formatDateTime(new Date(), "HH:mm:ss • ddd, MMM d")
                         }
-                        // --- CALENDAR GRID ---
-                        Column {
-                            width: parent.width
-                            spacing: 8
+                    }
 
-                            // Days of the week
+                    // Side-by-Side Container
+                    Row {
+                        anchors.fill: parent
+                        anchors.topMargin: 32
+                        anchors.leftMargin: 12
+                        anchors.rightMargin: 12
+                        anchors.bottomMargin: 12
+                        spacing: 32
+
+                        // --- LEFT SIDE: CALENDAR ---
+                        Column {
+                            width: 290 // Fixed width ensures arrows get pushed to the far right!
+                            height: parent.height
+                            spacing: 12
+
+                            // Header
+                            Item {
+                                width: parent.width
+                                height: 24
+
+                                Row {
+                                    anchors.left: parent.left
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    spacing: 8
+                                    
+                                    Text { 
+                                        id: calIcon
+                                        text: "󰃮"
+                                        color: Theme.accent
+                                        font.pixelSize: 18
+                                        anchors.baseline: monthText.baseline
+                                    }
+                                    Text {
+                                        id: monthText
+                                        text: Qt.formatDateTime(calGrid.calDate, "MMMM yyyy")
+                                        color: Theme.text
+                                        font.pixelSize: 16
+                                        font.bold: true
+                                    }
+                                }
+
+                                // Navigation Arrows
+                                Row {
+                                    anchors.right: parent.right
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    spacing: 6
+
+                                    Rectangle {
+                                        width: 24; height: 24; radius: 6
+                                        color: prevHover.hovered ? Theme.surfaceHover : "transparent"
+                                        Behavior on color { ColorAnimation { duration: 100 } }
+                                        Text { anchors.centerIn: parent; text: "<"; color: Theme.accent; font.pixelSize: 16; font.bold: true }
+                                        HoverHandler { id: prevHover; cursorShape: Qt.PointingHandCursor }
+                                        TapHandler { onTapped: calGrid.monthOffset-- }
+                                    }
+                                    Rectangle {
+                                        width: 24; height: 24; radius: 6
+                                        color: nextHover.hovered ? Theme.surfaceHover : "transparent"
+                                        Behavior on color { ColorAnimation { duration: 100 } }
+                                        Text { anchors.centerIn: parent; text: ">"; color: Theme.accent; font.pixelSize: 16; font.bold: true }
+                                        HoverHandler { id: nextHover; cursorShape: Qt.PointingHandCursor }
+                                        TapHandler { onTapped: calGrid.monthOffset++ }
+                                    }
+                                }
+                            }
+
+                            // Days of Week
                             Row {
                                 width: parent.width
                                 spacing: 4
                                 Repeater {
                                     model: ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"]
                                     Text {
-                                        width: (calendarPanel.width - 8) / 7
+                                        width: (parent.width - 24) / 7
                                         horizontalAlignment: Text.AlignHCenter
                                         text: modelData
                                         color: (index >= 5) ? Theme.accentAlt : Theme.subtext
@@ -424,12 +417,13 @@ Scope {
                                 }
                             }
 
-                            // Dates
+                            // 42-Cell Grid
                             Grid {
                                 id: calGrid
                                 width: parent.width
                                 columns: 7
                                 spacing: 4
+                                
                                 property int monthOffset: 0
                                 property var calDate: {
                                     let d = new Date()
@@ -441,25 +435,22 @@ Scope {
                                 property int today: new Date().getDate()
 
                                 Repeater {
-                                    model: calGrid.startDay + calGrid.daysInMonth
+                                    model: 42 
                                     Rectangle {
-                                        width: (calendarPanel.width - 8) / 7
-                                        height: 28
+                                        width: (calGrid.width - 24) / 7
+                                        height: 24 // Slightly shorter to fit the fixed height perfectly
                                         radius: 6
                                         
                                         property int day: index - calGrid.startDay + 1
+                                        property bool isValidDay: day > 0 && day <= calGrid.daysInMonth
                                         property bool isToday: day === calGrid.today && calGrid.monthOffset === 0
-                                        property bool isEmpty: index < calGrid.startDay
                                         
-                                        // Highlight today, add hover effect for other days
-                                        color: isToday ? Theme.accent : 
-                                               (dayHover.hovered && !isEmpty ? Theme.surfaceHover : "transparent")
-                                               
+                                        color: isToday ? Theme.accent : (dayHover.hovered && isValidDay ? Theme.surfaceHover : "transparent")
                                         Behavior on color { ColorAnimation { duration: 100 } }
 
                                         Text {
                                             anchors.centerIn: parent
-                                            text: parent.isEmpty ? "" : parent.day
+                                            text: parent.isValidDay ? parent.day : "" 
                                             color: parent.isToday ? Theme.background : Theme.text
                                             font.pixelSize: 13
                                             font.bold: parent.isToday
@@ -467,7 +458,7 @@ Scope {
 
                                         HoverHandler {
                                             id: dayHover
-                                            enabled: !parent.isEmpty
+                                            enabled: parent.isValidDay 
                                             cursorShape: Qt.PointingHandCursor
                                         }
                                     }
@@ -475,36 +466,36 @@ Scope {
                             }
                         }
 
-                        // --- WEATHER CARD ---
+                        // --- RIGHT SIDE: WEATHER WIDGET ---
                         Rectangle {
-                            width: parent.width
-                            height: 60
+                            width: 274 // Takes up the remaining space inside the Row
+                            height: parent.height
                             radius: 12
-                            // Creates a distinct, semi-transparent card background for the weather
                             color: Qt.rgba(Theme.highlight.r, Theme.highlight.g, Theme.highlight.b, 0.15)
 
+                            // Loading State
                             Text {
                                 anchors.centerIn: parent
-                                text: "󰖐  Fetching forecast..."
+                                text: "󰖐   Fetching forecast..."
                                 color: Theme.subtext
-                                font.pixelSize: 13
                                 visible: islandWindow.weatherToday === null
                             }
 
-                            Row {
+                            // Loaded State
+                            Column {
                                 anchors.fill: parent
-                                anchors.margins: 12
+                                anchors.margins: 16
                                 spacing: 16
                                 visible: islandWindow.weatherToday !== null
 
-                                // Today's Main Weather
+                                // Main Temp
                                 Row {
-                                    spacing: 10
-                                    anchors.verticalCenter: parent.verticalCenter
+                                    spacing: 16
+                                    anchors.horizontalCenter: parent.horizontalCenter
                                     Text {
                                         text: islandWindow.weatherToday ? islandWindow.weatherIcon(islandWindow.weatherToday.icon) : ""
                                         color: Theme.accent
-                                        font.pixelSize: 28
+                                        font.pixelSize: 42
                                         anchors.verticalCenter: parent.verticalCenter
                                     }
                                     Column {
@@ -512,46 +503,44 @@ Scope {
                                         Text {
                                             text: islandWindow.weatherToday ? islandWindow.weatherToday.temp + "°C" : ""
                                             color: Theme.text
-                                            font.pixelSize: 16
+                                            font.pixelSize: 26
                                             font.bold: true
                                         }
                                         Text {
                                             text: islandWindow.weatherToday ? islandWindow.weatherToday.desc : ""
                                             color: Theme.subtext
-                                            font.pixelSize: 11
+                                            font.pixelSize: 13
                                         }
                                     }
                                 }
 
-                                // Vertical Divider
-                                Rectangle {
-                                    width: 1
-                                    height: parent.height - 10
-                                    color: Qt.rgba(Theme.subtext.r, Theme.subtext.g, Theme.subtext.b, 0.2)
-                                    anchors.verticalCenter: parent.verticalCenter
+                                // Divider
+                                Rectangle { 
+                                    width: parent.width; height: 1; 
+                                    color: Qt.rgba(Theme.subtext.r, Theme.subtext.g, Theme.subtext.b, 0.2) 
                                 }
 
-                                // 4-Day Forecast
-                                Row {
-                                    spacing: 16
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    
+                                // Forecast Grid
+                                Grid {
+                                    anchors.horizontalCenter: parent.horizontalCenter
+                                    columns: 2
+                                    columnSpacing: 32
+                                    rowSpacing: 12
                                     Repeater {
                                         model: islandWindow.weatherForecast
-                                        Column {
-                                            spacing: 4
+                                        Row {
+                                            spacing: 8
                                             Text {
-                                                anchors.horizontalCenter: parent.horizontalCenter
                                                 text: islandWindow.weatherIcon(modelData.icon)
                                                 color: Theme.accentAlt
-                                                font.pixelSize: 14
+                                                font.pixelSize: 16
                                             }
                                             Text {
-                                                anchors.horizontalCenter: parent.horizontalCenter
                                                 text: modelData.temp + "°"
                                                 color: Theme.text
-                                                font.pixelSize: 11
+                                                font.pixelSize: 13
                                                 font.bold: true
+                                                anchors.verticalCenter: parent.verticalCenter
                                             }
                                         }
                                     }

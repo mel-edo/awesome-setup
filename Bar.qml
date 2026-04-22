@@ -141,7 +141,7 @@ Scope {
                             return Hyprland.activeToplevel?.title ?? "~/"
                         }
                         color: Theme.subtext
-                        font.pixelSize: 12
+                        font.pixelSize: 14
                         width: parent.width - 24
                         elide: Text.ElideRight
                     }
@@ -216,6 +216,35 @@ Scope {
                     id: statusRow
                     spacing: 6
 
+                    // Network pill
+                    Rectangle {
+                        color: Theme.surface
+                        topLeftRadius: 0
+                        topRightRadius: 0
+                        bottomLeftRadius: 12
+                        bottomRightRadius: 12
+                        height: 30
+                        width: netRow.width + 16
+
+                        Row {
+                            id: netRow
+                            anchors.centerIn: parent
+                            spacing: 6
+
+                            Text {
+                                text: statusPanel.netSsid !== "" ? "󰤨" : "󰤭"
+                                color: statusPanel.netSsid !== "" ? Theme.accent : Theme.danger
+                                font.pixelSize: 14
+                            }
+
+                            Text {
+                                text: statusPanel.btConnected ? "󰂯" : "󰂲"
+                                color: statusPanel.btConnected ? Theme.accent : Theme.subtext
+                                font.pixelSize: 14
+                            }
+                        }
+                    }
+
                     // Battery pill
                     Rectangle {
                         color: Theme.surface
@@ -252,35 +281,6 @@ Scope {
                                 id: batText
                                 text: "?%"
                                 color: Theme.text
-                                font.pixelSize: 12
-                            }
-                        }
-                    }
-
-                    // Network pill
-                    Rectangle {
-                        color: Theme.surface
-                        topLeftRadius: 0
-                        topRightRadius: 0
-                        bottomLeftRadius: 12
-                        bottomRightRadius: 12
-                        height: 30
-                        width: netRow.width + 16
-
-                        Row {
-                            id: netRow
-                            anchors.centerIn: parent
-                            spacing: 6
-
-                            Text {
-                                text: statusPanel.netSsid !== "" ? "󰤨" : "󰤭"
-                                color: statusPanel.netSsid !== "" ? Theme.accent : Theme.danger
-                                font.pixelSize: 14
-                            }
-
-                            Text {
-                                text: statusPanel.btConnected ? "󰂯" : "󰂲"
-                                color: statusPanel.btConnected ? Theme.accent : Theme.subtext
                                 font.pixelSize: 14
                             }
                         }
