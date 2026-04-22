@@ -5,7 +5,6 @@ import Quickshell.Hyprland
 import Quickshell.Io
 import "."
 
-// Wrap everything in a single root Scope
 Scope {
 
     // 1. The Invisible Strut
@@ -21,17 +20,15 @@ Scope {
                 implicitHeight: 38
                 exclusiveZone: 28
                 color: "transparent"
-                mask: Region {} 
+                mask: Region {}
             }
         }
     }
 
-    // 2. The Floating Workspace Pill
+    // 2. Left side — workspace dots + title
     Variants {
         model: Quickshell.screens
-
         delegate: Component {
-        
             PanelWindow {
                 required property var modelData
                 screen: modelData
@@ -39,13 +36,13 @@ Scope {
                 anchors.left: true
                 margins.top: 0
                 margins.left: 8
-                exclusiveZone: -1 
+                exclusiveZone: -1
                 color: "transparent"
-                implicitWidth: pill.width
-                implicitHeight: pill.height
+                implicitWidth: wsPill.width
+                implicitHeight: 30
 
                 Rectangle {
-                    id: pill
+                    id: wsPill
                     color: Theme.surface
                     topLeftRadius: 0
                     topRightRadius: 0
@@ -115,22 +112,24 @@ Scope {
                 screen: modelData
                 anchors.top: true
                 anchors.left: true
-                anchors.right: true
+                margins.top: 0
+                margins.left: 8 + (8 * 14 + 7 * 10 + 24) + 6  // 8px screen margin + wsPill width + 6px gap
                 exclusiveZone: -1
                 color: "transparent"
-                implicitWidth: modelData.width
+                implicitWidth: titlePill.width
                 implicitHeight: 30
 
                 Rectangle {
                     id: titlePill
-                    anchors.horizontalCenter: parent.horizontalCenter
                     color: Theme.surface
                     topLeftRadius: 0
                     topRightRadius: 0
                     bottomLeftRadius: 12
                     bottomRightRadius: 12
                     height: 30
-                    width: Math.min(titleText.implicitWidth + 24, 400)
+                    width: Math.min(titleText.implicitWidth + 24, 250)
+
+                    Behavior on width { NumberAnimation { duration: 150; easing.type: Easing.OutCubic } }
 
                     Text {
                         id: titleText
@@ -141,7 +140,7 @@ Scope {
                             if (ws && ws.toplevels.values.length === 0) return "~/"
                             return Hyprland.activeToplevel?.title ?? "~/"
                         }
-                        color: Theme.text
+                        color: Theme.subtext
                         font.pixelSize: 12
                         width: parent.width - 24
                         elide: Text.ElideRight
@@ -151,6 +150,7 @@ Scope {
         }
     }
 
+    // 3. Right side — battery + network
     Variants {
         model: Quickshell.screens
         delegate: Component {
@@ -158,7 +158,7 @@ Scope {
                 id: statusPanel
                 required property var modelData
                 property string netSsid: ""
-                property bool btConnected: false 
+                property bool btConnected: false
                 property string batStatus: "Discharging"
                 property int batLevel: 100
                 screen: modelData
@@ -178,8 +178,8 @@ Scope {
                     stdout: SplitParser {
                         onRead: data => {
                             let parts = data.trim().split(" ")
-                            batLevel = parseInt(parts[0])
-                            batStatus = parts[1]
+                            statusPanel.batLevel = parseInt(parts[0])
+                            statusPanel.batStatus = parts[1]
                             batText.text = parts[0] + "%"
                         }
                     }
@@ -200,7 +200,7 @@ Scope {
                         onRead: data => {
                             let parts = data.trim().split(" ")
                             statusPanel.netSsid = parts[0] === "disconnected" ? "" : parts[0]
-                            statusPanel.btConnected = parts[1] === "1"
+                            statusPanel.btConnected = parts[1]?.trim() === "1"
                         }
                     }
                 }
@@ -216,7 +216,7 @@ Scope {
                     id: statusRow
                     spacing: 6
 
-                    // battery pill
+                    // Battery pill
                     Rectangle {
                         color: Theme.surface
                         topLeftRadius: 0
@@ -233,20 +233,21 @@ Scope {
 
                             Text {
                                 text: {
-                                    if (batStatus === "Charging") return "󰂄"
-                                    if (batLevel < 10) return "󰁺"
-                                    if (batLevel < 30) return "󰁼"
-                                    if (batLevel < 60) return "󰁿"
-                                    if (batLevel < 90) return "󰂁"
+                                    if (statusPanel.batStatus === "Charging") return "󰂄"
+                                    if (statusPanel.batLevel < 10) return "󰁺"
+                                    if (statusPanel.batLevel < 30) return "󰁼"
+                                    if (statusPanel.batLevel < 60) return "󰁿"
+                                    if (statusPanel.batLevel < 90) return "󰂁"
                                     return "󰁹"
                                 }
                                 color: {
-                                    if (batStatus === "Charging") return Theme.accent
-                                    if (batLevel < 20) return Theme.danger
+                                    if (statusPanel.batStatus === "Charging") return Theme.accent
+                                    if (statusPanel.batLevel < 20) return Theme.danger
                                     return Theme.accent
                                 }
                                 font.pixelSize: 14
                             }
+
                             Text {
                                 id: batText
                                 text: "?%"
@@ -256,7 +257,7 @@ Scope {
                         }
                     }
 
-                    // network pill
+                    // Network pill
                     Rectangle {
                         color: Theme.surface
                         topLeftRadius: 0
@@ -272,17 +273,14 @@ Scope {
                             spacing: 6
 
                             Text {
-                                text: netSsid !== "" ? "󰤨" : "󰤭"
-                                color: netSsid !== "" ? Theme.accent : Theme.danger
+                                text: statusPanel.netSsid !== "" ? "󰤨" : "󰤭"
+                                color: statusPanel.netSsid !== "" ? Theme.accent : Theme.danger
                                 font.pixelSize: 14
                             }
+
                             Text {
-                                text: {
-                                        text: btConnected ? "󰂯" : "󰂲"
-                                        color: btConnected ? Theme.accent : Theme.subtext
-                                        font.pixelSize: 14
-                                }
-                                color: btConnected ? Theme.accent : Theme.subtext
+                                text: statusPanel.btConnected ? "󰂯" : "󰂲"
+                                color: statusPanel.btConnected ? Theme.accent : Theme.subtext
                                 font.pixelSize: 14
                             }
                         }
