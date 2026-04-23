@@ -3,9 +3,16 @@ import Quickshell
 import Quickshell.Wayland
 import Quickshell.Hyprland
 import Quickshell.Io
+import Quickshell.Services.Mpris
 import "."
 
 Scope {
+    IpcHandler {
+        target: "island"
+        function showOsd(value: string, type: string) {
+            islandWindow.showOsd(Number(value), type)
+        }
+    }
     WlrLayershell {
         id: islandWindow
         anchors.top: true
@@ -25,6 +32,9 @@ Scope {
         property bool postHubCava: false
         property var weatherToday: null
         property var weatherForecast: []
+        property var activePlayer: Mpris.players.values.length > 0 ? Mpris.players.values[0] : null
+        property int osdValue: 50
+        property string osdType: "volume"
 
         function closeToIdle() {
             islandState = "idle"
@@ -45,9 +55,16 @@ Scope {
             return isNight ? "󰖔" : "󰖙" // fallback
         }
 
+        function showOsd(value, type) {
+            osdValue = value
+            osdType = type
+            islandWindow.islandState = "osd"
+            osdTimeoutTimer.restart()
+        }
+
         Timer {
             id: alternateTimer
-            interval: showClock ? 10000 : 7000  // won't work directly, use a fixed approach
+            interval: islandWindow.showClock ? 10000 : 7000
             running: islandWindow.cavaActive
             repeat: true
             onTriggered: {
@@ -69,7 +86,7 @@ Scope {
 
         Timer {
             id: hubStayTimer
-            interval: 2000 // 2 solid seconds in the Expanded Cava state
+            interval: 3000
             onTriggered: {
                 islandWindow.islandState = "idle" // Shrink down!
                 if (islandWindow.cavaActive && islandWindow.postHubCava) {
@@ -103,6 +120,14 @@ Scope {
             id: hubDelayTimer
             interval: 80
             onTriggered: islandWindow.islandState = "hub"
+        }
+
+        Timer {
+            id: osdTimeoutTimer
+            interval: 2000 // Stays open for 2 seconds after the last volume change
+            onTriggered: {
+                islandWindow.closeToIdle()
+            }
         }
 
         Process {
@@ -146,12 +171,14 @@ Scope {
             width: {
                 if (islandWindow.islandState === "idle") return 180
                 if (islandWindow.islandState === "calendar") return 660
-                return 300
+                if (islandWindow.islandState === "osd") return 260
+                return 350
             }
             height: {
                 if (islandWindow.islandState === "idle") return 34
                 if (islandWindow.islandState === "calendar") return 290
-                return 55
+                if (islandWindow.islandState === "osd") return 40
+                return 68
             }
             topLeftRadius: 0
             topRightRadius: 0
@@ -176,7 +203,7 @@ Scope {
                         
                         if (islandWindow.cavaActive) {
                             // Music is playing: Do the 2-phase smooth Cava step-down
-                            islandWindow.islandState = "hub" 
+                            islandWindow.islandState = "media" 
                             islandWindow.postHubCava = true
                             islandWindow.showClock = false
                             alternateTimer.stop()
@@ -219,8 +246,8 @@ Scope {
                     id: cavaRow
                     anchors.fill: parent
                     spacing: 4
-                    property bool isActiveCava: islandWindow.postHubCava || 
-                                        (islandWindow.islandState === "idle" && islandWindow.cavaActive && !islandWindow.showClock)
+                    property bool isActiveCava: islandWindow.islandState === "idle" && 
+                                                (islandWindow.postHubCava || (islandWindow.cavaActive && !islandWindow.showClock))
                     visible: isActiveCava
                     opacity: isActiveCava ? 1 : 0
                     Behavior on opacity { NumberAnimation { duration: 250; easing.type: Easing.OutQuad } }
@@ -263,7 +290,7 @@ Scope {
                         model: [
                             { icon: "󰃶", state: "calendar", accent: Theme.accent },
                             { icon: "󰂚", state: "notifications", accent: Theme.accentAlt },
-                            { icon: "󱉐", state: "wallpaper", accent: Theme.border }
+                            { icon: "󰸉", state: "wallpaper", accent: Theme.border }
                         ]
 
                         Item {
@@ -296,6 +323,135 @@ Scope {
 
                             TapHandler {
                                 onTapped: islandWindow.islandState = parent.modelData.state
+                            }
+                        }
+                    }
+                }
+                Item {
+                    id: osdPanel
+                    width: 240
+                    height: 40
+                    anchors.centerIn: parent
+                    
+                    property bool isActiveOsd: islandWindow.islandState === "osd"
+                    visible: isActiveOsd
+                    opacity: isActiveOsd ? 1 : 0
+                    Behavior on opacity { NumberAnimation { duration: 250; easing.type: Easing.OutQuad } }
+
+                    Row {
+                        anchors.fill: parent
+                        anchors.margins: 8
+                        spacing: 12
+                        anchors.verticalCenter: parent.verticalCenter
+
+                        // Dynamic Icon
+                        Text {
+                            text: islandWindow.osdType === "volume" ? "󰕾" : "󰃠" 
+                            color: Theme.text
+                            font.pixelSize: 18
+                            anchors.verticalCenter: parent.verticalCenter
+                        }
+
+                        // Slider Track
+                        Rectangle {
+                            width: 180
+                            height: 6
+                            radius: 3
+                            color: Theme.surfaceHover
+                            anchors.verticalCenter: parent.verticalCenter
+
+                            // Slider Fill (Bound to osdValue out of 100)
+                            Rectangle {
+                                width: (islandWindow.osdValue / 100) * parent.width 
+                                height: parent.height
+                                radius: 3
+                                color: Theme.accent
+                                
+                                Behavior on width { NumberAnimation { duration: 150; easing.type: Easing.OutCubic } }
+                            }
+                        }
+                    }
+                }
+                Item {
+                    id: mediaPanel
+                    width: 340
+                    height: 80
+                    anchors.centerIn: parent
+                    
+                    property bool isActiveMedia: islandWindow.islandState === "media"
+                    visible: isActiveMedia
+                    opacity: isActiveMedia ? 1 : 0
+                    Behavior on opacity { NumberAnimation { duration: 250; easing.type: Easing.OutQuad } }
+
+                    Row {
+                        anchors.fill: parent
+                        anchors.margins: 12
+                        spacing: 12
+
+                        // LEFT: Album Art
+                        Rectangle {
+                            width: 52
+                            height: 52
+                            radius: 10
+                            color: Theme.surfaceHover
+                            clip: true
+                            Image {
+                                id: albumArt
+                                anchors.fill: parent
+                                source: islandWindow.activePlayer && islandWindow.activePlayer.trackArtUrl ? islandWindow.activePlayer.trackArtUrl : ""
+                                fillMode: Image.PreserveAspectCrop
+                                visible: status === Image.Ready
+                            }
+
+                            Text {
+                                anchors.centerIn: parent
+                                text: "󰝚"
+                                color: Theme.subtext
+                                font.pixelSize: 24
+                                visible: albumArt.status !== Image.Ready
+                            }
+                        }
+
+                        // MIDDLE: Track Info
+                        Column {
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: 140 
+                            Text { 
+                                text: islandWindow.activePlayer ? (islandWindow.activePlayer.tracktitle || "Unknown Track") : "No Media"
+                                color: Theme.text; font.pixelSize: 14; font.bold: true
+                                elide: Text.ElideRight; width: parent.width 
+                            }
+                            Text { 
+                                text: islandWindow.activePlayer ? (islandWindow.activePlayer.trackArtist || "Unknown Artist") : ""
+                                color: Theme.subtext; font.pixelSize: 12
+                                elide: Text.ElideRight; width: parent.width 
+                            }
+                        }
+
+                        // RIGHT: Cava Visualizer
+                        Row {
+                            width: 100 // This fixed width makes your bars thin again!
+                            height: 32
+                            anchors.verticalCenter: parent.verticalCenter
+                            spacing: 3
+
+                            Repeater {
+                                model: islandWindow.cavaValues ? islandWindow.cavaValues.length : 0
+                                
+                                Rectangle {
+                                    width: (parent.width - (parent.spacing * (islandWindow.cavaValues.length - 1))) / Math.max(1, islandWindow.cavaValues.length)
+                                    
+                                    height: {
+                                        let val = islandWindow.cavaValues[index] || 0
+                                        let h = (val / 9) * parent.height
+                                        return Math.max(3, Math.min(h, parent.height))
+                                    }
+                                    
+                                    anchors.bottom: parent.bottom
+                                    radius: width / 2
+                                    color: Theme.accent
+                                    Behavior on height { NumberAnimation { duration: 50; easing.type: Easing.OutQuad } }
+                                }
                             }
                         }
                     }
@@ -347,7 +503,7 @@ Scope {
 
                         // --- LEFT SIDE: CALENDAR ---
                         Column {
-                            width: 290 // Fixed width ensures arrows get pushed to the far right!
+                            width: 290
                             height: parent.height
                             spacing: 12
 
@@ -387,7 +543,7 @@ Scope {
                                         width: 24; height: 24; radius: 6
                                         color: prevHover.hovered ? Theme.surfaceHover : "transparent"
                                         Behavior on color { ColorAnimation { duration: 100 } }
-                                        Text { anchors.centerIn: parent; text: "<"; color: Theme.accent; font.pixelSize: 16; font.bold: true }
+                                        Text { anchors.centerIn: parent; text: ""; color: Theme.accent; font.pixelSize: 16; font.bold: true }
                                         HoverHandler { id: prevHover; cursorShape: Qt.PointingHandCursor }
                                         TapHandler { onTapped: calGrid.monthOffset-- }
                                     }
@@ -395,7 +551,7 @@ Scope {
                                         width: 24; height: 24; radius: 6
                                         color: nextHover.hovered ? Theme.surfaceHover : "transparent"
                                         Behavior on color { ColorAnimation { duration: 100 } }
-                                        Text { anchors.centerIn: parent; text: ">"; color: Theme.accent; font.pixelSize: 16; font.bold: true }
+                                        Text { anchors.centerIn: parent; text: ""; color: Theme.accent; font.pixelSize: 16; font.bold: true }
                                         HoverHandler { id: nextHover; cursorShape: Qt.PointingHandCursor }
                                         TapHandler { onTapped: calGrid.monthOffset++ }
                                     }
