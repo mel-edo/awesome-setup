@@ -4,9 +4,11 @@ import Quickshell.Wayland
 import Quickshell.Hyprland
 import Quickshell.Io
 import Quickshell.Services.Mpris
+import Quickshell.Services.Notifications
 import QtQuick.Shapes
 import QtQuick.Effects
 import QtQuick.Layouts
+import QtQuick.Window
 import "."
 
 Scope {
@@ -41,6 +43,12 @@ Scope {
         property int osdValue: 50
         property string osdType: "volume"
         property bool isOsdIdle: false
+        property Notification activeNotification
+        property string notifAppName: "System"
+        property string notifSummary: ""
+        property string notifBody: ""
+        property string notifIcon: ""
+        property string notifImage: ""
 
         function closeToIdle() {
             islandState = "idle"
@@ -51,7 +59,7 @@ Scope {
         function weatherIcon(code) {
             let isNight = code.endsWith("n")
             if (code.startsWith("01")) return isNight ? "󰖔" : "󰖙" 
-            if (code.startsWith("02")) return isNight ? "󰖡" : "󰖕" 
+            if (code.startsWith("02")) return isNight ? "" : "󰖕" 
             if (code.startsWith("03") || code.startsWith("04")) return "󰖐" 
             if (code.startsWith("09") || code.startsWith("10")) return "󰖗" 
             if (code.startsWith("11")) return "󰖓" 
@@ -90,6 +98,43 @@ Scope {
             onTriggered: {
                 islandWindow.showClock = !islandWindow.showClock
                 interval = islandWindow.showClock ? 10000 : 7000
+            }
+        }
+
+        ListModel {
+            id: notifQueue
+        }
+
+        NotificationServer {
+            id: notifServer
+            onNotification: notification => {
+                notifQueue.insert(0, {
+                    nApp: notification.appName || "System",
+                    nSum: notification.summary || "",
+                    nBod: notification.body || "",
+                    nIco: notification.appIcon || "",
+                    nImg: notification.image || ""
+                })
+                notifRenderTimer.restart()
+            }
+        }
+
+        Timer {
+            id: notifRenderTimer
+            interval: 30 
+            onTriggered: {
+                islandWindow.islandState = "notification"
+                notificationTimer.restart()
+            }
+        }
+
+        Timer {
+            id: notificationTimer
+            interval: 2500 
+            onTriggered: {
+                if (islandWindow.islandState === "notification") {
+                    islandWindow.closeToIdle()
+                }
             }
         }
 
@@ -228,8 +273,9 @@ Scope {
                 if (islandWindow.islandState === "idle") return 180
                 if (islandWindow.islandState === "osd") return 252
                 if (islandWindow.islandState === "media") return 350
+                if (islandWindow.islandState === "notification") return 380
                 if (islandWindow.islandState === "calendar") return 660
-                if (islandWindow.islandState === "hub") return 240
+                if (islandWindow.islandState === "hub") return 350
                 return 180
             }
             
@@ -239,7 +285,8 @@ Scope {
                 if (islandWindow.islandState === "osd") return 52
                 if (islandWindow.islandState === "media") return 68
                 if (islandWindow.islandState === "calendar") return 290
-                if (islandWindow.islandState === "hub") return 50
+                if (islandWindow.islandState === "notification") return notifContainer.height
+                if (islandWindow.islandState === "hub") return 68
                 return 34
             }
             
@@ -251,8 +298,8 @@ Scope {
             clip: true
 
             // The Liquid Spring Physics
-            Behavior on width { NumberAnimation { duration: 400; easing.type: Easing.OutBack; easing.overshoot: 1.2 } }
-            Behavior on height { NumberAnimation { duration: 400; easing.type: Easing.OutBack; easing.overshoot: 1.2 } }
+            Behavior on width { NumberAnimation { duration: 300; easing.type: Easing.OutBack; easing.overshoot: 0.7 } }
+            Behavior on height { NumberAnimation { duration: 300; easing.type: Easing.OutBack; easing.overshoot: 0.7 } }
 
             HoverHandler {
                 id: pillHover
@@ -367,6 +414,38 @@ Scope {
                     }
                 }
 
+                // Incoming Notifications Stack
+                Item {
+                    id: notifContainer
+                    width: 380
+                    height: Math.max(68, Math.min(notifList.contentHeight, 350))
+                    anchors.centerIn: parent
+
+                    property bool isActiveNotif: islandWindow.islandState === "notification"
+                    visible: isActiveNotif
+                    opacity: isActiveNotif ? 1 : 0
+                    Behavior on opacity { NumberAnimation { duration: 200; easing.type: Easing.OutQuad } }
+
+                    HoverHandler {
+                        onHoveredChanged: {
+                            if (hovered && notifContainer.isActiveNotif) {
+                                notifQueue.clear() 
+                                islandWindow.closeToIdle()
+                            }
+                        }
+                    }
+
+                    ListView {
+                        id: notifList
+                        anchors.fill: parent
+                        model: notifQueue
+                        spacing: 8
+                        clip: true
+                        interactive: false 
+                        delegate: NotifCard {} 
+                    }
+                }
+
                 // IDLE CLOCK
                 Text {
                     id: clockText
@@ -424,7 +503,8 @@ Scope {
                     Repeater {
                         model: islandWindow.cavaValues ? islandWindow.cavaValues.length : 0
                         Rectangle {
-                            width: (cavaRow.width - (cavaRow.spacing * (islandWindow.cavaValues.length - 1))) / Math.max(1, islandWindow.cavaValues.length)
+                            property real calcWidth: (cavaRow.width - (cavaRow.spacing * (islandWindow.cavaValues.length - 1))) / Math.max(1, islandWindow.cavaValues.length)
+                            width: Math.max(2, calcWidth)
                             height: {
                                 let val = islandWindow.cavaValues[index] || 0
                                 let h = (val / 9) * cavaRow.height
@@ -571,14 +651,14 @@ Scope {
                             Repeater {
                                 model: islandWindow.cavaValues ? islandWindow.cavaValues.length : 0
                                 Rectangle {
-                                    width: (parent.width - (parent.spacing * (islandWindow.cavaValues.length - 1))) / Math.max(1, islandWindow.cavaValues.length)
+                                    property real calcWidth: (parent.width - (parent.spacing * (islandWindow.cavaValues.length - 1))) / Math.max(1, islandWindow.cavaValues.length)
+                                    width: Math.max(2, calcWidth)
                                     height: {
                                         let val = islandWindow.cavaValues[index] || 0
-                                        // Scaled to fit the new 52px height nicely
                                         let h = (val / 9) * (parent.height * 0.7) 
                                         return Math.max(3, Math.min(h, parent.height))
                                     }
-                                    anchors.bottom: parent.bottom // Anchors to the floor perfectly!
+                                    anchors.bottom: parent.bottom
                                     radius: width / 2
                                     color: Theme.accent
                                     Behavior on height { NumberAnimation { duration: 50; easing.type: Easing.OutQuad } }
