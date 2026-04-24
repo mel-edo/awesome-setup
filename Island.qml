@@ -108,6 +108,9 @@ Scope {
         NotificationServer {
             id: notifServer
             onNotification: notification => {
+                if (islandWindow.islandState !== "notification") {
+                    notifQueue.clear() 
+                }
                 notifQueue.insert(0, {
                     nApp: notification.appName || "System",
                     nSum: notification.summary || "",
@@ -130,7 +133,7 @@ Scope {
 
         Timer {
             id: notificationTimer
-            interval: 2500 
+            interval: 3000 
             onTriggered: {
                 if (islandWindow.islandState === "notification") {
                     islandWindow.closeToIdle()
@@ -273,7 +276,7 @@ Scope {
                 if (islandWindow.islandState === "idle") return 180
                 if (islandWindow.islandState === "osd") return 252
                 if (islandWindow.islandState === "media") return 350
-                if (islandWindow.islandState === "notification") return 380
+                if (islandWindow.islandState === "notification") return 410
                 if (islandWindow.islandState === "calendar") return 660
                 if (islandWindow.islandState === "hub") return 350
                 return 180
@@ -285,7 +288,7 @@ Scope {
                 if (islandWindow.islandState === "osd") return 52
                 if (islandWindow.islandState === "media") return 68
                 if (islandWindow.islandState === "calendar") return 290
-                if (islandWindow.islandState === "notification") return notifContainer.height
+                if (islandWindow.islandState === "notification") return notifContainer.height + 32
                 if (islandWindow.islandState === "hub") return 68
                 return 34
             }
@@ -304,6 +307,9 @@ Scope {
             HoverHandler {
                 id: pillHover
                 onHoveredChanged: {
+                    if (islandWindow.islandState === "notification") {
+                        return;
+                    }
                     if (hovered) {
                         hubStayTimer.stop()
                         idleStayTimer.stop()
@@ -418,7 +424,7 @@ Scope {
                 Item {
                     id: notifContainer
                     width: 380
-                    height: Math.max(68, Math.min(notifList.contentHeight, 350))
+                    height: Math.min(notifList.contentHeight, 140)
                     anchors.centerIn: parent
 
                     property bool isActiveNotif: islandWindow.islandState === "notification"
@@ -428,9 +434,10 @@ Scope {
 
                     HoverHandler {
                         onHoveredChanged: {
-                            if (hovered && notifContainer.isActiveNotif) {
-                                notifQueue.clear() 
-                                islandWindow.closeToIdle()
+                            if (hovered) {
+                                notificationTimer.stop()
+                            } else if (notifContainer.isActiveNotif) {
+                                notificationTimer.restart()
                             }
                         }
                     }
@@ -441,7 +448,8 @@ Scope {
                         model: notifQueue
                         spacing: 8
                         clip: true
-                        interactive: false 
+                        interactive: true 
+                        boundsBehavior: Flickable.StopAtBounds
                         delegate: NotifCard {} 
                     }
                 }

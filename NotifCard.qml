@@ -4,20 +4,17 @@ import "."
 
 Item {
     id: root
-    
-    // 1. THE SCOPE FIX: Explicitly require the variables from the ListModel!
     required property string nApp
     required property string nSum
     required property string nBod
     required property string nIco
     required property string nImg
+    required property int index
 
     width: 380
-    height: Math.max(68, textCol.height + 24)
+    height: Math.max(iconRect.height + 12, textCol.height + 16)
 
-    // 2. THE LAG FIX: Start completely invisible and let the GPU fade it in smoothly
     opacity: 0
-    
     Component.onCompleted: fadeAnim.start()
     
     NumberAnimation {
@@ -26,8 +23,20 @@ Item {
         property: "opacity"
         from: 0
         to: 1
-        duration: 300 // Fades in smoothly right as the pill finishes expanding
+        duration: 300 
         easing.type: Easing.OutCubic
+    }
+
+    TapHandler {
+        onTapped: {
+            notifQueue.remove(root.index) 
+            
+            if (notifQueue.count === 0) {
+                islandWindow.closeToIdle()
+            } else {
+                notificationTimer.restart()
+            }
+        }
     }
 
     // --- ICON ---
@@ -35,11 +44,11 @@ Item {
         id: iconRect
         anchors.top: parent.top
         anchors.left: parent.left
-        anchors.topMargin: 12
+        anchors.topMargin: 6
         anchors.leftMargin: 12
-        width: 44
-        height: 44
-        radius: 12
+        width: 40
+        height: 40
+        radius: 10
         color: Theme.surfaceHover
         clip: true
 
@@ -60,17 +69,17 @@ Item {
             anchors.centerIn: parent
             text: "󰂚"
             color: Theme.subtext
-            font.pixelSize: 20
+            font.pixelSize: 18
             visible: notifImg.status !== Image.Ready && notifImg.status !== Image.Loading
         }
     }
 
-    // --- TEXT BLOCK (Native Column, No Heavy Formatting) ---
+    // --- TEXT BLOCK ---
     Column {
         id: textCol
         anchors.top: parent.top
         anchors.left: iconRect.right
-        anchors.topMargin: 12
+        anchors.topMargin: 6
         anchors.leftMargin: 12
         spacing: 2
         
@@ -84,7 +93,7 @@ Item {
             width: parent.textWidth
             elide: Text.ElideRight
             textFormat: Text.PlainText
-            renderType: Text.NativeRendering // Uses OS font renderer (Fast!)
+            renderType: Text.NativeRendering
         }
 
         Text {
@@ -97,7 +106,7 @@ Item {
             maximumLineCount: 2
             elide: Text.ElideRight
             textFormat: Text.PlainText
-            renderType: Text.NativeRendering // Uses OS font renderer (Fast!)
+            renderType: Text.NativeRendering
         }
 
         Text {
@@ -110,7 +119,7 @@ Item {
             elide: Text.ElideRight
             visible: text !== ""
             textFormat: Text.PlainText
-            renderType: Text.NativeRendering // Uses OS font renderer (Fast!)
+            renderType: Text.NativeRendering
         }
     }
 }
