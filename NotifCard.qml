@@ -32,7 +32,11 @@ Item {
             notifQueue.remove(root.index) 
             
             if (notifQueue.count === 0) {
-                islandWindow.closeToIdle()
+                if (islandWindow.islandState === "notification") {
+                    islandWindow.closeToIdle()
+                } else {
+                    notificationTimer.restart()
+                }
             } else {
                 notificationTimer.restart()
             }

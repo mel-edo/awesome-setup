@@ -43,6 +43,10 @@ Scope {
         property int osdValue: 50
         property string osdType: "volume"
         property bool isOsdIdle: false
+        property bool btInitialized: false
+        property var btDeviceState: ({})
+        property string latestBtDevice: ""
+        property string latestBtBattery: ""
         property Notification activeNotification
         property string notifAppName: "System"
         property string notifSummary: ""
@@ -52,8 +56,30 @@ Scope {
 
         function closeToIdle() {
             islandState = "idle"
+            hubDelayTimer.stop()
             hubStayTimer.stop()
             idleStayTimer.stop()
+            notificationTimer.stop()
+            osdTimeoutTimer.stop()
+            islandWindow.showClock = true 
+            if (islandWindow.cavaActive) {
+                alternateTimer.restart()
+            } else {
+                alternateTimer.stop()
+            }
+        }
+
+        function showBtPopup() {
+            if (islandWindow.islandState === "osd" || 
+                islandWindow.islandState === "calendar" || 
+                islandWindow.islandState === "notification" || 
+                islandWindow.islandState === "notifications") return
+                
+            islandWindow.islandState = "bluetooth"
+            islandWindow.postHubCava = false
+            islandWindow.showClock = true
+            alternateTimer.stop()
+            hubStayTimer.restart()
         }
 
         function weatherIcon(code) {
@@ -82,7 +108,10 @@ Scope {
         }
 
         function showMediaPopup() {
-            if (islandWindow.islandState === "osd" || islandWindow.islandState === "calendar") return
+            if (islandWindow.islandState === "osd" || 
+                islandWindow.islandState === "calendar" || 
+                islandWindow.islandState === "notification" || 
+                islandWindow.islandState === "notifications") return
             islandWindow.islandState = "media"
             islandWindow.postHubCava = true
             islandWindow.showClock = false
@@ -92,12 +121,12 @@ Scope {
 
         Timer {
             id: alternateTimer
-            interval: islandWindow.showClock ? 10000 : 7000
-            running: islandWindow.cavaActive
+            interval: islandWindow.showClock ? 11000 : 6000
             repeat: true
             onTriggered: {
                 islandWindow.showClock = !islandWindow.showClock
-                interval = islandWindow.showClock ? 10000 : 7000
+                interval = islandWindow.showClock ? 11000 : 6000
+                alternateTimer.restart()
             }
         }
 
@@ -108,6 +137,10 @@ Scope {
         NotificationServer {
             id: notifServer
             onNotification: notification => {
+                hubDelayTimer.stop()
+                hubStayTimer.stop()
+                idleStayTimer.stop()
+                osdTimeoutTimer.stop()
                 if (islandWindow.islandState !== "notification") {
                     notifQueue.clear() 
                 }
@@ -232,6 +265,73 @@ Scope {
             onTriggered: islandWindow.isOsdIdle = true
         }
 
+        Timer {
+            interval: 1000
+            running: true
+            repeat: true
+            onTriggered: btProcess.running = true
+        }
+
+        Process {
+            id: btProcess
+            command: ["bash", "-c", "bluetoothctl devices Connected | while read -r _ mac name; do bat=$(bluetoothctl info \"$mac\" | grep 'Battery Percentage:' | awk -F '[()]' '{print $2}'); [ -z \"$bat\" ] && bat=\"--\"; echo \"$mac|$name|$bat\"; done"]
+            stdout: StdioCollector {
+                onStreamFinished: {
+                    let lines = text.trim().split("\n").filter(x => x !== "")
+                    let currentMacs = []
+                    let now = Date.now()
+                    let isMacPattern = /^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$/i
+
+                    for (let i = 0; i < lines.length; i++) {
+                        let parts = lines[i].split("|")
+                        if (parts.length < 3) continue;
+                        
+                        let mac = parts[0].trim()
+                        let name = parts[1].trim()
+                        let bat = parts[2].trim()
+                        
+                        currentMacs.push(mac)
+
+                        let altMac = mac.replace(/:/g, "-")
+                        if (isMacPattern.test(name) || name === mac || name === altMac) continue;
+
+                        if (!islandWindow.btDeviceState[mac]) {
+                            islandWindow.btDeviceState[mac] = { firstSeen: now, shown: false }
+                        }
+
+                        let device = islandWindow.btDeviceState[mac]
+
+                        if (!islandWindow.btInitialized) {
+                            device.shown = true
+                            continue;
+                        }
+
+                        if (!device.shown) {
+                            let hasBattery = bat !== "--" && bat !== ""
+                            let waitedLongEnough = (now - device.firstSeen) > 3000
+
+                            if (hasBattery || waitedLongEnough) {
+                                islandWindow.latestBtDevice = name
+                                islandWindow.latestBtBattery = bat
+                                islandWindow.showBtPopup()
+                                device.shown = true
+                            }
+                        }
+                    }
+                    let keys = Object.keys(islandWindow.btDeviceState)
+                    for (let k = 0; k < keys.length; k++) {
+                        if (!currentMacs.includes(keys[k])) {
+                            delete islandWindow.btDeviceState[keys[k]]
+                        }
+                    }
+
+                    if (!islandWindow.btInitialized) {
+                        islandWindow.btInitialized = true
+                    }
+                }
+            }
+        }
+
         Process {
             id: cavaProcess
             command: ["cava", "-p", Quickshell.env("HOME") + "/.config/cava/mshell.conf"]
@@ -242,7 +342,13 @@ Scope {
                     if (bars.length > 0) {
                         islandWindow.cavaValues = bars
                         if (bars.some(v => v > 1)) {
-                            islandWindow.cavaActive = true
+                            if (!islandWindow.cavaActive) {
+                                islandWindow.cavaActive = true
+                                islandWindow.showClock = true 
+                                if (islandWindow.islandState === "idle") {
+                                    alternateTimer.restart()
+                                }
+                            }
                             silenceTimer.restart()
                         }
                     }
@@ -271,25 +377,30 @@ Scope {
             anchors.horizontalCenter: parent.horizontalCenter
             anchors.top: parent.top
             
-            // 1. Dynamic Morphing Width
+            // Main Width vals
             width: {
                 if (islandWindow.islandState === "idle") return 180
                 if (islandWindow.islandState === "osd") return 252
-                if (islandWindow.islandState === "media") return 350
-                if (islandWindow.islandState === "notification") return 410
+                if (islandWindow.islandState === "media" || islandWindow.islandState === "hub" || islandWindow.islandState === "bluetooth") return 350
+                if (islandWindow.islandState === "notification" || islandWindow.islandState === "notifications") return 410
                 if (islandWindow.islandState === "calendar") return 660
-                if (islandWindow.islandState === "hub") return 350
                 return 180
             }
             
-            // 2. Dynamic Morphing Height
+            // Main Height vals
             height: {
                 if (islandWindow.islandState === "idle") return 34
                 if (islandWindow.islandState === "osd") return 52
-                if (islandWindow.islandState === "media") return 68
+                if (islandWindow.islandState === "media" || islandWindow.islandState === "hub" || islandWindow.islandState === "bluetooth") return 68
                 if (islandWindow.islandState === "calendar") return 290
-                if (islandWindow.islandState === "notification") return notifContainer.height + 32
-                if (islandWindow.islandState === "hub") return 68
+                if (islandWindow.islandState === "notification") {
+                    if (notifQueue.count === 0) return 34
+                    return notifContainer.height + 16
+                }
+                if (islandWindow.islandState === "notifications") {
+                    if (notifQueue.count === 0) return 68 
+                    return notifContainer.height + 16
+                }
                 return 34
             }
             
@@ -307,7 +418,7 @@ Scope {
             HoverHandler {
                 id: pillHover
                 onHoveredChanged: {
-                    if (islandWindow.islandState === "notification") {
+                    if (islandWindow.islandState === "notification" || notifRenderTimer.running) {
                         return;
                     }
                     if (hovered) {
@@ -424,10 +535,10 @@ Scope {
                 Item {
                     id: notifContainer
                     width: 380
-                    height: Math.min(notifList.contentHeight, 140)
+                    height: notifQueue.count === 0 ? 30 : Math.min(notifList.contentHeight, 160)
                     anchors.centerIn: parent
 
-                    property bool isActiveNotif: islandWindow.islandState === "notification"
+                    property bool isActiveNotif: islandWindow.islandState === "notification" || islandWindow.islandState === "notifications"
                     visible: isActiveNotif
                     opacity: isActiveNotif ? 1 : 0
                     Behavior on opacity { NumberAnimation { duration: 200; easing.type: Easing.OutQuad } }
@@ -442,6 +553,27 @@ Scope {
                         }
                     }
 
+                    Text {
+                        id: emptyStateText
+                        anchors.centerIn: parent
+                        text: "No new notifications"
+                        color: Theme.subtext
+                        font.pixelSize: 14
+                        font.bold: true
+                        property bool showEmpty: notifQueue.count === 0 && islandWindow.islandState === "notifications"
+                        
+                        // Bind visibility to opacity so it fully hides when invisible
+                        visible: opacity > 0
+                        opacity: showEmpty ? 1 : 0
+                        
+                        Behavior on opacity { 
+                            SequentialAnimation {
+                                PauseAnimation { duration: emptyStateText.showEmpty ? 250 : 0 }
+                                NumberAnimation { duration: 300; easing.type: Easing.OutCubic }
+                            }
+                        }
+                    }
+
                     ListView {
                         id: notifList
                         anchors.fill: parent
@@ -451,6 +583,15 @@ Scope {
                         interactive: true 
                         boundsBehavior: Flickable.StopAtBounds
                         delegate: NotifCard {} 
+                        remove: Transition {
+                            ParallelAnimation {
+                                NumberAnimation { property: "opacity"; to: 0; duration: 250 }
+                                NumberAnimation { property: "height"; to: 0; duration: 300; easing.type: Easing.OutQuad }
+                            }
+                        }
+                        removeDisplaced: Transition {
+                            NumberAnimation { property: "y"; duration: 400; easing.type: Easing.OutQuad }
+                        }
                     }
                 }
 
@@ -545,10 +686,10 @@ Scope {
                         ]
                         Item {
                             required property var modelData
-                            width: 32; height: 32
+                            width: 44; height: 44
                             Rectangle {
                                 anchors.fill: parent
-                                radius: 8
+                                radius: 12
                                 color: parent.modelData.accent
                                 opacity: hubBtnHover.hovered ? 0.2 : 0
                                 Behavior on opacity { NumberAnimation { duration: 150 } }
@@ -556,7 +697,7 @@ Scope {
                             Text {
                                 anchors.centerIn: parent
                                 text: parent.modelData.icon
-                                font.pixelSize: 16
+                                font.pixelSize: 20
                                 color: hubBtnHover.hovered ? parent.modelData.accent : Theme.text
                                 Behavior on color { ColorAnimation { duration: 150 } }
                             }
@@ -675,6 +816,91 @@ Scope {
                         }
                     }
                 }
+                // BLUETOOTH POPUP PANEL
+                Item {
+                    id: btPanel
+                    width: 350
+                    height: 68
+                    anchors.centerIn: parent
+                    
+                    property bool isActiveBt: islandWindow.islandState === "bluetooth"
+                    visible: isActiveBt
+                    opacity: isActiveBt ? 1 : 0
+                    Behavior on opacity { NumberAnimation { duration: 250; easing.type: Easing.OutQuad } }
+
+                    Row {
+                        anchors.fill: parent
+                        anchors.leftMargin: 12
+                        anchors.rightMargin: 12
+                        spacing: 12
+
+                        Rectangle {
+                            width: 44; height: 44
+                            anchors.verticalCenter: parent.verticalCenter
+                            radius: 12
+                            color: Theme.accent
+                            
+                            Text {
+                                anchors.centerIn: parent
+                                text: "󰂱"
+                                color: Theme.background
+                                font.pixelSize: 24
+                            }
+                        }
+
+                        // Text Info
+                        Column {
+                            anchors.verticalCenter: parent.verticalCenter
+                            
+                            Row {
+                                spacing: 8
+                                Text {
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    text: "Connected"
+                                    color: Theme.subtext
+                                    font.pixelSize: 12
+                                }
+                                
+                                Rectangle {
+                                    visible: islandWindow.latestBtBattery !== "--"
+                                    width: batRow.width + 12
+                                    height: 18
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    radius: 9
+                                    color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.08)
+                                    
+                                    Row {
+                                        id: batRow
+                                        anchors.centerIn: parent
+                                        spacing: 4
+                                        Text {
+                                            text: "󰥉"
+                                            color: Theme.accent
+                                            font.pixelSize: 11
+                                            anchors.verticalCenter: parent.verticalCenter
+                                        }
+                                        Text {
+                                            text: islandWindow.latestBtBattery + "%"
+                                            color: Theme.text
+                                            font.pixelSize: 11
+                                            font.bold: true
+                                            anchors.verticalCenter: parent.verticalCenter
+                                        }
+                                    }
+                                }
+                            }
+
+                            Text {
+                                text: islandWindow.latestBtDevice
+                                color: Theme.text
+                                font.pixelSize: 14
+                                font.bold: true
+                                elide: Text.ElideRight
+                                width: 270 
+                            }
+                        }
+                    }
+                }
                 // CALENDAR PANEL
                 Item {
                     id: calendarPanel
@@ -734,17 +960,17 @@ Scope {
                                     anchors.right: parent.right; anchors.verticalCenter: parent.verticalCenter; spacing: 6
                                     Rectangle {
                                         width: 24; height: 24; radius: 6
-                                        color: prevHover.hovered ? Theme.surfaceHover : "transparent"
+                                        color: prevHover.hovered ? Theme.accent : "transparent"
                                         Behavior on color { ColorAnimation { duration: 100 } }
-                                        Text { anchors.centerIn: parent; text: ""; color: Theme.accent; font.pixelSize: 16; font.bold: true }
+                                        Text { anchors.centerIn: parent; text: ""; color: prevHover.hovered ? Theme.background : Theme.accent; font.pixelSize: 16; font.bold: true }
                                         HoverHandler { id: prevHover; cursorShape: Qt.PointingHandCursor }
                                         TapHandler { onTapped: calGrid.monthOffset-- }
                                     }
                                     Rectangle {
                                         width: 24; height: 24; radius: 6
-                                        color: nextHover.hovered ? Theme.surfaceHover : "transparent"
+                                        color: nextHover.hovered ? Theme.accent : "transparent"
                                         Behavior on color { ColorAnimation { duration: 100 } }
-                                        Text { anchors.centerIn: parent; text: ""; color: Theme.accent; font.pixelSize: 16; font.bold: true }
+                                        Text { anchors.centerIn: parent; text: ""; color: nextHover.hovered ? Theme.background : Theme.accent; font.pixelSize: 16; font.bold: true }
                                         HoverHandler { id: nextHover; cursorShape: Qt.PointingHandCursor }
                                         TapHandler { onTapped: calGrid.monthOffset++ }
                                     }
