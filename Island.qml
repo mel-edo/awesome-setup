@@ -53,6 +53,7 @@ Scope {
         property string notifBody: ""
         property string notifIcon: ""
         property string notifImage: ""
+        property string weDir: Quickshell.env("HOME") + "/.local/share/Steam/steamapps/workshop/content/431960"
 
         function closeToIdle() {
             islandState = "idle"
@@ -129,6 +130,58 @@ Scope {
                 alternateTimer.restart()
             }
         }
+
+        ListModel {
+            id: wallpaperList
+            Component.onCompleted: {
+                fetchStaticWalls.running = true
+                fetchWeWalls.running = true
+            }
+        }
+
+        // Fetch Static Wallpapers from Downloads
+        Process {
+            id: fetchStaticWalls
+            command: ["bash", "-c", "find ~/Downloads/Wallpapers -type f \\( -iname \\*.jpg -o -iname \\*.png -o -iname \\*.jpeg \\)"]
+            stdout: StdioCollector {
+                onStreamFinished: {
+                    let files = text.trim().split("\n").filter(x => x !== "")
+                    for (let i = 0; i < files.length; i++) {
+                        wallpaperList.append({
+                            wallName: files[i].split('/').pop(),
+                            type: "static",
+                            path: files[i],
+                            preview: "file://" + files[i] 
+                        })
+                    }
+                }
+            }
+        }
+
+        // Fetch Wallpaper Engine projects
+        Process {
+            id: fetchWeWalls
+            command: ["bash", "-c", "for p in " + islandWindow.weDir + "/*/project.json; do [ -f \"$p\" ] || continue; dir=$(dirname \"$p\"); title=$(grep -m 1 '\"title\"' \"$p\" | cut -d'\"' -f4); preview=$(find \"$dir\" -maxdepth 1 -type f \\( -iname 'preview.jpg' -o -iname 'preview.jpeg' -o -iname 'preview.png' -o -iname 'preview.gif' \\) | head -n 1); echo \"$dir:::$title:::$preview\"; done"]
+            stdout: StdioCollector {
+                onStreamFinished: {
+                    let lines = text.trim().split("\n").filter(x => x !== "")
+                    for (let i = 0; i < lines.length; i++) {
+                        let parts = lines[i].split(":::")
+                        if (parts.length >= 3) {
+                            let previewPath = parts[2] ? "file://" + parts[2] : "" 
+                            wallpaperList.append({
+                                wallName: parts[1],
+                                type: "animated",
+                                path: parts[0], 
+                                preview: previewPath 
+                            })
+                        }
+                    }
+                }
+            }
+        }
+
+        Process { id: wallChangerProcess }
 
         ListModel {
             id: notifQueue
@@ -383,7 +436,7 @@ Scope {
                 if (islandWindow.islandState === "osd") return 252
                 if (islandWindow.islandState === "media" || islandWindow.islandState === "hub" || islandWindow.islandState === "bluetooth") return 350
                 if (islandWindow.islandState === "notification" || islandWindow.islandState === "notifications") return 410
-                if (islandWindow.islandState === "calendar") return 660
+                if (islandWindow.islandState === "calendar" || islandWindow.islandState === "wallpaper") return 660
                 return 180
             }
             
@@ -392,7 +445,7 @@ Scope {
                 if (islandWindow.islandState === "idle") return 34
                 if (islandWindow.islandState === "osd") return 52
                 if (islandWindow.islandState === "media" || islandWindow.islandState === "hub" || islandWindow.islandState === "bluetooth") return 68
-                if (islandWindow.islandState === "calendar") return 290
+                if (islandWindow.islandState === "calendar" || islandWindow.islandState === "wallpaper") return 290
                 if (islandWindow.islandState === "notification") {
                     if (notifQueue.count === 0) return 34
                     return notifContainer.height + 16
@@ -681,8 +734,8 @@ Scope {
                     Repeater {
                         model: [
                             { icon: "󰃶", state: "calendar", accent: Theme.accent },
-                            { icon: "󰂚", state: "notifications", accent: Theme.accentAlt },
-                            { icon: "󰸉", state: "wallpaper", accent: Theme.border }
+                            { icon: "󰂚", state: "notifications", accent: Theme.accent },
+                            { icon: "󰸉", state: "wallpaper", accent: Theme.accent }
                         ]
                         Item {
                             required property var modelData
@@ -898,6 +951,122 @@ Scope {
                                 elide: Text.ElideRight
                                 width: 270 
                             }
+                        }
+                    }
+                }
+                // WALLPAPER PANEL
+                Item {
+                    id: wallpaperPanel
+                    width: 620
+                    height: 290
+                    anchors.centerIn: parent
+                    
+                    property bool isActiveWall: islandWindow.islandState === "wallpaper"
+                    visible: isActiveWall
+                    opacity: isActiveWall ? 1 : 0
+                    Behavior on opacity { NumberAnimation { duration: 250; easing.type: Easing.OutQuad } }
+
+                    Text {
+                        anchors.top: parent.top
+                        anchors.topMargin: 20
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        text: "󰸉  Wallpapers"
+                        color: Theme.text
+                        font.pixelSize: 14
+                        font.bold: true
+                    }
+
+                    GridView {
+                        id: wallGrid
+                        anchors.top: parent.top
+                        anchors.topMargin: 50
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        anchors.bottom: parent.bottom
+                        anchors.bottomMargin: 20
+                        anchors.leftMargin: 12
+                        anchors.rightMargin: 12
+                        
+                        model: wallpaperList
+                        clip: true
+                        
+                        cellWidth: 152 
+                        cellHeight: 70 
+                        flow: GridView.FlowTopToBottom
+                        
+                        flickableDirection: Flickable.HorizontalFlick
+                        boundsBehavior: Flickable.StopAtBounds
+
+                        delegate: Item {
+                            width: 144
+                            height: 62
+
+                            Rectangle {
+                                anchors.fill: parent
+                                radius: 8
+                                color: Theme.surfaceHover
+                                clip: true
+
+                                Image {
+                                    anchors.fill: parent
+                                    source: model.preview
+                                    fillMode: Image.PreserveAspectCrop
+                                    asynchronous: true
+                                    visible: model.preview !== ""
+                                    sourceSize.width: 144
+                                    sourceSize.height: 62
+                                }
+                                
+                                Text {
+                                    anchors.centerIn: parent
+                                    text: "󰸉"
+                                    color: Theme.subtext
+                                    font.pixelSize: 24
+                                    visible: model.preview === ""
+                                }
+
+                                Rectangle {
+                                    anchors.fill: parent
+                                    color: "transparent"
+                                    radius: 8
+                                    border.width: wallHover.hovered ? 2 : 0
+                                    border.color: Theme.accent
+                                    Behavior on border.width { NumberAnimation { duration: 150 } }
+                                }
+                            }
+
+                            HoverHandler { id: wallHover; cursorShape: Qt.PointingHandCursor }
+                            TapHandler {
+                                onTapped: {
+                                    let rawPreview = model.preview.replace("file://", "")
+                                    let script = Quickshell.env("HOME") + "/.config/quickshell-new/mshell/scripts/set_wall.sh"
+                                    wallChangerProcess.command = ["bash", script, model.type, model.path, rawPreview]
+                                    wallChangerProcess.running = true
+                                    islandWindow.closeToIdle()
+                                }
+                            }
+                        }
+                    }
+
+                    // --- THE NEW SCROLL INDICATOR ---
+                    Rectangle {
+                        anchors.bottom: parent.bottom
+                        anchors.bottomMargin: 10
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        width: 200
+                        height: 4
+                        radius: 2
+                        color: Qt.rgba(Theme.subtext.r, Theme.subtext.g, Theme.subtext.b, 0.2)
+                        
+                        visible: wallGrid.visibleArea.widthRatio < 1.0 
+                        
+                        Rectangle {
+                            height: parent.height
+                            radius: 2
+                            color: Theme.accent
+                            
+                            width: parent.width * wallGrid.visibleArea.widthRatio
+                            x: parent.width * wallGrid.visibleArea.xPosition
                         }
                     }
                 }

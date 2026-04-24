@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/usr/bin/bash
 API_KEY="ccde65c11291847a9c378335f65e18ce"
 CITY="Jaipur"
 URL="https://api.openweathermap.org/data/2.5/forecast?q=${CITY}&appid=${API_KEY}&units=metric"
