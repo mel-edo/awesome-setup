@@ -99,7 +99,7 @@ Column {
             height: 28
 
             Text {
-                text: "󰤨  Network"
+                text: "󰤨    Network"
                 color: Theme.text
                 font.pixelSize: 14
                 font.bold: true
