@@ -54,6 +54,25 @@ Scope {
         property string notifIcon: ""
         property string notifImage: ""
         property string weDir: Quickshell.env("HOME") + "/.local/share/Steam/steamapps/workshop/content/431960"
+        property bool isDnd: false
+        property int cpuUsage: 0
+        property int ramUsage: 0
+        property int diskUsage: 0
+        property string themeMode: "dark"
+        property string activeWallCache: ""
+        property bool isDeepIdle: false
+
+        Process {
+            running: true
+            command: ["bash", "-c", "cat ~/.cache/mshell/wall_cache.txt 2>/dev/null || echo ''"]
+            stdout: StdioCollector { onStreamFinished: islandWindow.activeWallCache = text.trim() }
+        }
+        
+        Process {
+            running: true
+            command: ["bash", "-c", "cat ~/.cache/mshell/mode_cache.txt 2>/dev/null || echo 'dark'"]
+            stdout: StdioCollector { onStreamFinished: islandWindow.themeMode = text.trim() }
+        }
 
         function closeToIdle() {
             islandState = "idle"
@@ -68,6 +87,7 @@ Scope {
             } else {
                 alternateTimer.stop()
             }
+            islandWindow.resetActivity()
         }
 
         function showBtPopup() {
@@ -190,13 +210,6 @@ Scope {
         NotificationServer {
             id: notifServer
             onNotification: notification => {
-                hubDelayTimer.stop()
-                hubStayTimer.stop()
-                idleStayTimer.stop()
-                osdTimeoutTimer.stop()
-                if (islandWindow.islandState !== "notification") {
-                    notifQueue.clear() 
-                }
                 notifQueue.insert(0, {
                     nApp: notification.appName || "System",
                     nSum: notification.summary || "",
@@ -204,7 +217,13 @@ Scope {
                     nIco: notification.appIcon || "",
                     nImg: notification.image || ""
                 })
-                notifRenderTimer.restart()
+                if (!islandWindow.isDnd) {
+                    hubDelayTimer.stop()
+                    hubStayTimer.stop()
+                    idleStayTimer.stop()
+                    osdTimeoutTimer.stop()
+                    notifRenderTimer.restart()
+                }
             }
         }
 
@@ -215,6 +234,18 @@ Scope {
                 islandWindow.islandState = "notification"
                 notificationTimer.restart()
             }
+        }
+
+        Timer { 
+            id: deepIdleTimer; 
+            interval: 1800000;
+            running: true
+            onTriggered: islandWindow.isDeepIdle = true 
+        }
+
+        function resetActivity() {
+            islandWindow.isDeepIdle = false
+            deepIdleTimer.restart()
         }
 
         Timer {
@@ -325,6 +356,29 @@ Scope {
             onTriggered: btProcess.running = true
         }
 
+        Timer {
+            interval: 2000; running: true; repeat: true
+            onTriggered: { cpuProcess.running = true; ramProcess.running = true; diskProcess.running = true }
+        }
+
+        Process {
+            id: diskProcess
+            command: ["bash", "-c", "df / | awk 'NR==2 {print $5}' | sed 's/%//'"]
+            stdout: StdioCollector { onStreamFinished: islandWindow.diskUsage = Math.round(Number(text)) }
+        }
+
+        Process {
+            id: cpuProcess
+            command: ["bash", "-c", "top -bn1 | grep 'Cpu(s)' | sed 's/.*, *\\([0-9.]*\\)%* id.*/\\1/' | awk '{print 100 - $1}'"]
+            stdout: StdioCollector { onStreamFinished: islandWindow.cpuUsage = Math.round(Number(text)) }
+        }
+
+        Process {
+            id: ramProcess
+            command: ["bash", "-c", "free | grep Mem | awk '{print $3/$2 * 100.0}'"]
+            stdout: StdioCollector { onStreamFinished: islandWindow.ramUsage = Math.round(Number(text)) }
+        }
+
         Process {
             id: btProcess
             command: ["bash", "-c", "bluetoothctl devices Connected | while read -r _ mac name; do bat=$(bluetoothctl info \"$mac\" | grep 'Battery Percentage:' | awk -F '[()]' '{print $2}'); [ -z \"$bat\" ] && bat=\"--\"; echo \"$mac|$name|$bat\"; done"]
@@ -433,6 +487,7 @@ Scope {
             // Main Width vals
             width: {
                 if (islandWindow.islandState === "idle") return 180
+                if (islandWindow.islandState === "monitor") return 460
                 if (islandWindow.islandState === "osd") return 252
                 if (islandWindow.islandState === "media" || islandWindow.islandState === "hub" || islandWindow.islandState === "bluetooth") return 350
                 if (islandWindow.islandState === "notification" || islandWindow.islandState === "notifications") return 410
@@ -443,6 +498,7 @@ Scope {
             // Main Height vals
             height: {
                 if (islandWindow.islandState === "idle") return 34
+                if (islandWindow.islandState === "monitor") return 180
                 if (islandWindow.islandState === "osd") return 52
                 if (islandWindow.islandState === "media" || islandWindow.islandState === "hub" || islandWindow.islandState === "bluetooth") return 68
                 if (islandWindow.islandState === "calendar" || islandWindow.islandState === "wallpaper") return 290
@@ -464,6 +520,9 @@ Scope {
             color: Theme.surface
             clip: true
 
+            scale: 1.0
+            Behavior on scale { NumberAnimation { duration: 120; easing.type: Easing.OutElastic; easing.overshoot: 2.0 } }
+
             // The Liquid Spring Physics
             Behavior on width { NumberAnimation { duration: 300; easing.type: Easing.OutBack; easing.overshoot: 0.7 } }
             Behavior on height { NumberAnimation { duration: 300; easing.type: Easing.OutBack; easing.overshoot: 0.7 } }
@@ -471,6 +530,7 @@ Scope {
             HoverHandler {
                 id: pillHover
                 onHoveredChanged: {
+                    islandWindow.resetActivity()
                     if (islandWindow.islandState === "notification" || notifRenderTimer.running) {
                         return;
                     }
@@ -493,6 +553,41 @@ Scope {
                         }
                     }
                 }
+            }
+
+            // --- DAILY PROGRESS LINE ---
+            Rectangle {
+                id: dayProgressBar
+                anchors.bottom: parent.bottom
+                anchors.bottomMargin: 1
+                anchors.horizontalCenter: parent.horizontalCenter
+                
+                height: 2
+                radius: 1
+                color: Theme.accent
+                
+                visible: islandWindow.islandState === "idle"
+                opacity: islandWindow.isDeepIdle ? 1 : 0
+                Behavior on opacity { NumberAnimation { duration: 800; easing.type: Easing.InOutQuad } }
+
+                property real dayPercent: {
+                    let now = new Date();
+                    let secondsPassed = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
+                    return 1.0 - (secondsPassed / 86400);
+                }
+                
+                // Calculates the remaining day every 60 seconds
+                Timer { 
+                    interval: 300000; 
+                    running: true; 
+                    repeat: true; 
+                    onTriggered: dayProgressBar.dayPercent = 1.0 - ((new Date().getHours() * 3600 + new Date().getMinutes() * 60 + new Date().getSeconds()) / 86400) 
+                }
+
+                // Width dynamically shrinks! 
+                // (parent.width - 34) ensures it stays perfectly within the flat middle section of the pill.
+                width: Math.max(0, (parent.width - 34) * dayPercent)
+                Behavior on width { NumberAnimation { duration: 1000; easing.type: Easing.OutQuad } }
             }
 
             Item {
@@ -646,38 +741,62 @@ Scope {
                             NumberAnimation { property: "y"; duration: 400; easing.type: Easing.OutQuad }
                         }
                     }
-                }
+                    // PANEL ACTIONS (Top Right)
+                    Row {
+                        anchors.top: parent.top
+                        anchors.right: parent.right
+                        spacing: 8
+                        visible: islandWindow.islandState === "notifications"
 
+                        // CLEAR ALL BUTTON
+                        Rectangle {
+                            width: 32; height: 32; radius: 10
+                            color: Theme.surfaceHover
+                            
+                            scale: clearTap.pressed ? 0.9 : 1.0
+                            Behavior on scale { NumberAnimation { duration: 100 } }
+
+                            Text { anchors.centerIn: parent; text: "󰎟"; color: Theme.text; font.pixelSize: 16 } // Trash Icon
+
+                            HoverHandler { id: clearHover; cursorShape: Qt.PointingHandCursor }
+                            Rectangle { anchors.fill: parent; radius: 10; color: "white"; opacity: clearHover.hovered ? 0.1 : 0; Behavior on opacity { NumberAnimation{duration:100} } }
+                            
+                            TapHandler { 
+                                id: clearTap
+                                onTapped: notifQueue.clear() // Instantly empties the list!
+                            }
+                        }
+
+                        // DND TOGGLE BUTTON
+                        Rectangle {
+                            width: 32; height: 32; radius: 10
+                            color: islandWindow.isDnd ? Theme.danger : Theme.surfaceHover
+                            
+                            scale: dndTap.pressed ? 0.9 : 1.0
+                            Behavior on scale { NumberAnimation { duration: 100 } }
+
+                            Text { anchors.centerIn: parent; text: islandWindow.isDnd ? "󰂛" : "󰂚"; color: islandWindow.isDnd ? Theme.background : Theme.text; font.pixelSize: 16 }
+
+                            HoverHandler { id: dndHover; cursorShape: Qt.PointingHandCursor }
+                            Rectangle { anchors.fill: parent; radius: 10; color: "white"; opacity: dndHover.hovered ? 0.1 : 0; Behavior on opacity { NumberAnimation{duration:100} } }
+                            
+                            TapHandler { id: dndTap; onTapped: islandWindow.isDnd = !islandWindow.isDnd }
+                        }
+                    }
+                }
                 // IDLE CLOCK
                 Text {
-                    id: clockText
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    anchors.top: parent.top
-                    anchors.topMargin: 1
+                    anchors.centerIn: parent
                     text: Qt.formatDateTime(new Date(), "HH:mm:ss • ddd, MMM dd")
                     color: Theme.text
                     font.pixelSize: 14
                     
-                    property bool isActiveText: islandWindow.islandState === "idle" && 
-                                                !islandWindow.postHubCava && 
-                                                (!islandWindow.cavaActive || islandWindow.showClock)
-                    
+                    property bool isActiveText: islandWindow.islandState === "idle" && !islandWindow.postHubCava && (!islandWindow.cavaActive || islandWindow.showClock)
                     visible: isActiveText
                     opacity: isActiveText ? 1 : 0
-                    
-                    Behavior on opacity { 
-                        SequentialAnimation {
-                            PauseAnimation { duration: clockText.isActiveText ? 200 : 0 }
-                            NumberAnimation { duration: 250; easing.type: Easing.OutQuad }
-                        }
-                    }
+                    Behavior on opacity { NumberAnimation { duration: 250; easing.type: Easing.OutQuad } }
 
-                    Timer {
-                        interval: 1000
-                        running: true
-                        repeat: true
-                        onTriggered: parent.text = Qt.formatDateTime(new Date(), "HH:mm:ss • ddd, MMM dd")
-                    }
+                    Timer { interval: 1000; running: parent.visible; repeat: true; onTriggered: parent.text = Qt.formatDateTime(new Date(), "HH:mm:ss • ddd, MMM dd") }
                 }
 
                 // IDLE CAVA
@@ -735,7 +854,8 @@ Scope {
                         model: [
                             { icon: "󰃶", state: "calendar", accent: Theme.accent },
                             { icon: "󰂚", state: "notifications", accent: Theme.accent },
-                            { icon: "󰸉", state: "wallpaper", accent: Theme.accent }
+                            { icon: "󰸉", state: "wallpaper", accent: Theme.accent },
+                            { icon: "󰓅", state: "monitor", accent: Theme.accent }
                         ]
                         Item {
                             required property var modelData
@@ -967,6 +1087,7 @@ Scope {
                     Behavior on opacity { NumberAnimation { duration: 250; easing.type: Easing.OutQuad } }
 
                     Text {
+                        id: wallHeader
                         anchors.top: parent.top
                         anchors.topMargin: 20
                         anchors.horizontalCenter: parent.horizontalCenter
@@ -974,6 +1095,39 @@ Scope {
                         color: Theme.text
                         font.pixelSize: 14
                         font.bold: true
+                    }
+                    // THEME TOGGLE BUTTON
+                    Rectangle {
+                        anchors.verticalCenter: wallHeader.verticalCenter
+                        anchors.right: parent.right
+                        anchors.rightMargin: 12
+                        width: 32; height: 32; radius: 10
+                        color: Theme.surfaceHover
+                        
+                        scale: themeTap.pressed ? 0.9 : 1.0
+                        Behavior on scale { NumberAnimation { duration: 100 } }
+
+                        Text {
+                            anchors.centerIn: parent
+                            text: islandWindow.themeMode === "dark" ? "" : ""
+                            color: Theme.text
+                            font.pixelSize: 18
+                        }
+
+                        HoverHandler { id: themeHover; cursorShape: Qt.PointingHandCursor }
+                        Rectangle { anchors.fill: parent; radius: 10; color: "white"; opacity: themeHover.hovered ? 0.1 : 0; Behavior on opacity { NumberAnimation{duration:100} } }
+                        
+                        Process { id: themeProcess }
+                        TapHandler { 
+                            id: themeTap
+                            onTapped: {
+                                if (islandWindow.activeWallCache === "") return;
+                                islandWindow.themeMode = islandWindow.themeMode === "dark" ? "light" : "dark"
+                                let cmd = "echo '" + islandWindow.themeMode + "' > ~/.cache/mshell/mode_cache.txt && matugen image -t scheme-tonal-spot -m " + islandWindow.themeMode + " --source-color-index 0 " + islandWindow.activeWallCache
+                                themeProcess.command = ["bash", "-c", cmd] 
+                                themeProcess.running = true
+                            }
+                        }
                     }
 
                     GridView {
@@ -1040,7 +1194,8 @@ Scope {
                                 onTapped: {
                                     let rawPreview = model.preview.replace("file://", "")
                                     let script = Quickshell.env("HOME") + "/.config/quickshell-new/mshell/scripts/set_wall.sh"
-                                    wallChangerProcess.command = ["bash", script, model.type, model.path, rawPreview]
+                                    islandWindow.activeWallCache = model.type === "animated" ? rawPreview : model.path
+                                    wallChangerProcess.command = ["bash", script, model.type, model.path, rawPreview, islandWindow.themeMode]
                                     wallChangerProcess.running = true
                                     islandWindow.closeToIdle()
                                 }
@@ -1067,6 +1222,195 @@ Scope {
                             
                             width: parent.width * wallGrid.visibleArea.widthRatio
                             x: parent.width * wallGrid.visibleArea.xPosition
+                        }
+                    }
+                }
+                // MONITOR PANEL
+                Item {
+                    id: monitorPanel
+                    width: 440; height: 160 // Widened for 3 gauges
+                    anchors.centerIn: parent
+                    
+                    property bool isActive: islandWindow.islandState === "monitor"
+                    visible: isActive; opacity: isActive ? 1 : 0
+                    Behavior on opacity { NumberAnimation { duration: 250; easing.type: Easing.OutQuad } }
+
+                    Text {
+                        anchors.top: parent.top; anchors.horizontalCenter: parent.horizontalCenter; anchors.topMargin: 8
+                        text: "󰓅  System Monitor"; color: Theme.text; font.pixelSize: 14; font.bold: true
+                    }
+
+                    // Liquid Animation Tick
+                    property real phase: 0
+                    Timer { interval: 16; running: monitorPanel.isActive; repeat: true; onTriggered: { monitorPanel.phase += 0.05; cpuCanvas.requestPaint(); ramCanvas.requestPaint(); diskCanvas.requestPaint() } }
+
+                    Row {
+                        anchors.top: parent.top; anchors.topMargin: 50; anchors.horizontalCenter: parent.horizontalCenter
+                        spacing: 36 // Spacing between the 3 gauges
+
+                        // --- CPU GAUGE ---
+                        Item {
+                            width: 80; height: 80
+                            Rectangle {
+                                anchors.fill: parent; radius: 40; color: Theme.surfaceHover
+                                
+                                Canvas {
+                                    id: cpuCanvas
+                                    anchors.fill: parent
+                                    onPaint: {
+                                        var ctx = getContext("2d");
+                                        ctx.clearRect(0, 0, width, height);
+                                        
+                                        ctx.save();
+                                        ctx.beginPath();
+                                        ctx.arc(width/2, height/2, width/2, 0, 2 * Math.PI);
+                                        ctx.clip();
+
+                                        let fillHeight = height - (height * (islandWindow.cpuUsage / 100));
+
+                                        // 1. BACKGROUND WAVE (Lighter, Slower, Offset)
+                                        // Adding '66' to the hex adds approx 40% transparency!
+                                        ctx.fillStyle = "#6660A5FA"; 
+                                        ctx.beginPath();
+                                        ctx.moveTo(0, height);
+                                        ctx.lineTo(0, fillHeight);
+                                        for (let x = 0; x <= width; x += 5) {
+                                            // 0.03 = wider waves, * 1.5 = different speed
+                                            ctx.lineTo(x, fillHeight + Math.sin(x * 0.03 + monitorPanel.phase * 1.5) * 8); 
+                                        }
+                                        ctx.lineTo(width, height);
+                                        ctx.closePath();
+                                        ctx.fill();
+
+                                        // 2. FOREGROUND WAVE (Solid, Faster)
+                                        ctx.fillStyle = "#60A5FA"; 
+                                        ctx.beginPath();
+                                        ctx.moveTo(0, height);
+                                        ctx.lineTo(0, fillHeight);
+                                        for (let x = 0; x <= width; x += 5) {
+                                            // 0.05 = tighter waves
+                                            ctx.lineTo(x, fillHeight + Math.sin(x * 0.05 + monitorPanel.phase) * 6);
+                                        }
+                                        ctx.lineTo(width, height);
+                                        ctx.closePath();
+                                        ctx.fill();
+
+                                        ctx.restore();
+                                    }
+                                }
+                                Text { anchors.centerIn: parent; text: islandWindow.cpuUsage + "%"; color: "white"; font.pixelSize: 18; font.bold: true }
+                            }
+                            Text { anchors.top: parent.bottom; anchors.topMargin: 8; anchors.horizontalCenter: parent.horizontalCenter; text: "CPU"; color: Theme.subtext; font.pixelSize: 12; font.bold: true }
+                        }
+
+                        // --- RAM GAUGE ---
+                        Item {
+                            width: 80; height: 80
+                            Rectangle {
+                                anchors.fill: parent; radius: 40; color: Theme.surfaceHover
+                                
+                                Canvas {
+                                    id: ramCanvas
+                                    anchors.fill: parent
+                                    onPaint: {
+                                        var ctx = getContext("2d");
+                                        ctx.clearRect(0, 0, width, height);
+                                        
+                                        ctx.save();
+                                        ctx.beginPath();
+                                        ctx.arc(width/2, height/2, width/2, 0, 2 * Math.PI);
+                                        ctx.clip();
+
+                                        let fillHeight = height - (height * (islandWindow.ramUsage / 100));
+
+                                        // 1. BACKGROUND WAVE (Lighter, Slower, Offset)
+                                        // Adding '66' to the hex adds approx 40% transparency!
+                                        ctx.fillStyle = "#A78BFA"; 
+                                        ctx.beginPath();
+                                        ctx.moveTo(0, height);
+                                        ctx.lineTo(0, fillHeight);
+                                        for (let x = 0; x <= width; x += 5) {
+                                            // 0.03 = wider waves, * 1.5 = different speed
+                                            ctx.lineTo(x, fillHeight + Math.sin(x * 0.03 + monitorPanel.phase * 1.5) * 8); 
+                                        }
+                                        ctx.lineTo(width, height);
+                                        ctx.closePath();
+                                        ctx.fill();
+
+                                        // 2. FOREGROUND WAVE (Solid, Faster)
+                                        ctx.fillStyle = "#66A78BFA"; 
+                                        ctx.beginPath();
+                                        ctx.moveTo(0, height);
+                                        ctx.lineTo(0, fillHeight);
+                                        for (let x = 0; x <= width; x += 5) {
+                                            // 0.05 = tighter waves
+                                            ctx.lineTo(x, fillHeight + Math.sin(x * 0.05 + monitorPanel.phase) * 6);
+                                        }
+                                        ctx.lineTo(width, height);
+                                        ctx.closePath();
+                                        ctx.fill();
+
+                                        ctx.restore();
+                                    }
+                                }
+                                Text { anchors.centerIn: parent; text: islandWindow.ramUsage + "%"; color: "white"; font.pixelSize: 18; font.bold: true }
+                            }
+                            Text { anchors.top: parent.bottom; anchors.topMargin: 8; anchors.horizontalCenter: parent.horizontalCenter; text: "RAM"; color: Theme.subtext; font.pixelSize: 12; font.bold: true }
+                        }
+
+                        // --- DISK GAUGE ---
+                        Item {
+                            width: 80; height: 80
+                            Rectangle {
+                                anchors.fill: parent; radius: 40; color: Theme.surfaceHover
+                                
+                                Canvas {
+                                    id: diskCanvas
+                                    anchors.fill: parent
+                                    onPaint: {
+                                        var ctx = getContext("2d");
+                                        ctx.clearRect(0, 0, width, height);
+                                        
+                                        ctx.save();
+                                        ctx.beginPath();
+                                        ctx.arc(width/2, height/2, width/2, 0, 2 * Math.PI);
+                                        ctx.clip();
+
+                                        let fillHeight = height - (height * (islandWindow.diskUsage / 100));
+
+                                        // 1. BACKGROUND WAVE (Lighter, Slower, Offset)
+                                        // Adding '66' to the hex adds approx 40% transparency!
+                                        ctx.fillStyle = "#6634D399"; 
+                                        ctx.beginPath();
+                                        ctx.moveTo(0, height);
+                                        ctx.lineTo(0, fillHeight);
+                                        for (let x = 0; x <= width; x += 5) {
+                                            // 0.03 = wider waves, * 1.5 = different speed
+                                            ctx.lineTo(x, fillHeight + Math.sin(x * 0.03 + monitorPanel.phase * 1.5) * 8); 
+                                        }
+                                        ctx.lineTo(width, height);
+                                        ctx.closePath();
+                                        ctx.fill();
+
+                                        // 2. FOREGROUND WAVE (Solid, Faster)
+                                        ctx.fillStyle = "#34D399"; 
+                                        ctx.beginPath();
+                                        ctx.moveTo(0, height);
+                                        ctx.lineTo(0, fillHeight);
+                                        for (let x = 0; x <= width; x += 5) {
+                                            // 0.05 = tighter waves
+                                            ctx.lineTo(x, fillHeight + Math.sin(x * 0.05 + monitorPanel.phase) * 6);
+                                        }
+                                        ctx.lineTo(width, height);
+                                        ctx.closePath();
+                                        ctx.fill();
+
+                                        ctx.restore();
+                                    }
+                                }
+                                Text { anchors.centerIn: parent; text: islandWindow.diskUsage + "%"; color: "white"; font.pixelSize: 18; font.bold: true }
+                            }
+                            Text { anchors.top: parent.bottom; anchors.topMargin: 8; anchors.horizontalCenter: parent.horizontalCenter; text: "DISK"; color: Theme.subtext; font.pixelSize: 12; font.bold: true }
                         }
                     }
                 }
