@@ -4,12 +4,12 @@ import "."
 
 Item {
     id: root
-    required property string nApp
-    required property string nSum
-    required property string nBod
-    required property string nIco
-    required property string nImg
-    required property int index
+    property string nApp: ""
+    property string nSum: ""
+    property string nBod: ""
+    property string nIco: ""
+    property string nImg: ""
+    property int index: 0
 
     width: 380
     height: Math.max(iconRect.height + 12, textCol.height + 16)

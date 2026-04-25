@@ -104,6 +104,7 @@ Scope {
         }
     }
 
+    // Title pill
     Variants {
         model: Quickshell.screens
         delegate: Component {
@@ -127,13 +128,15 @@ Scope {
                     bottomLeftRadius: 12
                     bottomRightRadius: 12
                     height: 30
-                    width: Math.min(titleText.implicitWidth + 24, 250)
+                    width: titleText.width + 24
 
                     Behavior on width { NumberAnimation { duration: 150; easing.type: Easing.OutCubic } }
 
                     Text {
                         id: titleText
-                        anchors.centerIn: parent
+                        anchors.left: parent.left
+                        anchors.leftMargin: 12
+                        anchors.verticalCenter: parent.verticalCenter
                         text: {
                             Hyprland.focusedWorkspace
                             let ws = Hyprland.focusedWorkspace
@@ -142,7 +145,7 @@ Scope {
                         }
                         color: Theme.subtext
                         font.pixelSize: 14
-                        width: parent.width - 24
+                        width: Math.min(implicitWidth, 226)
                         elide: Text.ElideRight
                     }
                 }
@@ -150,26 +153,34 @@ Scope {
         }
     }
 
-    // 3. Right side — battery + network
+    // 3. Right side
     Variants {
         model: Quickshell.screens
         delegate: Component {
-            PanelWindow {
-                id: statusPanel
+            WlrLayershell {
+                id: rightLiquidPill
                 required property var modelData
+                screen: modelData
+
+                anchors.top: true
+                anchors.right: true
+                margins.top: 0
+                margins.right: 0
+                
+                layer: WlrLayer.Top
+                exclusiveZone: -1 
+                color: "transparent"
+
+                implicitWidth: 400
+                implicitHeight: 800 
+
+                // ─── STATE & DATA ───
+                property string rightState: "idle"
+                
                 property string netSsid: ""
                 property bool btConnected: false
                 property string batStatus: "Discharging"
                 property int batLevel: 100
-                screen: modelData
-                anchors.top: true
-                anchors.right: true
-                margins.top: 0
-                margins.right: 8
-                exclusiveZone: -1
-                color: "transparent"
-                implicitWidth: statusRow.width
-                implicitHeight: 30
 
                 Process {
                     id: batteryProcess
@@ -178,19 +189,12 @@ Scope {
                     stdout: SplitParser {
                         onRead: data => {
                             let parts = data.trim().split(" ")
-                            statusPanel.batLevel = parseInt(parts[0])
-                            statusPanel.batStatus = parts[1]
-                            batText.text = parts[0] + "%"
+                            rightLiquidPill.batLevel = parseInt(parts[0])
+                            rightLiquidPill.batStatus = parts.slice(1).join(" ")
                         }
                     }
                 }
-
-                Timer {
-                    interval: 5000
-                    running: true
-                    repeat: true
-                    onTriggered: batteryProcess.running = true
-                }
+                Timer { interval: 5000; running: true; repeat: true; onTriggered: batteryProcess.running = true }
 
                 Process {
                     id: networkProcess
@@ -199,89 +203,145 @@ Scope {
                     stdout: SplitParser {
                         onRead: data => {
                             let parts = data.trim().split(" ")
-                            statusPanel.netSsid = parts[0] === "disconnected" ? "" : parts[0]
-                            statusPanel.btConnected = parts[1]?.trim() === "1"
+                            rightLiquidPill.netSsid = parts[0] === "disconnected" ? "" : parts[0]
+                            rightLiquidPill.btConnected = parts[1]?.trim() === "1"
                         }
                     }
+                }
+                Timer { interval: 3000; running: true; repeat: true; onTriggered: networkProcess.running = true }
+
+                // ─── TIMERS FOR ORGANIC FEEL ───
+                Timer {
+                    id: openDelay
+                    interval: 80
+                    onTriggered: rightLiquidPill.rightState = "cc"
                 }
 
                 Timer {
-                    interval: 3000
-                    running: true
-                    repeat: true
-                    onTriggered: networkProcess.running = true
+                    id: closeDelay
+                    interval: 300
+                    onTriggered: rightLiquidPill.rightState = "idle"
                 }
 
-                Row {
-                    id: statusRow
-                    spacing: 6
+                // Masking the static window down to the animated background shape
+                mask: Region { item: pillBackground }
 
-                    // Network pill
-                    Rectangle {
-                        color: Theme.surface
-                        topLeftRadius: 0
-                        topRightRadius: 0
-                        bottomLeftRadius: 12
-                        bottomRightRadius: 12
-                        height: 30
-                        width: netRow.width + 16
+                // ─── THE MORPHING BACKGROUND ───
+                Rectangle {
+                    id: pillBackground
+                    
+                    anchors.top: parent.top
+                    anchors.right: parent.right
+                    anchors.topMargin: 0
+                    anchors.rightMargin: 8
 
-                        Row {
-                            id: netRow
-                            anchors.centerIn: parent
-                            spacing: 6
+                    color: Theme.surface
+                    clip: true
 
-                            Text {
-                                text: statusPanel.netSsid !== "" ? "󰤨" : "󰤭"
-                                color: statusPanel.netSsid !== "" ? Theme.accent : Theme.danger
-                                font.pixelSize: 14
-                            }
+                    width: rightLiquidPill.rightState === "idle" ? idleContent.implicitWidth + 24 : 340
+                    height: rightLiquidPill.rightState === "idle" ? 30 : ccContent.implicitHeight + 32
+                    
+                    Behavior on width { NumberAnimation { duration: 400; easing.type: Easing.OutExpo } }
+                    Behavior on height { NumberAnimation { duration: 400; easing.type: Easing.OutExpo } }
+                    Behavior on anchors.topMargin { NumberAnimation { duration: 400; easing.type: Easing.OutExpo } }
+                    Behavior on anchors.rightMargin { NumberAnimation { duration: 400; easing.type: Easing.OutExpo } }
 
-                            Text {
-                                text: statusPanel.btConnected ? "󰂯" : "󰂲"
-                                color: statusPanel.btConnected ? Theme.accent : Theme.subtext
-                                font.pixelSize: 14
+                    topLeftRadius: 0
+                    topRightRadius: 0
+                    bottomLeftRadius: rightLiquidPill.rightState === "idle" ? 12 : 16
+                    bottomRightRadius: rightLiquidPill.rightState === "idle" ? 12 : 16
+                    
+                    Behavior on topLeftRadius { NumberAnimation { duration: 300; easing.type: Easing.OutExpo } }
+                    Behavior on topRightRadius { NumberAnimation { duration: 300; easing.type: Easing.OutExpo } }
+                    Behavior on bottomLeftRadius { NumberAnimation { duration: 300; easing.type: Easing.OutExpo } }
+                    Behavior on bottomRightRadius { NumberAnimation { duration: 300; easing.type: Easing.OutExpo } }
+
+                    HoverHandler {
+                        id: pillHover
+                        onHoveredChanged: {
+                            if (hovered) {
+                                closeDelay.stop()
+                                openDelay.restart()
+                            } else {
+                                openDelay.stop()
+                                closeDelay.restart()
                             }
                         }
                     }
 
-                    // Battery pill
-                    Rectangle {
-                        color: Theme.surface
-                        topLeftRadius: 0
-                        topRightRadius: 0
-                        bottomLeftRadius: 12
-                        bottomRightRadius: 12
-                        height: 30
-                        width: batRow.width + 16
+                    // ─── CONTENT LAYER 1: IDLE STATE ───
+                    Row {
+                        id: idleContent
+                        anchors.top: parent.top
+                        anchors.right: parent.right
+                        anchors.margins: 4
+                        anchors.rightMargin: 12
+                        height: 22
+                        spacing: 12
+
+                        property bool isActive: rightLiquidPill.rightState === "idle"
+                        visible: isActive
+                        opacity: isActive ? 1 : 0
+                        Behavior on opacity { 
+                            SequentialAnimation {
+                                PauseAnimation { duration: idleContent.isActive ? 250 : 0 }
+                                NumberAnimation { duration: 150; easing.type: Easing.OutQuad }
+                            }
+                        }
 
                         Row {
-                            id: batRow
-                            anchors.centerIn: parent
-                            spacing: 6
+                            spacing: 8
+                            anchors.verticalCenter: parent.verticalCenter
+                            Text { text: rightLiquidPill.netSsid !== "" ? "󰤨" : "󰤭"; color: rightLiquidPill.netSsid !== "" ? Theme.accent : Theme.danger; font.pixelSize: 15; anchors.verticalCenter: parent.verticalCenter }
+                        }
 
+                        Rectangle { width: 2; height: 14; radius: 1; color: Qt.rgba(Theme.subtext.r, Theme.subtext.g, Theme.subtext.b, 0.2); anchors.verticalCenter: parent.verticalCenter }
+
+                        Row {
+                            spacing: 6
+                            anchors.verticalCenter: parent.verticalCenter
                             Text {
                                 text: {
-                                    if (statusPanel.batStatus === "Charging") return "󰂄"
-                                    if (statusPanel.batLevel < 10) return "󰁺"
-                                    if (statusPanel.batLevel < 30) return "󰁼"
-                                    if (statusPanel.batLevel < 60) return "󰁿"
-                                    if (statusPanel.batLevel < 90) return "󰂁"
+                                    if (rightLiquidPill.batStatus === "Charging") return "󰂄"
+                                    if (rightLiquidPill.batLevel < 10) return "󰁺"
+                                    if (rightLiquidPill.batLevel < 30) return "󰁼"
+                                    if (rightLiquidPill.batLevel < 60) return "󰁿"
+                                    if (rightLiquidPill.batLevel < 90) return "󰂁"
                                     return "󰁹"
                                 }
-                                color: {
-                                    if (statusPanel.batStatus === "Charging") return Theme.accent
-                                    if (statusPanel.batLevel < 20) return Theme.danger
-                                    return Theme.accent
-                                }
-                                font.pixelSize: 14
+                                color: rightLiquidPill.batStatus === "Charging" ? Theme.accent : (rightLiquidPill.batLevel < 20 ? Theme.danger : Theme.accent)
+                                font.pixelSize: 15; anchors.verticalCenter: parent.verticalCenter
                             }
+                            Text { text: rightLiquidPill.batLevel + "%"; color: Theme.text; font.pixelSize: 14; font.bold: true; anchors.verticalCenter: parent.verticalCenter }
+                        }
+                    }
 
-                            Text {
-                                id: batText
-                                text: "?%"
-                                color: Theme.text
-                                font.pixelSize: 14
+                    // ─── CONTENT LAYER 2: EXPANDED CONTROL CENTER ───
+                    ControlCenter {
+                        id: ccContent
+                        layer.enabled: true 
+                        
+                        width: 308 
+                        anchors.right: parent.right
+                        anchors.rightMargin: 16
+                        anchors.top: parent.top
+                        anchors.topMargin: 16
+
+                        isOpen: rightLiquidPill.rightState === "cc"
+                        parentWindow: rightLiquidPill
+                        netSsid: rightLiquidPill.netSsid
+                        batLevel: rightLiquidPill.batLevel
+                        batStatus: rightLiquidPill.batStatus
+                        btConnected: rightLiquidPill.btConnected
+
+                        property bool isActive: rightLiquidPill.rightState === "cc"
+                        visible: isActive
+                        opacity: isActive ? 1 : 0
+                        
+                        Behavior on opacity {
+                            SequentialAnimation {
+                                PauseAnimation { duration: ccContent.isActive ? 100 : 0 }
+                                NumberAnimation { duration: 200; easing.type: Easing.OutQuad }
                             }
                         }
                     }

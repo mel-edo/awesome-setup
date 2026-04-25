@@ -350,7 +350,7 @@ Scope {
         }
 
         Timer {
-            interval: 1000
+            interval: 5000
             running: true
             repeat: true
             onTriggered: btProcess.running = true
@@ -504,11 +504,11 @@ Scope {
                 if (islandWindow.islandState === "calendar" || islandWindow.islandState === "wallpaper") return 290
                 if (islandWindow.islandState === "notification") {
                     if (notifQueue.count === 0) return 34
-                    return notifContainer.height + 16
+                    return singleNotifCard.height + 16
                 }
                 if (islandWindow.islandState === "notifications") {
                     if (notifQueue.count === 0) return 68 
-                    return notifContainer.height + 16
+                    return notifCenterContainer.height + 16
                 }
                 return 34
             }
@@ -576,7 +576,7 @@ Scope {
                     return 1.0 - (secondsPassed / 86400);
                 }
                 
-                // Calculates the remaining day every 60 seconds
+                // Calculates the remaining day every 5 minutes
                 Timer { 
                     interval: 300000; 
                     running: true; 
@@ -679,23 +679,58 @@ Scope {
                     }
                 }
 
-                // Incoming Notifications Stack
+                // ═══════ SINGLE NOTIFICATION POPUP ("notification" state) ═══════
+                // Shows only the LATEST notification — fixes the bug where old ones reappeared
                 Item {
-                    id: notifContainer
+                    id: singleNotifCard
+                    width: 380
+                    height: popupCard.height
+                    anchors.centerIn: parent
+
+                    property bool isActivePopup: islandWindow.islandState === "notification"
+                    visible: isActivePopup
+                    opacity: isActivePopup ? 1 : 0
+                    Behavior on opacity { NumberAnimation { duration: 200; easing.type: Easing.OutQuad } }
+
+                    HoverHandler {
+                        onHoveredChanged: {
+                            if (hovered) notificationTimer.stop()
+                            else if (singleNotifCard.isActivePopup) notificationTimer.restart()
+                        }
+                    }
+
+                    // Only render the latest notification (index 0 in the queue)
+                    NotifCard {
+                        id: popupCard
+                        width: 380
+                        nApp: notifQueue.count > 0 ? notifQueue.get(0).nApp : ""
+                        nSum: notifQueue.count > 0 ? notifQueue.get(0).nSum : ""
+                        nBod: notifQueue.count > 0 ? notifQueue.get(0).nBod : ""
+                        nIco: notifQueue.count > 0 ? notifQueue.get(0).nIco : ""
+                        nImg: notifQueue.count > 0 ? notifQueue.get(0).nImg : ""
+                        index: 0
+                        visible: notifQueue.count > 0
+                    }
+                }
+
+                // ═══════ NOTIFICATION CENTER ("notifications" state, from hub) ═══════
+                // Shows the full notification history
+                Item {
+                    id: notifCenterContainer
                     width: 380
                     height: notifQueue.count === 0 ? 30 : Math.min(notifList.contentHeight, 160)
                     anchors.centerIn: parent
 
-                    property bool isActiveNotif: islandWindow.islandState === "notification" || islandWindow.islandState === "notifications"
-                    visible: isActiveNotif
-                    opacity: isActiveNotif ? 1 : 0
+                    property bool isActiveCenter: islandWindow.islandState === "notifications"
+                    visible: isActiveCenter
+                    opacity: isActiveCenter ? 1 : 0
                     Behavior on opacity { NumberAnimation { duration: 200; easing.type: Easing.OutQuad } }
 
                     HoverHandler {
                         onHoveredChanged: {
                             if (hovered) {
                                 notificationTimer.stop()
-                            } else if (notifContainer.isActiveNotif) {
+                            } else if (notifCenterContainer.isActiveCenter) {
                                 notificationTimer.restart()
                             }
                         }
@@ -710,7 +745,6 @@ Scope {
                         font.bold: true
                         property bool showEmpty: notifQueue.count === 0 && islandWindow.islandState === "notifications"
                         
-                        // Bind visibility to opacity so it fully hides when invisible
                         visible: opacity > 0
                         opacity: showEmpty ? 1 : 0
                         
@@ -725,12 +759,20 @@ Scope {
                     ListView {
                         id: notifList
                         anchors.fill: parent
+                        anchors.bottomMargin: 5
                         model: notifQueue
                         spacing: 8
                         clip: true
                         interactive: true 
                         boundsBehavior: Flickable.StopAtBounds
-                        delegate: NotifCard {} 
+                        delegate: NotifCard {
+                            nApp: model.nApp
+                            nSum: model.nSum
+                            nBod: model.nBod
+                            nIco: model.nIco
+                            nImg: model.nImg
+                            index: model.index
+                        }
                         remove: Transition {
                             ParallelAnimation {
                                 NumberAnimation { property: "opacity"; to: 0; duration: 250 }
@@ -1325,7 +1367,7 @@ Scope {
 
                                         // 1. BACKGROUND WAVE (Lighter, Slower, Offset)
                                         // Adding '66' to the hex adds approx 40% transparency!
-                                        ctx.fillStyle = "#A78BFA"; 
+                                        ctx.fillStyle = "#66A78BFA"; 
                                         ctx.beginPath();
                                         ctx.moveTo(0, height);
                                         ctx.lineTo(0, fillHeight);
@@ -1338,7 +1380,7 @@ Scope {
                                         ctx.fill();
 
                                         // 2. FOREGROUND WAVE (Solid, Faster)
-                                        ctx.fillStyle = "#66A78BFA"; 
+                                        ctx.fillStyle = "#A78BFA"; 
                                         ctx.beginPath();
                                         ctx.moveTo(0, height);
                                         ctx.lineTo(0, fillHeight);
