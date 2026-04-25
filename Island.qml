@@ -61,6 +61,7 @@ Scope {
         property string themeMode: "dark"
         property string activeWallCache: ""
         property bool isDeepIdle: false
+        property bool wasPlaying: false
 
         Process {
             running: true
@@ -267,8 +268,10 @@ Scope {
                 if (!players || players.length === 0) {
                     islandWindow.activePlayer = null
                     islandWindow.currentTrackTitle = ""
+                    islandWindow.wasPlaying = false
                     return
                 }
+                
                 let currentlyPlaying = null
                 for (let i = 0; i < players.length; i++) {
                     let state = players[i].playbackState
@@ -277,12 +280,21 @@ Scope {
                         break
                     }
                 }
+                
                 islandWindow.activePlayer = currentlyPlaying ? currentlyPlaying : players[0]
+                
+                let isNowPlaying = currentlyPlaying !== null
                 let newTitle = islandWindow.activePlayer ? (islandWindow.activePlayer.trackTitle || "") : ""
-                if (islandWindow.currentTrackTitle !== "" && newTitle !== "" && islandWindow.currentTrackTitle !== newTitle) {
+                
+                let titleChanged = (islandWindow.currentTrackTitle !== "" && newTitle !== "" && islandWindow.currentTrackTitle !== newTitle)
+                let stateChangedToPlaying = (isNowPlaying && !islandWindow.wasPlaying)
+                
+                if (titleChanged || stateChangedToPlaying) {
                     islandWindow.showMediaPopup()
                 }
+                
                 islandWindow.currentTrackTitle = newTitle
+                islandWindow.wasPlaying = isNowPlaying
             }
         }
 

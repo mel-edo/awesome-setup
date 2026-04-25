@@ -76,7 +76,7 @@ Column {
     Process { id: btScanProcess }
     Process { id: profileProcess }
 
-    // Smart Refreshers (respects liquid state)
+    // Smart Refreshers
     Timer { interval: 10000; running: root.isOpen; repeat: true; onTriggered: wifiListProcess.running = true }
     Timer { interval: 5000; running: root.isOpen; repeat: true; onTriggered: { btListProcess.running = true; batTimeProcess.running = true } }
 
@@ -90,7 +90,6 @@ Column {
     }
 
     // ─────────── SECTION 1: NETWORK ───────────
-
     Column {
         width: parent.width
         spacing: 8
@@ -240,7 +239,6 @@ Column {
     Rectangle { width: parent.width; height: 1; color: Qt.rgba(Theme.subtext.r, Theme.subtext.g, Theme.subtext.b, 0.12) }
 
     // ─────────── SECTION 2: BLUETOOTH ───────────
-
     Column {
         width: parent.width
         spacing: 8
@@ -382,11 +380,10 @@ Column {
         Rectangle {
             visible: root.btEnabled
             width: parent.width; height: 30; radius: 8
-            color: "transparent" // Clear base
+            color: "transparent"
             border.width: 1
             border.color: Qt.rgba(Theme.subtext.r, Theme.subtext.g, Theme.subtext.b, 0.15)
 
-            // Physical button squish
             scale: scanTap.pressed ? 0.96 : 1.0
             Behavior on scale { NumberAnimation { duration: 100 } }
 
@@ -417,7 +414,6 @@ Column {
             }
         }
 
-        // Bluetooth Off State
         Item {
             visible: !root.btEnabled
             width: parent.width; height: 40
@@ -434,7 +430,6 @@ Column {
     Rectangle { width: parent.width; height: 1; color: Qt.rgba(Theme.subtext.r, Theme.subtext.g, Theme.subtext.b, 0.12) }
 
     // ─────────── SECTION 3: BATTERY ───────────
-
     Column {
         width: parent.width
         spacing: 10
