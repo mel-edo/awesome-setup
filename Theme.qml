@@ -21,7 +21,7 @@ QtObject {
         "border": "#89b4fa"
     }
 
-    // 1. Real QML properties instead of a JS object binding
+    // Active theme properties
     property color background: fallback.background
     property color surface: fallback.surface
     property color surfaceHover: fallback.surfaceHover
@@ -35,17 +35,15 @@ QtObject {
     property color dangerHover: fallback.dangerHover
     property color border: fallback.border
 
-    // 2. The Live-Reload Watcher
+    // Matugen color watcher
     property var colorWatcher: FileView {
         id: fileView
         path: Quickshell.env("HOME") + "/.cache/wal/colors.json"
         watchChanges: true
         onFileChanged: fileView.reload()
         onTextChanged: {
-            // Read the text as a property
             let currentText = fileView.text() ? fileView.text().trim() : ""
             
-            // Only parse if the string actually looks like a JSON object
             if (currentText.startsWith("{") && currentText.endsWith("}")) {
                 try {
                     let parsed = JSON.parse(currentText)

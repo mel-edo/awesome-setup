@@ -160,7 +160,7 @@ Scope {
             }
         }
 
-        // Fetch Static Wallpapers from Downloads
+        // Static wallpaper scan
         Process {
             id: fetchStaticWalls
             command: ["bash", "-c", "find ~/Downloads/Wallpapers -type f \\( -iname \\*.jpg -o -iname \\*.png -o -iname \\*.jpeg \\)"]
@@ -179,7 +179,7 @@ Scope {
             }
         }
 
-        // Fetch Wallpaper Engine projects
+        // Animated wallpaper scan
         Process {
             id: fetchWeWalls
             command: ["bash", "-c", "for p in " + islandWindow.weDir + "/*/project.json; do [ -f \"$p\" ] || continue; dir=$(dirname \"$p\"); title=$(grep -m 1 '\"title\"' \"$p\" | cut -d'\"' -f4); preview=$(find \"$dir\" -maxdepth 1 -type f \\( -iname 'preview.jpg' -o -iname 'preview.jpeg' -o -iname 'preview.png' -o -iname 'preview.gif' \\) | head -n 1); echo \"$dir:::$title:::$preview\"; done"]
@@ -567,7 +567,7 @@ Scope {
                 }
             }
 
-            // --- DAILY PROGRESS LINE ---
+            // Daily progress line
             Rectangle {
                 id: dayProgressBar
                 anchors.bottom: parent.bottom
@@ -588,7 +588,6 @@ Scope {
                     return 1.0 - (secondsPassed / 86400);
                 }
                 
-                // Calculates the remaining day every 5 minutes
                 Timer { 
                     interval: 300000; 
                     running: true; 
@@ -596,8 +595,7 @@ Scope {
                     onTriggered: dayProgressBar.dayPercent = 1.0 - ((new Date().getHours() * 3600 + new Date().getMinutes() * 60 + new Date().getSeconds()) / 86400) 
                 }
 
-                // Width dynamically shrinks! 
-                // (parent.width - 34) ensures it stays perfectly within the flat middle section of the pill.
+                // Progress indicator width mapping
                 width: Math.max(0, (parent.width - 34) * dayPercent)
                 Behavior on width { NumberAnimation { duration: 1000; easing.type: Easing.OutQuad } }
             }
@@ -622,20 +620,19 @@ Scope {
                         }
                     }
 
-                    // 1. The Track Base
+                    // Base track
                     Rectangle {
                         anchors.fill: parent
                         radius: height / 2
                         color: Theme.highlight
                     }
 
-                    // 2. The Colored Fill
+                    // Progress fill
                     Rectangle {
                         anchors.left: parent.left
                         anchors.top: parent.top
                         anchors.bottom: parent.bottom
                         
-                        // Physically locked to the head!
                         width: sliderHead.x + sliderHead.width 
                         radius: height / 2 
                         
@@ -644,7 +641,7 @@ Scope {
                         Behavior on color { ColorAnimation { duration: 150 } }
                     }
 
-                    // 3. The Moving Slider Head
+                    // Draggable head
                     Rectangle {
                         id: sliderHead
                         width: parent.height 
@@ -677,7 +674,7 @@ Scope {
                             Behavior on opacity { NumberAnimation { duration: 200; easing.type: Easing.InOutQuad } }
                         }
 
-                        // PERCENTAGE (Fades IN when moving)
+                        // Hover percentage label
                         Text {
                             anchors.centerIn: parent
                             text: islandWindow.osdValue
@@ -691,8 +688,7 @@ Scope {
                     }
                 }
 
-                // ═══════ SINGLE NOTIFICATION POPUP ("notification" state) ═══════
-                // Shows only the LATEST notification — fixes the bug where old ones reappeared
+                // Single notification popup
                 Item {
                     id: singleNotifCard
                     width: 380
@@ -711,7 +707,6 @@ Scope {
                         }
                     }
 
-                    // Only render the latest notification (index 0 in the queue)
                     NotifCard {
                         id: popupCard
                         width: 380
@@ -725,8 +720,7 @@ Scope {
                     }
                 }
 
-                // ═══════ NOTIFICATION CENTER ("notifications" state, from hub) ═══════
-                // Shows the full notification history
+                // Full notification center
                 Item {
                     id: notifCenterContainer
                     width: 380
@@ -795,14 +789,14 @@ Scope {
                             NumberAnimation { property: "y"; duration: 400; easing.type: Easing.OutQuad }
                         }
                     }
-                    // PANEL ACTIONS (Top Right)
+                    // Header actions
                     Row {
                         anchors.top: parent.top
                         anchors.right: parent.right
                         spacing: 8
                         visible: islandWindow.islandState === "notifications"
 
-                        // CLEAR ALL BUTTON
+                        // Clear all action
                         Rectangle {
                             width: 32; height: 32; radius: 10
                             color: Theme.surfaceHover
@@ -810,18 +804,18 @@ Scope {
                             scale: clearTap.pressed ? 0.9 : 1.0
                             Behavior on scale { NumberAnimation { duration: 100 } }
 
-                            Text { anchors.centerIn: parent; text: "󰎟"; color: Theme.text; font.pixelSize: 16 } // Trash Icon
+                            Text { anchors.centerIn: parent; text: "󰎟"; color: Theme.text; font.pixelSize: 16 }
 
                             HoverHandler { id: clearHover; cursorShape: Qt.PointingHandCursor }
                             Rectangle { anchors.fill: parent; radius: 10; color: "white"; opacity: clearHover.hovered ? 0.1 : 0; Behavior on opacity { NumberAnimation{duration:100} } }
                             
                             TapHandler { 
                                 id: clearTap
-                                onTapped: notifQueue.clear() // Instantly empties the list!
+                                onTapped: notifQueue.clear()
                             }
                         }
 
-                        // DND TOGGLE BUTTON
+                        // Do not disturb toggle
                         Rectangle {
                             width: 32; height: 32; radius: 10
                             color: islandWindow.isDnd ? Theme.danger : Theme.surfaceHover
@@ -838,7 +832,7 @@ Scope {
                         }
                     }
                 }
-                // IDLE CLOCK
+                // Idle clock
                 Text {
                     anchors.centerIn: parent
                     text: Qt.formatDateTime(new Date(), "HH:mm:ss • ddd, MMM dd")
@@ -853,7 +847,7 @@ Scope {
                     Timer { interval: 1000; running: parent.visible; repeat: true; onTriggered: parent.text = Qt.formatDateTime(new Date(), "HH:mm:ss • ddd, MMM dd") }
                 }
 
-                // IDLE CAVA
+                // Idle visualizer
                 Row {
                     id: cavaRow
                     anchors.left: parent.left
@@ -893,7 +887,7 @@ Scope {
                     }
                 }
 
-                // HUB PANEL
+                // Navigation hub
                 Row {
                     id: hubRow
                     anchors.centerIn: parent
@@ -934,7 +928,7 @@ Scope {
                     }
                 }
 
-                // MEDIA PANEL
+                // Media player
                 Item {
                     id: mediaPanel
                     width: 334
@@ -950,11 +944,11 @@ Scope {
                         anchors.fill: parent
                         spacing: 12
 
-                        // --- PERFECTLY ROUNDED ALBUM ART ---
+                        // Album art container
                         Item {
                             width: 52; height: 52
                             
-                            // 1. Fallback Background (Always rendered underneath!)
+                            // Fallback background
                             Rectangle {
                                 anchors.fill: parent
                                 radius: 12
@@ -967,19 +961,18 @@ Scope {
                                 }
                             }
 
-                            // 2. The Raw Square Image (Hidden from view, but active in memory)
+                            // Source image
                             Image {
                                 id: albumArt
                                 anchors.fill: parent
                                 source: islandWindow.activePlayer && islandWindow.activePlayer.trackArtUrl ? islandWindow.activePlayer.trackArtUrl : ""
                                 fillMode: Image.PreserveAspectCrop
                                 
-                                // The Trick: Forces it to load into the GPU even while invisible!
                                 layer.enabled: true 
                                 visible: false 
                             }
 
-                            // 3. The Rounded Mask Shape (Hidden from view, but active in memory)
+                            // Alpha mask
                             Rectangle {
                                 id: artMask
                                 width: 52; height: 52
@@ -989,19 +982,18 @@ Scope {
                                 visible: false
                             }
 
-                            // 4. The Final Masked Output
+                            // Masked output
                             MultiEffect {
                                 anchors.fill: parent
                                 source: albumArt
                                 maskEnabled: true
                                 maskSource: artMask
                                 
-                                // Only fades in the masked image when it finishes downloading!
                                 opacity: albumArt.status === Image.Ready ? 1 : 0
                                 Behavior on opacity { NumberAnimation { duration: 200 } }
                             }
                         }
-                        // Track Info
+                        // Track metadata
                         Column {
                             anchors.verticalCenter: parent.verticalCenter
                             width: 140 
@@ -1017,10 +1009,10 @@ Scope {
                             }
                         }
 
-                        // --- FIXED: Grounded Cava Visualizer ---
+                        // Audio visualizer
                         Row {
                             width: 100 
-                            height: 52 // MATCHES ALBUM ART HEIGHT!
+                            height: 52 
                             anchors.verticalCenter: parent.verticalCenter
                             spacing: 3
                             
@@ -1043,7 +1035,7 @@ Scope {
                         }
                     }
                 }
-                // BLUETOOTH POPUP PANEL
+                // Bluetooth popup
                 Item {
                     id: btPanel
                     width: 350
@@ -1075,7 +1067,7 @@ Scope {
                             }
                         }
 
-                        // Text Info
+                        // Connection details
                         Column {
                             anchors.verticalCenter: parent.verticalCenter
                             
@@ -1128,7 +1120,7 @@ Scope {
                         }
                     }
                 }
-                // WALLPAPER PANEL
+                // Wallpaper manager
                 Item {
                     id: wallpaperPanel
                     width: 620
@@ -1150,7 +1142,7 @@ Scope {
                         font.pixelSize: 14
                         font.bold: true
                     }
-                    // THEME TOGGLE BUTTON
+                    // Theme control
                     Rectangle {
                         anchors.verticalCenter: wallHeader.verticalCenter
                         anchors.right: parent.right
@@ -1257,7 +1249,7 @@ Scope {
                         }
                     }
 
-                    // --- THE NEW SCROLL INDICATOR ---
+                    // Scroll indicator
                     Rectangle {
                         anchors.bottom: parent.bottom
                         anchors.bottomMargin: 10
@@ -1279,10 +1271,10 @@ Scope {
                         }
                     }
                 }
-                // MONITOR PANEL
+                // System monitor
                 Item {
                     id: monitorPanel
-                    width: 440; height: 160 // Widened for 3 gauges
+                    width: 440; height: 160
                     anchors.centerIn: parent
                     
                     property bool isActive: islandWindow.islandState === "monitor"
@@ -1294,15 +1286,15 @@ Scope {
                         text: "󰓅  System Monitor"; color: Theme.text; font.pixelSize: 14; font.bold: true
                     }
 
-                    // Liquid Animation Tick
+                    // Animation phase clock
                     property real phase: 0
                     Timer { interval: 16; running: monitorPanel.isActive; repeat: true; onTriggered: { monitorPanel.phase += 0.05; cpuCanvas.requestPaint(); ramCanvas.requestPaint(); diskCanvas.requestPaint() } }
 
                     Row {
                         anchors.top: parent.top; anchors.topMargin: 50; anchors.horizontalCenter: parent.horizontalCenter
-                        spacing: 36 // Spacing between the 3 gauges
+                        spacing: 36
 
-                        // --- CPU GAUGE ---
+                        // CPU gauge
                         Item {
                             width: 80; height: 80
                             Rectangle {
@@ -1322,27 +1314,24 @@ Scope {
 
                                         let fillHeight = height - (height * (islandWindow.cpuUsage / 100));
 
-                                        // 1. BACKGROUND WAVE (Lighter, Slower, Offset)
-                                        // Adding '66' to the hex adds approx 40% transparency!
+                                        // Background wave
                                         ctx.fillStyle = "#6660A5FA"; 
                                         ctx.beginPath();
                                         ctx.moveTo(0, height);
                                         ctx.lineTo(0, fillHeight);
                                         for (let x = 0; x <= width; x += 5) {
-                                            // 0.03 = wider waves, * 1.5 = different speed
                                             ctx.lineTo(x, fillHeight + Math.sin(x * 0.03 + monitorPanel.phase * 1.5) * 8); 
                                         }
                                         ctx.lineTo(width, height);
                                         ctx.closePath();
                                         ctx.fill();
 
-                                        // 2. FOREGROUND WAVE (Solid, Faster)
+                                        // Foreground wave
                                         ctx.fillStyle = "#60A5FA"; 
                                         ctx.beginPath();
                                         ctx.moveTo(0, height);
                                         ctx.lineTo(0, fillHeight);
                                         for (let x = 0; x <= width; x += 5) {
-                                            // 0.05 = tighter waves
                                             ctx.lineTo(x, fillHeight + Math.sin(x * 0.05 + monitorPanel.phase) * 6);
                                         }
                                         ctx.lineTo(width, height);
@@ -1357,7 +1346,7 @@ Scope {
                             Text { anchors.top: parent.bottom; anchors.topMargin: 8; anchors.horizontalCenter: parent.horizontalCenter; text: "CPU"; color: Theme.subtext; font.pixelSize: 12; font.bold: true }
                         }
 
-                        // --- RAM GAUGE ---
+                        // RAM gauge
                         Item {
                             width: 80; height: 80
                             Rectangle {
@@ -1377,27 +1366,24 @@ Scope {
 
                                         let fillHeight = height - (height * (islandWindow.ramUsage / 100));
 
-                                        // 1. BACKGROUND WAVE (Lighter, Slower, Offset)
-                                        // Adding '66' to the hex adds approx 40% transparency!
+                                        // Background wave
                                         ctx.fillStyle = "#66A78BFA"; 
                                         ctx.beginPath();
                                         ctx.moveTo(0, height);
                                         ctx.lineTo(0, fillHeight);
                                         for (let x = 0; x <= width; x += 5) {
-                                            // 0.03 = wider waves, * 1.5 = different speed
                                             ctx.lineTo(x, fillHeight + Math.sin(x * 0.03 + monitorPanel.phase * 1.5) * 8); 
                                         }
                                         ctx.lineTo(width, height);
                                         ctx.closePath();
                                         ctx.fill();
 
-                                        // 2. FOREGROUND WAVE (Solid, Faster)
+                                        // Foreground wave
                                         ctx.fillStyle = "#A78BFA"; 
                                         ctx.beginPath();
                                         ctx.moveTo(0, height);
                                         ctx.lineTo(0, fillHeight);
                                         for (let x = 0; x <= width; x += 5) {
-                                            // 0.05 = tighter waves
                                             ctx.lineTo(x, fillHeight + Math.sin(x * 0.05 + monitorPanel.phase) * 6);
                                         }
                                         ctx.lineTo(width, height);
@@ -1412,7 +1398,7 @@ Scope {
                             Text { anchors.top: parent.bottom; anchors.topMargin: 8; anchors.horizontalCenter: parent.horizontalCenter; text: "RAM"; color: Theme.subtext; font.pixelSize: 12; font.bold: true }
                         }
 
-                        // --- DISK GAUGE ---
+                        // Disk gauge
                         Item {
                             width: 80; height: 80
                             Rectangle {
@@ -1432,27 +1418,24 @@ Scope {
 
                                         let fillHeight = height - (height * (islandWindow.diskUsage / 100));
 
-                                        // 1. BACKGROUND WAVE (Lighter, Slower, Offset)
-                                        // Adding '66' to the hex adds approx 40% transparency!
+                                        // Background wave
                                         ctx.fillStyle = "#6634D399"; 
                                         ctx.beginPath();
                                         ctx.moveTo(0, height);
                                         ctx.lineTo(0, fillHeight);
                                         for (let x = 0; x <= width; x += 5) {
-                                            // 0.03 = wider waves, * 1.5 = different speed
                                             ctx.lineTo(x, fillHeight + Math.sin(x * 0.03 + monitorPanel.phase * 1.5) * 8); 
                                         }
                                         ctx.lineTo(width, height);
                                         ctx.closePath();
                                         ctx.fill();
 
-                                        // 2. FOREGROUND WAVE (Solid, Faster)
+                                        // Foreground wave
                                         ctx.fillStyle = "#34D399"; 
                                         ctx.beginPath();
                                         ctx.moveTo(0, height);
                                         ctx.lineTo(0, fillHeight);
                                         for (let x = 0; x <= width; x += 5) {
-                                            // 0.05 = tighter waves
                                             ctx.lineTo(x, fillHeight + Math.sin(x * 0.05 + monitorPanel.phase) * 6);
                                         }
                                         ctx.lineTo(width, height);
@@ -1468,7 +1451,7 @@ Scope {
                         }
                     }
                 }
-                // CALENDAR PANEL
+                // Calendar panel
                 Item {
                     id: calendarPanel
                     width: 620
@@ -1510,7 +1493,7 @@ Scope {
                         anchors.bottomMargin: 12
                         spacing: 32
 
-                        // --- LEFT: CALENDAR ---
+                        // Calendar widget
                         Column {
                             width: 290
                             height: parent.height
@@ -1598,7 +1581,7 @@ Scope {
                             }
                         }
 
-                        // --- RIGHT: WEATHER ---
+                        // Right: Weather
                         Rectangle {
                             width: 274; height: parent.height; radius: 12
                             color: Qt.rgba(Theme.highlight.r, Theme.highlight.g, Theme.highlight.b, 0.15)
@@ -1630,7 +1613,7 @@ Scope {
 
                                 Row {
                                     anchors.horizontalCenter: parent.horizontalCenter
-                                spacing: 10 // Tightened slightly to comfortably fit all 5 items
+                                spacing: 10
                                 
                                 // Rain Chance (PoP)
                                 Row {

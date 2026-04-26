@@ -43,7 +43,7 @@ Item {
         }
     }
 
-    // --- ICON ---
+    // Application icon
     Rectangle {
         id: iconRect
         anchors.top: parent.top
@@ -78,7 +78,7 @@ Item {
         }
     }
 
-    // --- TEXT BLOCK ---
+    // Notification content
     Column {
         id: textCol
         anchors.top: parent.top

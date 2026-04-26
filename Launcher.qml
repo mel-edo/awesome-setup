@@ -38,7 +38,7 @@ WlrLayershell {
 
     Process { id: launchProcess }
 
-    // ─── THE FUZZY FINDER ENGINE ───
+    // Fuzzy search filter
     function filterApps(query) {
         appModel.clear()
         if (allApps.length === 0) return
@@ -63,7 +63,6 @@ WlrLayershell {
             appModel.append(results[i])
         }
 
-        // Dynamic droplet resize based on list content
         if (launcherRoot.isOpen) {
             droplet.height = 60 + (query === "" ? 0 : (appModel.count * 48) + 1)
         }
@@ -71,7 +70,7 @@ WlrLayershell {
 
     function launchTopApp() {
         if (appModel.count > 0) {
-            launchProcess.command = ["bash", "-c", appModel.get(0).exec + " &"]
+            launchProcess.command = ["hyprctl", "dispatch", "exec", appModel.get(0).exec]
             launchProcess.running = true
             shellRoot.launcherOpen = false
         }
@@ -94,7 +93,7 @@ WlrLayershell {
         }
     }
 
-    // Click the empty background to close
+    // Background closer
     MouseArea {
         anchors.fill: parent
         onClicked: if (shellRoot.launcherOpen) shellRoot.launcherOpen = false
@@ -123,10 +122,10 @@ WlrLayershell {
             Column {
                 anchors.fill: parent
                 
-                // ─── SEARCH BAR ───
+                // Search input
                 Item {
                     width: parent.width
-                    height: 60 // Keep the top bar 60px tall
+                    height: 60
 
                     Row {
                         anchors.fill: parent
@@ -163,7 +162,7 @@ WlrLayershell {
 
                 Rectangle { width: parent.width; height: 1; color: Qt.rgba(Theme.subtext.r, Theme.subtext.g, Theme.subtext.b, 0.15); visible: appModel.count > 0 && searchInput.text !== "" }
 
-                // ─── APP RESULTS LIST ───
+                // Application list
                 ListView {
                     id: appList
                     width: parent.width
@@ -199,7 +198,7 @@ WlrLayershell {
                         HoverHandler { id: appHover; cursorShape: Qt.PointingHandCursor }
                         TapHandler {
                             onTapped: {
-                                launchProcess.command = ["bash", "-c", model.exec + " &"]
+                                launchProcess.command = ["hyprctl", "dispatch", "exec", model.exec]
                                 launchProcess.running = true
                                 shellRoot.launcherOpen = false
                             }
@@ -223,7 +222,7 @@ WlrLayershell {
         
         ParallelAnimation {
             NumberAnimation { target: droplet; property: "width"; to: 600; duration: 300; easing.type: Easing.OutExpo }
-            NumberAnimation { target: droplet; property: "height"; to: 60; duration: 300; easing.type: Easing.OutExpo } // Fixed at 60
+            NumberAnimation { target: droplet; property: "height"; to: 60; duration: 300; easing.type: Easing.OutExpo }
             NumberAnimation { target: droplet; property: "radius"; to: 16; duration: 300; easing.type: Easing.OutExpo }
             NumberAnimation { target: searchContent; property: "opacity"; to: 1; duration: 250 }
         }

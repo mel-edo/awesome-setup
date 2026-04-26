@@ -76,7 +76,7 @@ Column {
     Process { id: btScanProcess }
     Process { id: profileProcess }
 
-    // Smart Refreshers
+    // State refresh timers
     Timer { interval: 10000; running: root.isOpen; repeat: true; onTriggered: wifiListProcess.running = true }
     Timer { interval: 5000; running: root.isOpen; repeat: true; onTriggered: { btListProcess.running = true; batTimeProcess.running = true } }
 
@@ -89,7 +89,7 @@ Column {
         }
     }
 
-    // ─────────── SECTION 1: NETWORK ───────────
+    // Network section
     Column {
         width: parent.width
         spacing: 8
@@ -133,7 +133,7 @@ Column {
             }
         }
 
-        // Active Connection Highlight
+        // Active connection status
         Rectangle {
             visible: root.wifiEnabled && root.netSsid !== "" && root.netSsid !== "disconnected"
             width: parent.width; height: 44; radius: 8
@@ -151,7 +151,7 @@ Column {
             }
         }
 
-        // Available Networks List
+        // Available networks
         ListView {
             width: parent.width
             height: Math.min(contentHeight, 140)
@@ -222,7 +222,7 @@ Column {
             }
         }
 
-        // Wi-Fi Off State
+        // Disabled state
         Item {
             visible: !root.wifiEnabled
             width: parent.width; height: 40
@@ -238,7 +238,7 @@ Column {
 
     Rectangle { width: parent.width; height: 1; color: Qt.rgba(Theme.subtext.r, Theme.subtext.g, Theme.subtext.b, 0.12) }
 
-    // ─────────── SECTION 2: BLUETOOTH ───────────
+    // Bluetooth section
     Column {
         width: parent.width
         spacing: 8
@@ -429,7 +429,7 @@ Column {
 
     Rectangle { width: parent.width; height: 1; color: Qt.rgba(Theme.subtext.r, Theme.subtext.g, Theme.subtext.b, 0.12) }
 
-    // ─────────── SECTION 3: BATTERY ───────────
+    // Battery and power section
     Column {
         width: parent.width
         spacing: 10

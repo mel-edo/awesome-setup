@@ -9,7 +9,7 @@ import "."
 
 Scope {
 
-    // 1. The Invisible Strut
+    // Top strut
     Variants {
         model: Quickshell.screens
         delegate: Component {
@@ -27,7 +27,7 @@ Scope {
         }
     }
 
-    // 2. Left side — workspace dots + title
+    // Left container: workspaces and title
     Variants {
         model: Quickshell.screens
         delegate: Component {
@@ -106,7 +106,7 @@ Scope {
         }
     }
 
-    // Title pill
+    // Focused window title
     Variants {
         model: Quickshell.screens
         delegate: Component {
@@ -152,7 +152,7 @@ Scope {
         }
     }
 
-    // 3. Right side
+    // Right container: system trays and control center
     Variants {
         model: Quickshell.screens
         delegate: Component {
@@ -173,7 +173,7 @@ Scope {
                 implicitWidth: 800
                 implicitHeight: 800 
 
-                // ─── STATE & DATA ───
+                // Component state
                 property string rightState: "idle"
                 property var activeMenuHandle: null
                 property string activeMenuName: ""
@@ -219,7 +219,7 @@ Scope {
                 Timer { id: openDelay; interval: 80; onTriggered: rightLiquidPill.rightState = "cc" }
                 Timer { id: closeDelay; interval: 100; onTriggered: rightLiquidPill.rightState = "idle" }
 
-                // ─── GRACE PERIOD TIMER FOR MENU ───
+                // Menu hover debounce timer
                 Timer {
                     id: menuCloseTimer
                     interval: 150
@@ -261,9 +261,7 @@ Scope {
                         
                         spacing: 0 
 
-                        // ══════════════════════════════════════════════
-                        // ELEMENT 1: THE MAIN CONTROL CENTER
-                        // ══════════════════════════════════════════════
+                        // Main control center pill
                         Rectangle {
                             id: pillBackground
                             
@@ -359,7 +357,7 @@ Scope {
                             }
                         }
 
-                        // ELEMENT 2: THE VERTICAL TRAY TAB
+                        // Vertical system tray
                         Item {
                             id: trayTabWrapper
                             property bool isOpen: rightLiquidPill.rightState === "cc" && SystemTray.items.values.length > 0
@@ -451,7 +449,7 @@ Scope {
                             }
                         }
 
-                        // ELEMENT 3: THE SIDECAR FLYOUT MENU
+                        // Expandable sidecar menu
                         Item {
                             id: flyoutContainerWrapper
                             width: flyoutClip.width
@@ -522,7 +520,7 @@ Scope {
                     }
                 }
                 
-                // ─── CAELESTIA MENU COMPONENT ───
+                // Reusable menu component
                 Component {
                     id: customMenuComponent
 
@@ -579,7 +577,7 @@ Scope {
 
                                         Image {
                                             source: modelData.icon || ""
-                                            width: 14; height: 14; sourceSize: Qt.size(14, 14) // Slightly smaller icons
+                                            width: 14; height: 14; sourceSize: Qt.size(14, 14)
                                             anchors.verticalCenter: parent.verticalCenter
                                             visible: modelData.icon !== ""
                                         }
@@ -587,7 +585,7 @@ Scope {
                                         Text {
                                             text: modelData.text || ""
                                             color: modelData.enabled ? Theme.text : Theme.subtext
-                                            font.pixelSize: 12 // Keeps the text crisp
+                                            font.pixelSize: 12
                                             anchors.verticalCenter: parent.verticalCenter
                                         }
                                     }
