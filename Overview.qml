@@ -10,6 +10,7 @@ Scope {
     id: root
 
     property bool isOpen: false
+    signal windowsPopulated()
 
     IpcHandler {
         target: "overview"
@@ -23,44 +24,47 @@ Scope {
     }
 
     Process {
+        id: clientProcess
+        command: ["hyprctl", "clients", "-j"]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                if (text.trim() === "") return;
+                let windows = JSON.parse(text);
+                windowModel.clear();
+                for (let i = 0; i < windows.length; i++) {
+                    let w = windows[i];
+                    if (w.title !== "") {
+                        let wsName = w.workspace ? w.workspace.name : "?";
+                        if (wsName.startsWith("special")) wsName = "s";
+                        let winClass = w.class || "";
+                        let iconName = winClass;
+                        let lowerClass = winClass.toLowerCase();
+                        if (lowerClass === "codium") iconName = "vscodium";
+                        else if (lowerClass === "zen") iconName = "zen-browser";
+                        else if (lowerClass === "xreader") iconName = "document-viewer";
+                        else if (lowerClass === "com.github.th_ch.youtube_music") iconName = "youtube-music";
+                        let rawAddress = String(w.address).trim();
+                        if (!rawAddress.startsWith("0x")) rawAddress = "0x" + rawAddress;
+                        windowModel.append({
+                            winAddress: rawAddress, 
+                            winTitle: w.title,
+                            winIconName: iconName,
+                            winWorkspace: wsName
+                        });
+                    }
+                }
+                root.windowsPopulated();
+            }
+        }
+    }
+    Process {
         id: hyprctlFocus
         property string targetAddr: ""
         command: ["sh", "-c", "sleep 0.1 && hyprctl dispatch focuswindow address:" + targetAddr]
     }
 
     function populateWindows() {
-        windowModel.clear()
-        let windows = Hyprland.toplevels.values
-        
-        for (let i = 0; i < windows.length; i++) {
-            let w = windows[i]
-            
-            if (!w.lastIpcObject) continue;
-
-            let winClass = w.lastIpcObject.class || ""
-            
-            if (winClass !== "" && w.title !== "") {
-                
-                let wsName = w.workspace ? w.workspace.name : "?"
-                if (wsName.startsWith("special")) wsName = "s"
-
-                let iconName = winClass
-                let lowerClass = winClass.toLowerCase()
-                if (lowerClass === "codium") iconName = "vscodium"
-                else if (lowerClass === "zen") iconName = "zen-browser"
-                else if (lowerClass === "xreader") iconName = "document-viewer"
-
-                let rawAddress = String(w.address).trim()
-                if (!rawAddress.startsWith("0x")) rawAddress = "0x" + rawAddress
-
-                windowModel.append({
-                    winAddress: rawAddress, 
-                    winTitle: w.title,
-                    winIconName: iconName,
-                    winWorkspace: wsName
-                })
-            }
-        }
+        clientProcess.running = true
     }
 
     Variants {
@@ -88,7 +92,15 @@ Scope {
                     interval: 30
                     onTriggered: {
                         root.populateWindows()
-                        openAnim.restart()
+                    }
+                }
+
+                Connections {
+                    target: root
+                    function onWindowsPopulated() {
+                        if (overviewRoot.isActuallyVisible) {
+                            openAnim.restart()
+                        }
                     }
                 }
 
@@ -127,7 +139,8 @@ Scope {
                     Item {
                         id: listContent
                         width: 600
-                        height: Math.max(60, Math.min((windowModel.count * 56) + 24, modelData.height * 0.8))
+                        // Cap exactly at 5 rows (5 * 56 + 24 = 304)
+                        height: Math.max(60, Math.min((windowModel.count * 56) + 24, 304))
                         
                         anchors.top: parent.top 
                         anchors.horizontalCenter: parent.horizontalCenter
@@ -139,7 +152,18 @@ Scope {
                             anchors.margins: 12 
                             model: windowModel
                             clip: true
+                            interactive: true
+                            boundsBehavior: Flickable.StopAtBounds
                             
+                            ScrollBar.vertical: ScrollBar {
+                                policy: windowList.contentHeight > windowList.height + 2 ? ScrollBar.AlwaysOn : ScrollBar.AlwaysOff
+                                interactive: true
+                                contentItem: Rectangle {
+                                    implicitWidth: 4
+                                    radius: 2
+                                    color: Theme.accent
+                                }
+                            }
                             highlightMoveDuration: 150 
 
                             onVisibleChanged: {
@@ -254,7 +278,7 @@ Scope {
                     
                     ParallelAnimation {
                         NumberAnimation { target: droplet; property: "width"; to: 600; duration: 300; easing.type: Easing.OutExpo }
-                        NumberAnimation { target: droplet; property: "height"; to: windowModel.count > 0 ? Math.min((windowModel.count * 56) + 24, modelData.height * 0.8) : 80; duration: 300; easing.type: Easing.OutExpo } 
+                        NumberAnimation { target: droplet; property: "height"; to: listContent.height; duration: 300; easing.type: Easing.OutExpo } 
                         NumberAnimation { target: droplet; property: "radius"; to: 16; duration: 300; easing.type: Easing.OutExpo }
                         NumberAnimation { target: listContent; property: "opacity"; to: 1; duration: 250 }
                     }
@@ -272,7 +296,7 @@ Scope {
                         NumberAnimation { target: droplet; property: "radius"; to: 20; duration: 250; easing.type: Easing.OutExpo }
                     }
                     
-                    NumberAnimation { target: droplet; property: "y"; to: -100; duration: 250; easing.type: Easing.InBack }
+                    NumberAnimation { target: droplet; property: "y"; to: -100; duration: 250; easing.type: Easing.InExpo }
                     
                     onFinished: {
                         if (!root.isOpen) {

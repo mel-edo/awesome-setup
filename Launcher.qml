@@ -240,7 +240,7 @@ WlrLayershell {
             NumberAnimation { target: droplet; property: "radius"; to: 20; duration: 250; easing.type: Easing.OutExpo }
         }
         
-        NumberAnimation { target: droplet; property: "y"; to: -100; duration: 250; easing.type: Easing.InBack }
+        NumberAnimation { target: droplet; property: "y"; to: -100; duration: 250; easing.type: Easing.InExpo }
         
         ScriptAction { script: searchInput.text = "" }
     }

@@ -77,6 +77,7 @@ Scope {
 
         function closeToIdle() {
             islandState = "idle"
+            islandWindow.postHubCava = false
             hubDelayTimer.stop()
             hubStayTimer.stop()
             idleStayTimer.stop()
@@ -529,7 +530,10 @@ Scope {
                 return 34
             }
             
-            radius: islandWindow.islandState === "calendar" ? 24 : height / 3
+            radius: {
+                if (islandWindow.islandState === "calendar" || islandWindow.islandState === "notifications") return 24
+                return height / 3
+            }
             topLeftRadius: 0
             topRightRadius: 0
             
@@ -728,7 +732,7 @@ Scope {
                 Item {
                     id: notifCenterContainer
                     width: 380
-                    height: notifQueue.count === 0 ? 30 : Math.min(notifList.contentHeight, 160)
+                    height: notifQueue.count === 0 ? 32 : Math.min(notifList.contentHeight + 48, 300)
                     anchors.centerIn: parent
 
                     property bool isActiveCenter: islandWindow.islandState === "notifications"
@@ -746,35 +750,103 @@ Scope {
                         }
                     }
 
-                    Text {
-                        id: emptyStateText
-                        anchors.centerIn: parent
-                        text: "No new notifications"
-                        color: Theme.subtext
-                        font.pixelSize: 14
-                        font.bold: true
-                        property bool showEmpty: notifQueue.count === 0 && islandWindow.islandState === "notifications"
-                        
-                        visible: opacity > 0
-                        opacity: showEmpty ? 1 : 0
-                        
-                        Behavior on opacity { 
-                            SequentialAnimation {
-                                PauseAnimation { duration: emptyStateText.showEmpty ? 250 : 0 }
-                                NumberAnimation { duration: 300; easing.type: Easing.OutCubic }
+                    // Header Section
+                    Item {
+                        id: notifHeader
+                        width: parent.width
+                        height: 32
+                        anchors.top: parent.top
+
+                        Text {
+                            anchors.left: parent.left
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: "󰂚  Notifications" + (notifQueue.count > 0 ? " - " + notifQueue.count : "")
+                            color: Theme.text
+                            font.pixelSize: 14
+                            font.bold: true
+                            opacity: notifQueue.count > 0 ? 1 : 0
+                            Behavior on opacity { NumberAnimation { duration: 200 } }
+                        }
+
+                        Text {
+                            id: emptyStateText
+                            anchors.centerIn: parent
+                            text: "No new notifications"
+                            color: Theme.subtext
+                            font.pixelSize: 14
+                            font.bold: true
+                            property bool showEmpty: notifQueue.count === 0 && islandWindow.islandState === "notifications"
+                            
+                            visible: opacity > 0
+                            opacity: showEmpty ? 1 : 0
+                            
+                            Behavior on opacity { 
+                                SequentialAnimation {
+                                    PauseAnimation { duration: emptyStateText.showEmpty ? 250 : 0 }
+                                    NumberAnimation { duration: 300; easing.type: Easing.OutCubic }
+                                }
+                            }
+                        }
+
+                        // Header actions
+                        Row {
+                            anchors.right: parent.right
+                            anchors.verticalCenter: parent.verticalCenter
+                            spacing: 8
+
+                            // Clear all action
+                            Rectangle {
+                                width: 28; height: 28; radius: 8
+                                color: Theme.surfaceHover
+                                visible: notifQueue.count > 0
+                                
+                                scale: clearTap.pressed ? 0.9 : 1.0
+                                Behavior on scale { NumberAnimation { duration: 100 } }
+
+                                Text { anchors.centerIn: parent; text: "󰎟"; color: Theme.text; font.pixelSize: 14 }
+
+                                HoverHandler { id: clearHover; cursorShape: Qt.PointingHandCursor }
+                                Rectangle { anchors.fill: parent; radius: 8; color: "white"; opacity: clearHover.hovered ? 0.1 : 0; Behavior on opacity { NumberAnimation{duration:100} } }
+                                
+                                TapHandler { 
+                                    id: clearTap
+                                    onTapped: notifQueue.clear()
+                                }
+                            }
+
+                            // Do not disturb toggle
+                            Rectangle {
+                                width: 28; height: 28; radius: 8
+                                color: islandWindow.isDnd ? Theme.danger : Theme.surfaceHover
+                                
+                                scale: dndTap.pressed ? 0.9 : 1.0
+                                Behavior on scale { NumberAnimation { duration: 100 } }
+
+                                Text { anchors.centerIn: parent; text: islandWindow.isDnd ? "󰂛" : "󰂚"; color: islandWindow.isDnd ? Theme.background : Theme.text; font.pixelSize: 14 }
+
+                                HoverHandler { id: dndHover; cursorShape: Qt.PointingHandCursor }
+                                Rectangle { anchors.fill: parent; radius: 8; color: "white"; opacity: dndHover.hovered ? 0.1 : 0; Behavior on opacity { NumberAnimation{duration:100} } }
+                                
+                                TapHandler { id: dndTap; onTapped: islandWindow.isDnd = !islandWindow.isDnd }
                             }
                         }
                     }
 
                     ListView {
                         id: notifList
-                        anchors.fill: parent
-                        anchors.bottomMargin: 5
+                        anchors.top: notifHeader.bottom
+                        anchors.topMargin: 12
+                        anchors.bottom: parent.bottom
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        anchors.rightMargin: 12
                         model: notifQueue
                         spacing: 8
                         clip: true
                         interactive: true 
                         boundsBehavior: Flickable.StopAtBounds
+                        visible: notifQueue.count > 0
+
                         delegate: NotifCard {
                             nApp: model.nApp
                             nSum: model.nSum
@@ -793,46 +865,26 @@ Scope {
                             NumberAnimation { property: "y"; duration: 400; easing.type: Easing.OutQuad }
                         }
                     }
-                    // Header actions
-                    Row {
-                        anchors.top: parent.top
+
+                    // Scroll Indicator
+                    Rectangle {
                         anchors.right: parent.right
-                        spacing: 8
-                        visible: islandWindow.islandState === "notifications"
-
-                        // Clear all action
+                        anchors.rightMargin: 2
+                        anchors.top: notifList.top
+                        anchors.bottom: notifList.bottom
+                        width: 4
+                        radius: 2
+                        color: Qt.rgba(Theme.subtext.r, Theme.subtext.g, Theme.subtext.b, 0.2)
+                        
+                        visible: notifList.visibleArea.heightRatio < 1.0 && notifQueue.count > 0
+                        
                         Rectangle {
-                            width: 32; height: 32; radius: 10
-                            color: Theme.surfaceHover
+                            width: parent.width
+                            radius: 2
+                            color: Theme.accent
                             
-                            scale: clearTap.pressed ? 0.9 : 1.0
-                            Behavior on scale { NumberAnimation { duration: 100 } }
-
-                            Text { anchors.centerIn: parent; text: "󰎟"; color: Theme.text; font.pixelSize: 16 }
-
-                            HoverHandler { id: clearHover; cursorShape: Qt.PointingHandCursor }
-                            Rectangle { anchors.fill: parent; radius: 10; color: "white"; opacity: clearHover.hovered ? 0.1 : 0; Behavior on opacity { NumberAnimation{duration:100} } }
-                            
-                            TapHandler { 
-                                id: clearTap
-                                onTapped: notifQueue.clear()
-                            }
-                        }
-
-                        // Do not disturb toggle
-                        Rectangle {
-                            width: 32; height: 32; radius: 10
-                            color: islandWindow.isDnd ? Theme.danger : Theme.surfaceHover
-                            
-                            scale: dndTap.pressed ? 0.9 : 1.0
-                            Behavior on scale { NumberAnimation { duration: 100 } }
-
-                            Text { anchors.centerIn: parent; text: islandWindow.isDnd ? "󰂛" : "󰂚"; color: islandWindow.isDnd ? Theme.background : Theme.text; font.pixelSize: 16 }
-
-                            HoverHandler { id: dndHover; cursorShape: Qt.PointingHandCursor }
-                            Rectangle { anchors.fill: parent; radius: 10; color: "white"; opacity: dndHover.hovered ? 0.1 : 0; Behavior on opacity { NumberAnimation{duration:100} } }
-                            
-                            TapHandler { id: dndTap; onTapped: islandWindow.isDnd = !islandWindow.isDnd }
+                            height: Math.max(16, parent.height * notifList.visibleArea.heightRatio)
+                            y: parent.height * notifList.visibleArea.yPosition
                         }
                     }
                 }
@@ -848,7 +900,7 @@ Scope {
                     opacity: isActiveText ? 1 : 0
                     Behavior on opacity { NumberAnimation { duration: 250; easing.type: Easing.OutQuad } }
 
-                    Timer { interval: 1000; running: parent.visible; repeat: true; onTriggered: parent.text = Qt.formatDateTime(new Date(), "HH:mm:ss • ddd, MMM dd") }
+                    Timer { interval: 1000; running: true; repeat: true; onTriggered: parent.text = Qt.formatDateTime(new Date(), "HH:mm:ss • ddd, MMM dd") }
                 }
 
                 // Idle visualizer
@@ -1484,7 +1536,7 @@ Scope {
                         font.pixelSize: 14
                         font.bold: true
                         Timer {
-                            interval: 1000; running: parent.visible; repeat: true
+                            interval: 1000; running: true; repeat: true
                             onTriggered: parent.text = Qt.formatDateTime(new Date(), "HH:mm:ss • ddd, MMM d")
                         }
                     }
