@@ -60,7 +60,6 @@ Scope {
         property int diskUsage: 0
         property string themeMode: "dark"
         property string activeWallCache: ""
-        property bool isDeepIdle: false
         property bool wasPlaying: false
 
         Process {
@@ -89,7 +88,6 @@ Scope {
             } else {
                 alternateTimer.stop()
             }
-            islandWindow.resetActivity()
         }
 
         function showBtPopup() {
@@ -236,18 +234,6 @@ Scope {
                 islandWindow.islandState = "notification"
                 notificationTimer.restart()
             }
-        }
-
-        Timer { 
-            id: deepIdleTimer; 
-            interval: 1800000;
-            running: true
-            onTriggered: islandWindow.isDeepIdle = true 
-        }
-
-        function resetActivity() {
-            islandWindow.isDeepIdle = false
-            deepIdleTimer.restart()
         }
 
         Timer {
@@ -550,7 +536,6 @@ Scope {
             HoverHandler {
                 id: pillHover
                 onHoveredChanged: {
-                    islandWindow.resetActivity()
                     if (islandWindow.islandState === "notification" || notifRenderTimer.running) {
                         return;
                     }
@@ -575,38 +560,7 @@ Scope {
                 }
             }
 
-            // Daily progress line
-            Rectangle {
-                id: dayProgressBar
-                anchors.bottom: parent.bottom
-                anchors.bottomMargin: 1
-                anchors.horizontalCenter: parent.horizontalCenter
-                
-                height: 2
-                radius: 1
-                color: Theme.accent
-                
-                visible: islandWindow.islandState === "idle"
-                opacity: islandWindow.isDeepIdle ? 1 : 0
-                Behavior on opacity { NumberAnimation { duration: 800; easing.type: Easing.InOutQuad } }
 
-                property real dayPercent: {
-                    let now = new Date();
-                    let secondsPassed = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
-                    return 1.0 - (secondsPassed / 86400);
-                }
-                
-                Timer { 
-                    interval: 300000; 
-                    running: true; 
-                    repeat: true; 
-                    onTriggered: dayProgressBar.dayPercent = 1.0 - ((new Date().getHours() * 3600 + new Date().getMinutes() * 60 + new Date().getSeconds()) / 86400) 
-                }
-
-                // Progress indicator width mapping
-                width: Math.max(0, (parent.width - 34) * dayPercent)
-                Behavior on width { NumberAnimation { duration: 1000; easing.type: Easing.OutQuad } }
-            }
 
             Item {
                 anchors.fill: parent
@@ -1036,6 +990,54 @@ Scope {
                                 
                                 layer.enabled: true
                                 visible: false
+                            }
+
+                            // Ambient Glow Source separating internal states
+                            Image {
+                                id: albumGlowSrc
+                                anchors.fill: parent
+                                source: albumArt.source
+                                fillMode: Image.PreserveAspectCrop
+                                layer.enabled: true
+                                visible: false
+                            }
+
+                            // Glow Container Masked to Main Pill
+                            Item {
+                                width: mainPill.width
+                                height: mainPill.height
+                                x: -(mainPill.width - mediaPanel.width) / 2
+                                y: -(mainPill.height - mediaPanel.height) / 2
+                                z: -1
+                                
+                                layer.enabled: true
+                                layer.effect: MultiEffect {
+                                    maskEnabled: true
+                                    maskSource: pillMaskRect
+                                }
+
+                                Rectangle {
+                                    id: pillMaskRect
+                                    anchors.fill: parent
+                                    radius: mainPill.radius
+                                    color: "black"
+                                    layer.enabled: true
+                                    visible: false
+                                }
+
+                                MultiEffect {
+                                    width: 52
+                                    height: 52
+                                    x: (mainPill.width - mediaPanel.width) / 2
+                                    y: (mainPill.height - mediaPanel.height) / 2
+                                    source: albumGlowSrc
+                                    blurEnabled: true
+                                    blurMax: 64
+                                    blur: 1.0
+                                    saturation: 1.8
+                                    opacity: albumArt.status === Image.Ready ? 0.45 : 0
+                                    Behavior on opacity { NumberAnimation { duration: 200 } }
+                                }
                             }
 
                             // Masked output

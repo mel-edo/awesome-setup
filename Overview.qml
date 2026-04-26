@@ -23,6 +23,33 @@ Scope {
         id: windowModel
     }
 
+    property var allWindows: []
+
+    function filterWindows(query) {
+        windowModel.clear()
+        if (allWindows.length === 0) return
+
+        let results = []
+        if (query === "") {
+            results = allWindows
+        } else {
+            let fuzzyPattern = query.toLowerCase().split('').join('.*')
+            let regex = new RegExp(fuzzyPattern, "i")
+            
+            results = allWindows.filter(w => regex.test(w.winTitle.toLowerCase()) || regex.test(w.winClass.toLowerCase()))
+            
+            results.sort((a, b) => {
+                let aStarts = (a.winTitle.toLowerCase().startsWith(query.toLowerCase()) || a.winClass.toLowerCase().startsWith(query.toLowerCase())) ? -1 : 1
+                let bStarts = (b.winTitle.toLowerCase().startsWith(query.toLowerCase()) || b.winClass.toLowerCase().startsWith(query.toLowerCase())) ? -1 : 1
+                return aStarts - bStarts
+            })
+        }
+
+        for (let i = 0; i < results.length; i++) {
+            windowModel.append(results[i])
+        }
+    }
+
     Process {
         id: clientProcess
         command: ["hyprctl", "clients", "-j"]
@@ -30,7 +57,7 @@ Scope {
             onStreamFinished: {
                 if (text.trim() === "") return;
                 let windows = JSON.parse(text);
-                windowModel.clear();
+                root.allWindows = [];
                 for (let i = 0; i < windows.length; i++) {
                     let w = windows[i];
                     if (w.title !== "") {
@@ -45,14 +72,16 @@ Scope {
                         else if (lowerClass === "com.github.th_ch.youtube_music") iconName = "youtube-music";
                         let rawAddress = String(w.address).trim();
                         if (!rawAddress.startsWith("0x")) rawAddress = "0x" + rawAddress;
-                        windowModel.append({
+                        root.allWindows.push({
                             winAddress: rawAddress, 
                             winTitle: w.title,
                             winIconName: iconName,
-                            winWorkspace: wsName
+                            winWorkspace: wsName,
+                            winClass: winClass
                         });
                     }
                 }
+                root.filterWindows("");
                 root.windowsPopulated();
             }
         }
@@ -139,16 +168,83 @@ Scope {
                     Item {
                         id: listContent
                         width: 600
-                        // Cap exactly at 5 rows (5 * 56 + 24 = 304)
-                        height: Math.max(60, Math.min((windowModel.count * 56) + 24, 304))
+                        height: 60 + (windowModel.count === 0 ? 0 : Math.min((windowModel.count * 56) + 24, 304))
                         
                         anchors.top: parent.top 
                         anchors.horizontalCenter: parent.horizontalCenter
                         opacity: 0
 
+                        // Search input
+                        Item {
+                            id: searchContainer
+                            width: parent.width
+                            height: 60
+                            anchors.top: parent.top
+
+                            Row {
+                                anchors.fill: parent
+                                anchors.leftMargin: 20
+                                anchors.rightMargin: 20
+                                spacing: 16
+
+                                Text { 
+                                    id: searchIcon
+                                    text: ""
+                                    color: Theme.accent
+                                    font.pixelSize: 20
+                                    anchors.verticalCenter: parent.verticalCenter 
+                                }
+
+                                TextField {
+                                    id: searchInput
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    width: parent.width - searchIcon.width - 16
+                                    
+                                    placeholderText: "Search windows..."
+                                    color: Theme.text
+                                    placeholderTextColor: Theme.subtext
+                                    font.pixelSize: 18
+                                    background: Item {} 
+                                    
+                                    onTextChanged: root.filterWindows(text)
+                                    
+                                    Keys.onPressed: event => {
+                                        if (event.key === Qt.Key_Up) {
+                                            windowList.decrementCurrentIndex()
+                                            event.accepted = true
+                                        } else if (event.key === Qt.Key_Down) {
+                                            windowList.incrementCurrentIndex()
+                                            event.accepted = true
+                                        } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
+                                            if (windowList.currentIndex >= 0 && windowList.currentIndex < windowModel.count) {
+                                                let addr = windowModel.get(windowList.currentIndex).winAddress
+                                                shellRoot.overviewOpen = false
+                                                hyprctlFocus.targetAddr = addr
+                                                hyprctlFocus.running = true
+                                            }
+                                            event.accepted = true
+                                        } else if (event.key === Qt.Key_Escape) {
+                                            shellRoot.overviewOpen = false
+                                            event.accepted = true
+                                        }
+                                    }
+                                }
+                            }
+                            
+                            Rectangle {
+                                anchors.bottom: parent.bottom
+                                width: parent.width; height: 1
+                                color: Qt.rgba(Theme.subtext.r, Theme.subtext.g, Theme.subtext.b, 0.15)
+                                visible: windowModel.count > 0 && searchInput.text !== ""
+                            }
+                        }
+
                         ListView {
                             id: windowList
-                            anchors.fill: parent
+                            anchors.top: searchContainer.bottom
+                            anchors.bottom: parent.bottom
+                            anchors.left: parent.left
+                            anchors.right: parent.right
                             anchors.margins: 12 
                             model: windowModel
                             clip: true
@@ -168,29 +264,7 @@ Scope {
 
                             onVisibleChanged: {
                                 if (visible) {
-                                    forceActiveFocus()
                                     currentIndex = 0
-                                }
-                            }
-
-                            Keys.onPressed: event => {
-                                if (event.key === Qt.Key_Up) {
-                                    windowList.decrementCurrentIndex()
-                                    event.accepted = true
-                                } else if (event.key === Qt.Key_Down) {
-                                    windowList.incrementCurrentIndex()
-                                    event.accepted = true
-                                } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
-                                    if (windowList.currentIndex >= 0 && windowList.currentIndex < windowModel.count) {
-                                        let addr = windowModel.get(windowList.currentIndex).winAddress
-                                        shellRoot.overviewOpen = false
-                                        hyprctlFocus.targetAddr = addr
-                                        hyprctlFocus.running = true
-                                    }
-                                    event.accepted = true
-                                } else if (event.key === Qt.Key_Escape) {
-                                    shellRoot.overviewOpen = false
-                                    event.accepted = true
                                 }
                             }
 
@@ -283,7 +357,7 @@ Scope {
                         NumberAnimation { target: listContent; property: "opacity"; to: 1; duration: 250 }
                     }
                     
-                    ScriptAction { script: windowList.forceActiveFocus() }
+                    ScriptAction { script: searchInput.forceActiveFocus() }
                 }
 
                 SequentialAnimation {
@@ -297,6 +371,8 @@ Scope {
                     }
                     
                     NumberAnimation { target: droplet; property: "y"; to: -100; duration: 250; easing.type: Easing.InExpo }
+                    
+                    ScriptAction { script: searchInput.text = "" }
                     
                     onFinished: {
                         if (!root.isOpen) {
