@@ -5,3 +5,5 @@ Island 1.0 Island.qml
 NotifCard 1.0 NotifCard.qml
 ControlCenter 1.0 ControlCenter.qml
 Launcher 1.0 Launcher.qml
+LockScreen 1.0 LockScreen.qml
+Overview 1.0 Overview.qml

@@ -7,10 +7,15 @@ import "."
 ShellRoot {
     id: shellRoot
     property bool launcherOpen: false
+    property bool overviewOpen: false
+    onLauncherOpenChanged: { if (launcherOpen) overviewOpen = false }
+    onOverviewOpenChanged: { if (overviewOpen) launcherOpen = false }
+
     GlobalShortcut {
         name: "toggleLauncher"
         onPressed: shellRoot.launcherOpen = !shellRoot.launcherOpen
     }
+
     Bar {}
     Island {}
     
@@ -23,5 +28,10 @@ ShellRoot {
                 isOpen: shellRoot.launcherOpen
             }
         }
+    }
+
+    LockScreen {}
+    Overview {
+        isOpen: shellRoot.overviewOpen
     }
 }

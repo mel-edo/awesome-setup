@@ -327,7 +327,7 @@ Scope {
                                         color: rightLiquidPill.batStatus === "Charging" ? Theme.accent : (rightLiquidPill.batLevel < 20 ? Theme.danger : Theme.accent)
                                         font.pixelSize: 15; anchors.verticalCenter: parent.verticalCenter
                                     }
-                                    Text { text: rightLiquidPill.batLevel + "%"; color: Theme.text; font.pixelSize: 14; font.bold: true; anchors.verticalCenter: parent.verticalCenter }
+                                    Text { text: rightLiquidPill.batLevel + "%"; color: Theme.text; font.pixelSize: 14; anchors.verticalCenter: parent.verticalCenter }
                                 }
                             }
 
