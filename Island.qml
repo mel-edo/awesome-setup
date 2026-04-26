@@ -478,6 +478,7 @@ Scope {
         Process {
             id: weatherProcess
             command: [Quickshell.env("HOME") + "/.config/quickshell-new/mshell/scripts/calendar/weather.sh"]
+            running: true
             stdout: StdioCollector {
                 onStreamFinished: {
                     try {
@@ -490,6 +491,9 @@ Scope {
                 }
             }
         }
+
+        // Refresh weather every 15 minutes
+        Timer { interval: 900000; running: true; repeat: true; onTriggered: weatherProcess.running = true }
 
         Rectangle {
             id: mainPill
@@ -1179,7 +1183,7 @@ Scope {
                     GridView {
                         id: wallGrid
                         anchors.top: parent.top
-                        anchors.topMargin: 50
+                        anchors.topMargin: 65
                         anchors.left: parent.left
                         anchors.right: parent.right
                         anchors.bottom: parent.bottom
@@ -1191,7 +1195,7 @@ Scope {
                         clip: true
                         
                         cellWidth: 152 
-                        cellHeight: 70 
+                        cellHeight: 65
                         flow: GridView.FlowTopToBottom
                         
                         flickableDirection: Flickable.HorizontalFlick
@@ -1199,7 +1203,7 @@ Scope {
 
                         delegate: Item {
                             width: 144
-                            height: 62
+                            height: 58
 
                             Rectangle {
                                 anchors.fill: parent
@@ -1651,12 +1655,12 @@ Scope {
 
                                 Grid {
                                     anchors.horizontalCenter: parent.horizontalCenter
-                                    columns: 2; columnSpacing: 24; rowSpacing: 10
+                                    columns: 2; columnSpacing: 10; rowSpacing: 10
                                     Repeater {
                                         model: islandWindow.weatherForecast
                                         Row {
-                                            spacing: 8
-                                            Text { text: modelData.day; color: Theme.subtext; font.pixelSize: 13; font.bold: true; width: 30; anchors.baseline: forecastHigh.baseline }
+                                            spacing: 4
+                                            Text { text: modelData.day; color: Theme.subtext; font.pixelSize: 13; font.bold: true; width: 24; anchors.baseline: forecastHigh.baseline }
                                             Text { text: islandWindow.weatherIcon(modelData.icon); color: Theme.accentAlt; font.pixelSize: 14; anchors.baseline: forecastHigh.baseline }
                                             Text { id: forecastHigh; text: modelData.high + "°"; color: Theme.text; font.pixelSize: 13; font.bold: true }
                                             Text { text: modelData.low + "°"; color: Theme.subtext; font.pixelSize: 12; anchors.baseline: forecastHigh.baseline }

@@ -29,7 +29,7 @@ Column {
                 let nets = []
                 for (let line of lines) {
                     let parts = line.split(":")
-                    if (parts.length >= 3 && parts[0] !== "") {
+                    if (parts.length >= 3 && parts[0] !== "" && parts[0] !== root.netSsid) {
                         nets.push({ ssid: parts[0], signal: parseInt(parts[1]) || 0, security: parts[2] || "" })
                     }
                 }

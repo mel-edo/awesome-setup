@@ -180,6 +180,7 @@ Scope {
                 property real activeMenuY: 0
                 property bool isMenuOpen: activeMenuHandle !== null && rightState === "cc"
                 property string netSsid: ""
+                property int netSignal: 0
                 property bool btConnected: false
                 property string batStatus: "Discharging"
                 property int batLevel: 100
@@ -208,9 +209,10 @@ Scope {
                     running: true
                     stdout: SplitParser {
                         onRead: data => {
-                            let parts = data.trim().split(" ")
+                            let parts = data.trim().split(":::")
                             rightLiquidPill.netSsid = parts[0] === "disconnected" ? "" : parts[0]
-                            rightLiquidPill.btConnected = parts[1]?.trim() === "1"
+                            rightLiquidPill.netSignal = parseInt(parts[1] || "0")
+                            rightLiquidPill.btConnected = parts[2]?.trim() === "1"
                         }
                     }
                 }
@@ -222,7 +224,7 @@ Scope {
                 // Menu hover debounce timer
                 Timer {
                     id: menuCloseTimer
-                    interval: 150
+                    interval: 350
                     onTriggered: {
                         if (!flyoutHover.hovered && !trayHover.hovered) {
                             rightLiquidPill.activeMenuHandle = null
@@ -305,7 +307,19 @@ Scope {
                                 Row {
                                     spacing: 8
                                     anchors.verticalCenter: parent.verticalCenter
-                                    Text { text: rightLiquidPill.netSsid !== "" ? "󰤨" : "󰤭"; color: rightLiquidPill.netSsid !== "" ? Theme.accent : Theme.danger; font.pixelSize: 15; anchors.verticalCenter: parent.verticalCenter }
+                                    Text {
+                                        text: {
+                                            if (rightLiquidPill.netSsid === "") return "󰤭";
+                                            if (rightLiquidPill.netSignal > 80) return "󰤨";
+                                            if (rightLiquidPill.netSignal > 60) return "󰤥";
+                                            if (rightLiquidPill.netSignal > 40) return "󰤢";
+                                            if (rightLiquidPill.netSignal > 20) return "󰤟";
+                                            return "󰤯";
+                                        }
+                                        color: rightLiquidPill.netSsid !== "" ? Theme.accent : Theme.danger
+                                        font.pixelSize: 15
+                                        anchors.verticalCenter: parent.verticalCenter
+                                    }
                                 }
 
                                 Rectangle { width: 2; height: 14; radius: 1; color: Qt.rgba(Theme.subtext.r, Theme.subtext.g, Theme.subtext.b, 0.2); anchors.verticalCenter: parent.verticalCenter }
@@ -361,7 +375,7 @@ Scope {
                         Item {
                             id: trayTabWrapper
                             property bool isOpen: rightLiquidPill.rightState === "cc" && SystemTray.items.values.length > 0
-                            width: isOpen ? 38 : 0
+                            width: isOpen ? 44 : 0
                             height: Math.max(pillBackground.height, trayBackgroundWrapper.height)
                             clip: true
 
@@ -369,15 +383,15 @@ Scope {
 
                             Rectangle {
                                 id: trayBackgroundWrapper
-                                width: 38
+                                width: 44
                                 height: trayColumnItems.implicitHeight + 16
                                 y: 16 
                                 
                                 color: Theme.surface
                                 
-                                topLeftRadius: 12
+                                topLeftRadius: rightLiquidPill.isMenuOpen ? 0 : 22
                                 topRightRadius: 0
-                                bottomLeftRadius: 12
+                                bottomLeftRadius: rightLiquidPill.isMenuOpen ? 0 : 22
                                 bottomRightRadius: 0
 
                                 Behavior on topLeftRadius { NumberAnimation { duration: 200; easing.type: Easing.OutExpo } }
@@ -390,6 +404,14 @@ Scope {
                                     width: 1
                                     color: rightLiquidPill.isMenuOpen ? Qt.rgba(Theme.subtext.r, Theme.subtext.g, Theme.subtext.b, 0.15) : "transparent"
                                     Behavior on color { ColorAnimation { duration: 150 } }
+                                }
+                                
+                                Rectangle {
+                                    anchors.right: parent.right
+                                    anchors.top: parent.top
+                                    anchors.bottom: parent.bottom
+                                    width: 1
+                                    color: Qt.rgba(Theme.subtext.r, Theme.subtext.g, Theme.subtext.b, 0.1)
                                 }
 
                                 HoverHandler { id: trayHover }
