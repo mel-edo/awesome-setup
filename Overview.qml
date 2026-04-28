@@ -206,36 +206,56 @@ Scope {
                                     font.pixelSize: 18
                                     background: Item {} 
                                     
-                                    onTextChanged: root.filterWindows(text)
+                                    onTextChanged: {
+                                        root.filterWindows(text)
+                                        windowList.positionViewAtIndex(0, ListView.Beginning) // Reset to top
+                                    }
                                     
                                     Keys.onPressed: event => {
+                                        let itemsPerPage = 5;
+                                        let oldPage = Math.floor(windowList.currentIndex / itemsPerPage);
+                                        let handled = false;
+
                                         if (event.key === Qt.Key_Up) {
-                                            windowList.decrementCurrentIndex()
-                                            event.accepted = true
+                                            if (windowList.currentIndex <= 0) windowList.currentIndex = windowModel.count - 1;
+                                            else windowList.decrementCurrentIndex();
+                                            handled = true;
                                         } else if (event.key === Qt.Key_Down) {
-                                            windowList.incrementCurrentIndex()
-                                            event.accepted = true
+                                            if (windowList.currentIndex >= windowModel.count - 1) windowList.currentIndex = 0;
+                                            else windowList.incrementCurrentIndex();
+                                            handled = true;
                                         } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
                                             if (windowList.currentIndex >= 0 && windowList.currentIndex < windowModel.count) {
-                                                let addr = windowModel.get(windowList.currentIndex).winAddress
-                                                shellRoot.overviewOpen = false
-                                                hyprctlFocus.targetAddr = addr
-                                                hyprctlFocus.running = true
+                                                let addr = windowModel.get(windowList.currentIndex).winAddress;
+                                                shellRoot.overviewOpen = false;
+                                                hyprctlFocus.targetAddr = addr;
+                                                hyprctlFocus.running = true;
+                                                searchInput.text = ""; 
                                             }
-                                            event.accepted = true
+                                            handled = true;
                                         } else if (event.key === Qt.Key_Escape) {
-                                            shellRoot.overviewOpen = false
-                                            event.accepted = true
+                                            shellRoot.overviewOpen = false;
+                                            handled = true;
+                                        }
+
+                                        if (handled) {
+                                            event.accepted = true;
+                                            // Core Pagination Logic
+                                            let newPage = Math.floor(windowList.currentIndex / itemsPerPage);
+                                            if (newPage !== oldPage) {
+                                                windowList.positionViewAtIndex(newPage * itemsPerPage, ListView.Beginning);
+                                            }
                                         }
                                     }
                                 }
                             }
                             
+                            // Nested separator
                             Rectangle {
                                 anchors.bottom: parent.bottom
                                 width: parent.width; height: 1
                                 color: Qt.rgba(Theme.subtext.r, Theme.subtext.g, Theme.subtext.b, 0.15)
-                                visible: windowModel.count > 0 && searchInput.text !== ""
+                                visible: windowModel.count > 0
                             }
                         }
 
@@ -265,10 +285,12 @@ Scope {
                             onVisibleChanged: {
                                 if (visible) {
                                     currentIndex = 0
+                                    positionViewAtIndex(0, ListView.Beginning)
                                 }
                             }
 
                             delegate: Rectangle {
+                                id: winDelegate 
                                 width: windowList.width
                                 height: 56
                                 radius: 8
@@ -300,7 +322,7 @@ Scope {
                                     text: model.winTitle
                                     color: Theme.text
                                     font.pixelSize: 15
-                                    font.bold: parent.isActive 
+                                    font.bold: winDelegate.isActive 
                                     elide: Text.ElideRight 
                                 }
 

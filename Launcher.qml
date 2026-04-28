@@ -30,7 +30,7 @@ WlrLayershell {
             onStreamFinished: {
                 try {
                     launcherRoot.allApps = JSON.parse(text.trim())
-                    filterApps("") // Populate initial list
+                    filterApps("") 
                 } catch(e) { console.log("Failed to parse apps: " + e) }
             }
         }
@@ -38,7 +38,6 @@ WlrLayershell {
 
     Process { id: launchProcess }
 
-    // Fuzzy search filter
     function filterApps(query) {
         appModel.clear()
         if (allApps.length === 0) return
@@ -50,29 +49,34 @@ WlrLayershell {
             let fuzzyPattern = query.toLowerCase().split('').join('.*')
             let regex = new RegExp(fuzzyPattern, "i")
             
-            results = allApps.filter(app => regex.test(app.name.toLowerCase()))
+            results = allApps.filter(app => {
+                let nameStr = (app.name || "").toLowerCase()
+                let execStr = (app.exec || "").toLowerCase()
+                return regex.test(nameStr) || regex.test(execStr)
+            })
             
             results.sort((a, b) => {
-                let aStarts = a.name.toLowerCase().startsWith(query.toLowerCase()) ? -1 : 1
-                let bStarts = b.name.toLowerCase().startsWith(query.toLowerCase()) ? -1 : 1
+                let aStarts = (a.name || "").toLowerCase().startsWith(query.toLowerCase()) ? -1 : 1
+                let bStarts = (b.name || "").toLowerCase().startsWith(query.toLowerCase()) ? -1 : 1
                 return aStarts - bStarts
             })
         }
 
-        for (let i = 0; i < Math.min(results.length, 8); i++) {
+        for (let i = 0; i < results.length; i++) {
             appModel.append(results[i])
         }
 
         if (launcherRoot.isOpen) {
-            droplet.height = 60 + (query === "" ? 0 : (appModel.count * 48) + 1)
+            droplet.height = searchContent.height
         }
     }
 
-    function launchTopApp() {
-        if (appModel.count > 0) {
-            launchProcess.command = ["hyprctl", "dispatch", "exec", appModel.get(0).exec]
+    function launchSelectedApp() {
+        if (appModel.count > 0 && appList.currentIndex >= 0 && appList.currentIndex < appModel.count) {
+            launchProcess.command = ["hyprctl", "dispatch", "exec", appModel.get(appList.currentIndex).exec]
             if (!launchProcess.running) launchProcess.running = true
             shellRoot.launcherOpen = false
+            searchInput.text = "" 
         }
     }
 
@@ -85,7 +89,7 @@ WlrLayershell {
     onIsOpenChanged: {
         if (isOpen) {
             closeAnim.stop()
-            openDelayTimer.restart() // Starts the delay timer instead of the animation directly
+            openDelayTimer.restart() 
         } else {
             openDelayTimer.stop()
             openAnim.stop()
@@ -93,7 +97,6 @@ WlrLayershell {
         }
     }
 
-    // Background closer
     MouseArea {
         anchors.fill: parent
         onClicked: if (shellRoot.launcherOpen) shellRoot.launcherOpen = false
@@ -115,93 +118,156 @@ WlrLayershell {
         Item {
             id: searchContent
             width: 600
-            height: parent.height
+            // Exact math: 60 (search) + 24 (margins) + up to 280 (5 items @ 56px) = 364 max
+            height: 60 + (appModel.count === 0 ? 0 : Math.min((appModel.count * 56) + 24, 304))
             anchors.horizontalCenter: parent.horizontalCenter
             opacity: 0
 
-            Column {
-                anchors.fill: parent
-                
-                // Search input
-                Item {
-                    width: parent.width
-                    height: 60
+            Item {
+                id: searchBarContainer
+                width: parent.width
+                height: 60
+                anchors.top: parent.top
 
-                    Row {
-                        anchors.fill: parent
-                        anchors.leftMargin: 20
-                        anchors.rightMargin: 20
-                        spacing: 16
+                Row {
+                    anchors.fill: parent
+                    anchors.leftMargin: 20
+                    anchors.rightMargin: 20
+                    spacing: 16
 
-                        Text { 
-                            id: searchIcon
-                            text: ""
-                            color: Theme.accent
-                            font.pixelSize: 20
-                            anchors.verticalCenter: parent.verticalCenter 
+                    Text { 
+                        id: searchIcon
+                        text: ""
+                        color: Theme.accent
+                        font.pixelSize: 20
+                        anchors.verticalCenter: parent.verticalCenter 
+                    }
+
+                    TextField {
+                        id: searchInput
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: parent.width - searchIcon.width - 16
+                        
+                        placeholderText: "Search apps..."
+                        color: Theme.text
+                        placeholderTextColor: Theme.subtext
+                        font.pixelSize: 18
+                        background: Item {} 
+                        
+                        onTextChanged: {
+                            launcherRoot.filterApps(text)
+                            appList.positionViewAtIndex(0, ListView.Beginning) // Reset to top
                         }
+                        
+                        Keys.onPressed: event => {
+                            let itemsPerPage = 5;
+                            let oldPage = Math.floor(appList.currentIndex / itemsPerPage);
+                            let handled = false;
 
-                        TextField {
-                            id: searchInput
-                            anchors.verticalCenter: parent.verticalCenter
-                            width: parent.width - searchIcon.width - 16
-                            
-                            placeholderText: "Search apps..."
-                            color: Theme.text
-                            placeholderTextColor: Theme.subtext
-                            font.pixelSize: 18
-                            background: Item {} 
-                            
-                            onTextChanged: launcherRoot.filterApps(text)
-                            
-                            Keys.onReturnPressed: launcherRoot.launchTopApp()
-                            Keys.onEscapePressed: shellRoot.launcherOpen = false
+                            if (event.key === Qt.Key_Up) {
+                                if (appList.currentIndex <= 0) appList.currentIndex = appModel.count - 1;
+                                else appList.decrementCurrentIndex();
+                                handled = true;
+                            } else if (event.key === Qt.Key_Down) {
+                                if (appList.currentIndex >= appModel.count - 1) appList.currentIndex = 0;
+                                else appList.incrementCurrentIndex();
+                                handled = true;
+                            } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
+                                launcherRoot.launchSelectedApp();
+                                handled = true;
+                            } else if (event.key === Qt.Key_Escape) {
+                                shellRoot.launcherOpen = false;
+                                handled = true;
+                            }
+
+                            if (handled) {
+                                event.accepted = true;
+                                // Core Pagination Logic
+                                let newPage = Math.floor(appList.currentIndex / itemsPerPage);
+                                if (newPage !== oldPage) {
+                                    appList.positionViewAtIndex(newPage * itemsPerPage, ListView.Beginning);
+                                }
+                            }
                         }
                     }
                 }
+                
+                // Nested separator so it doesn't steal 1 pixel from the list math
+                Rectangle { 
+                    anchors.bottom: parent.bottom
+                    width: parent.width; height: 1; 
+                    color: Qt.rgba(Theme.subtext.r, Theme.subtext.g, Theme.subtext.b, 0.15); 
+                    visible: appModel.count > 0 
+                }
+            }
 
-                Rectangle { width: parent.width; height: 1; color: Qt.rgba(Theme.subtext.r, Theme.subtext.g, Theme.subtext.b, 0.15); visible: appModel.count > 0 && searchInput.text !== "" }
+            ListView {
+                id: appList
+                anchors.top: searchBarContainer.bottom
+                anchors.bottom: parent.bottom
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.margins: 12
+                
+                model: appModel
+                visible: appModel.count > 0 
+                clip: true
+                interactive: true
+                boundsBehavior: Flickable.StopAtBounds
 
-                // Application list
-                ListView {
-                    id: appList
-                    width: parent.width
-                    height: contentHeight
-                    model: appModel
-                    visible: searchInput.text !== "" 
-                    clip: true
+                ScrollBar.vertical: ScrollBar {
+                    policy: appList.contentHeight > appList.height + 2 ? ScrollBar.AlwaysOn : ScrollBar.AlwaysOff
+                    interactive: true
+                    contentItem: Rectangle {
+                        implicitWidth: 4
+                        radius: 2
+                        color: Theme.accent
+                    }
+                }
+
+                highlightMoveDuration: 150 
+
+                onVisibleChanged: {
+                    if (visible) {
+                        currentIndex = 0
+                        positionViewAtIndex(0, ListView.Beginning)
+                    }
+                }
+                
+                delegate: Rectangle {
+                    id: appDelegate 
+                    width: appList.width
+                    height: 56 // Scaled up to 56 to match Overview exactly
+                    radius: 8
                     
-                    delegate: Rectangle {
-                        width: parent.width
-                        height: 48
-                        color: appHover.hovered ? Theme.surfaceHover : "transparent"
+                    property bool isActive: appList.currentIndex === index || appHover.hovered
+                    color: isActive ? Theme.surfaceHover : "transparent"
+                    Behavior on color { ColorAnimation { duration: 100 } }
 
-                        Row {
-                            anchors.fill: parent; anchors.leftMargin: 20; anchors.rightMargin: 20; spacing: 12
-                            
-                            Image {
-                                source: model.icon.startsWith("/") ? "file://" + model.icon : "image://icon/" + model.icon
-                                width: 24; height: 24; sourceSize: Qt.size(24, 24)
-                                anchors.verticalCenter: parent.verticalCenter
-                                onStatusChanged: if (status === Image.Error) source = "" 
-                            }
-                            
-                            Text {
-                                text: model.name
-                                color: Theme.text
-                                font.pixelSize: 14
-                                font.bold: index === 0 
-                                anchors.verticalCenter: parent.verticalCenter
-                            }
+                    Row {
+                        anchors.fill: parent; anchors.leftMargin: 16; anchors.rightMargin: 16; spacing: 16
+                        
+                        Image {
+                            source: model.icon.startsWith("/") ? "file://" + model.icon : "image://icon/" + model.icon
+                            width: 28; height: 28; sourceSize: Qt.size(28, 28) // Scaled up to match overview
+                            anchors.verticalCenter: parent.verticalCenter
+                            onStatusChanged: if (status === Image.Error) source = "" 
                         }
+                        
+                        Text {
+                            text: model.name
+                            color: Theme.text
+                            font.pixelSize: 15 // Scaled to 15 to match overview
+                            font.bold: appDelegate.isActive 
+                            anchors.verticalCenter: parent.verticalCenter
+                        }
+                    }
 
-                        HoverHandler { id: appHover; cursorShape: Qt.PointingHandCursor }
-                        TapHandler {
-                            onTapped: {
-                                launchProcess.command = ["hyprctl", "dispatch", "exec", model.exec]
-                                if (!launchProcess.running) launchProcess.running = true
-                                shellRoot.launcherOpen = false
-                            }
+                    HoverHandler { id: appHover; cursorShape: Qt.PointingHandCursor }
+                    TapHandler {
+                        onTapped: {
+                            appList.currentIndex = index
+                            launcherRoot.launchSelectedApp()
                         }
                     }
                 }
@@ -222,7 +288,7 @@ WlrLayershell {
         
         ParallelAnimation {
             NumberAnimation { target: droplet; property: "width"; to: 600; duration: 300; easing.type: Easing.OutExpo }
-            NumberAnimation { target: droplet; property: "height"; to: 60; duration: 300; easing.type: Easing.OutExpo }
+            NumberAnimation { target: droplet; property: "height"; to: searchContent.height; duration: 300; easing.type: Easing.OutExpo }
             NumberAnimation { target: droplet; property: "radius"; to: 16; duration: 300; easing.type: Easing.OutExpo }
             NumberAnimation { target: searchContent; property: "opacity"; to: 1; duration: 250 }
         }

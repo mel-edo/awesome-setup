@@ -65,6 +65,33 @@ Scope {
         property var pendingOsd: null
         property bool pendingBt: false
         property string currentAudioSink: ""
+        property bool isMediaPinned: false
+
+        onWasPlayingChanged: {
+            if (wasPlaying) {
+                mediaUnpinTimer.stop()
+            } else if (isMediaPinned) {
+                mediaUnpinTimer.restart()
+            }
+        }
+
+        Timer {
+            id: mediaUnpinTimer
+            interval: 5000 
+            onTriggered: {
+                if (islandWindow.isMediaPinned && !islandWindow.wasPlaying) {
+                    islandWindow.isMediaPinned = false
+                    if (islandWindow.islandState === "media") {
+                        if (!pillHover.hovered) {
+                            islandWindow.closeToIdle()
+                        } else {
+                            islandWindow.islandState = "hub"
+                            islandWindow.postHubCava = false
+                        }
+                    }
+                }
+            }
+        }
 
         Process {
             running: true
@@ -79,6 +106,18 @@ Scope {
         }
 
         function closeToIdle() {
+            if (islandWindow.isMediaPinned) {
+                islandWindow.islandState = "media"
+                islandWindow.postHubCava = true
+                islandWindow.showClock = false
+                hubDelayTimer.stop()
+                hubStayTimer.stop()
+                idleStayTimer.stop()
+                notificationTimer.stop()
+                osdTimeoutTimer.stop()
+                alternateTimer.stop()
+                return
+            }
             islandState = "idle"
             islandWindow.postHubCava = false
             hubDelayTimer.stop()
@@ -150,7 +189,9 @@ Scope {
             islandWindow.postHubCava = true
             islandWindow.showClock = false
             alternateTimer.stop()
-            hubStayTimer.restart()
+            if (!islandWindow.isMediaPinned) {
+                hubStayTimer.restart()
+            }
         }
 
         Timer {
@@ -625,11 +666,13 @@ Scope {
                         return;
                     }
                     if (hovered) {
+                        if (islandWindow.isMediaPinned) return;
                         hubStayTimer.stop()
                         idleStayTimer.stop()
                         islandWindow.postHubCava = false
                         hubDelayTimer.start()
                     } else {
+                        if (islandWindow.isMediaPinned) return;
                         hubDelayTimer.stop()
                         
                         if (islandWindow.cavaActive) {
@@ -994,12 +1037,19 @@ Scope {
                     Behavior on opacity { NumberAnimation { duration: 250; easing.type: Easing.OutQuad } }
 
                     Repeater {
-                        model: [
-                            { icon: "󰃶", state: "calendar", accent: Theme.accent },
-                            { icon: "󰂚", state: "notifications", accent: Theme.accent },
-                            { icon: "󰸉", state: "wallpaper", accent: Theme.accent },
-                            { icon: "󰓅", state: "monitor", accent: Theme.accent }
-                        ]
+                        model: {
+                            let items = [
+                                { icon: "󰃶", state: "calendar", accent: Theme.accent },
+                                { icon: "󰂚", state: "notifications", accent: Theme.accent },
+                                { icon: "󰸉", state: "wallpaper", accent: Theme.accent },
+                                { icon: "󰓅", state: "monitor", accent: Theme.accent }
+                            ];
+                            if (islandWindow.wasPlaying || islandWindow.cavaActive) {
+                                items.push({ icon: "󰝚", state: "media_pin", accent: Theme.accent });
+                            }
+                            return items;
+                        }
+                        
                         Item {
                             required property var modelData
                             width: 44; height: 44
@@ -1018,7 +1068,21 @@ Scope {
                                 Behavior on color { ColorAnimation { duration: 150 } }
                             }
                             HoverHandler { id: hubBtnHover; cursorShape: Qt.PointingHandCursor }
-                            TapHandler { onTapped: islandWindow.islandState = parent.modelData.state }
+                            TapHandler {
+                                onTapped: {
+                                    if (parent.modelData.state === "media_pin") {
+                                        islandWindow.isMediaPinned = true
+                                        islandWindow.islandState = "media"
+                                        islandWindow.postHubCava = true
+                                        islandWindow.showClock = false
+                                        alternateTimer.stop()
+                                        hubDelayTimer.stop()
+                                        hubStayTimer.stop()
+                                    } else {
+                                        islandWindow.islandState = parent.modelData.state
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -1034,6 +1098,20 @@ Scope {
                     visible: isActiveMedia
                     opacity: isActiveMedia ? 1 : 0
                     Behavior on opacity { NumberAnimation { duration: 250; easing.type: Easing.OutQuad } }
+
+                    TapHandler {
+                        onTapped: {
+                            if (islandWindow.isMediaPinned) {
+                                islandWindow.isMediaPinned = false
+                                if (!pillHover.hovered) {
+                                    islandWindow.closeToIdle()
+                                } else {
+                                    islandWindow.islandState = "hub"
+                                    islandWindow.postHubCava = false
+                                }
+                            }
+                        }
+                    }
 
                     Row {
                         anchors.fill: parent
@@ -1105,6 +1183,7 @@ Scope {
                                     anchors.fill: parent
                                     radius: mainPill.radius
                                     topLeftRadius: mainPill.topLeftRadius
+                                    topRightRadius: mainPill.topRightRadius
                                     color: "black"
                                     layer.enabled: true
                                     visible: false
@@ -1137,19 +1216,145 @@ Scope {
                                 Behavior on opacity { NumberAnimation { duration: 200 } }
                             }
                         }
-                        // Track metadata
+
+                        // Track metadata and Progress Bar
                         Column {
                             anchors.verticalCenter: parent.verticalCenter
                             width: 140 
-                            Text { 
-                                text: islandWindow.activePlayer ? (islandWindow.activePlayer.trackTitle || "Unknown Track") : "No Media"
-                                color: Theme.text; font.pixelSize: 14; font.bold: true
-                                elide: Text.ElideRight; width: parent.width 
+                            spacing: 4 
+
+                            Column {
+                                width: parent.width
+                                spacing: 0
+                                Text { 
+                                    text: islandWindow.activePlayer ? (islandWindow.activePlayer.trackTitle || "Unknown Track") : "No Media"
+                                    color: Theme.text; font.pixelSize: 14; font.bold: true
+                                    elide: Text.ElideRight; width: parent.width 
+                                }
+                                Text { 
+                                    text: islandWindow.activePlayer ? (islandWindow.activePlayer.trackArtist || "Unknown Artist") : ""
+                                    color: Theme.subtext; font.pixelSize: 11
+                                    elide: Text.ElideRight; width: parent.width 
+                                }
                             }
-                            Text { 
-                                text: islandWindow.activePlayer ? (islandWindow.activePlayer.trackArtist || "Unknown Artist") : ""
-                                color: Theme.subtext; font.pixelSize: 12
-                                elide: Text.ElideRight; width: parent.width 
+
+                            // Squiggly Progress Bar
+                            Item {
+                                id: progressContainer
+                                anchors.left: parent.left
+                                width: 140
+                                height: 16 
+
+                                property real ratio: 0
+                                property real wavePhase: 0
+                                property string durationText: ""
+                                property real activeAmplitude: islandWindow.wasPlaying ? 2.5 : 0 
+                                Behavior on activeAmplitude { NumberAnimation { duration: 300; easing.type: Easing.OutCubic } }
+
+                                Timer {
+                                    interval: 32; running: islandWindow.islandState === "media"; repeat: true
+                                    onTriggered: {
+                                        progressContainer.wavePhase -= 0.15; 
+                                        
+                                        let player = islandWindow.activePlayer;
+                                        if (player) {
+                                            let pos = Number(player.position) || 0;
+                                            let len = Number(player.length) || 0;
+
+                                            if (len > 0 || pos > 0) {
+                                                // Normalize to seconds based on typical MPRIS microsecond format
+                                                let posSec = (pos > 10000000) ? pos / 1000000 : (pos > 10000 ? pos / 1000 : pos);
+                                                let lenSec = (len > 10000000) ? len / 1000000 : (len > 10000 ? len / 1000 : len);
+
+                                                let formatTime = (secs) => {
+                                                    if (isNaN(secs) || secs < 0) return "0:00";
+                                                    let h = Math.floor(secs / 3600);
+                                                    let m = Math.floor((secs % 3600) / 60);
+                                                    let s = Math.floor(secs % 60);
+                                                    let mStr = (h > 0 && m < 10) ? "0" + m : m;
+                                                    let sStr = s < 10 ? "0" + s : s;
+                                                    if (h > 0) return h + ":" + mStr + ":" + sStr;
+                                                    return mStr + ":" + sStr;
+                                                };
+
+                                                progressContainer.durationText = formatTime(lenSec);
+
+                                                if (lenSec > 0) {
+                                                    if (posSec > lenSec) {
+                                                        posSec = posSec % lenSec;
+                                                    }
+                                                    let r = posSec / lenSec;
+                                                    // Prevent runaway maxing out on pause anomalies
+                                                    if (r > 1.05 && !islandWindow.wasPlaying) {
+                                                        r = progressContainer.ratio;
+                                                    }
+                                                    progressContainer.ratio = Math.min(Math.max(r, 0), 1);
+                                                } else {
+                                                    progressContainer.ratio = 0;
+                                                }
+                                            } else {
+                                                progressContainer.ratio = 0;
+                                                progressContainer.durationText = "0:00";
+                                            }
+                                        }
+                                        waveCanvas.requestPaint();
+                                    }
+                                }
+
+                                Canvas {
+                                    id: waveCanvas
+                                    anchors.left: parent.left
+                                    anchors.top: parent.top
+                                    anchors.bottom: parent.bottom
+                                    width: 100 // Fixed width for bar
+                                    onPaint: {
+                                        var ctx = getContext("2d");
+                                        ctx.clearRect(0, 0, width, height);
+
+                                        let pad = 5; 
+                                        let usableWidth = width - (pad * 2);
+                                        let midY = height / 2;
+                                        let thumbX = pad + (progressContainer.ratio * usableWidth);
+
+                                        let amplitude = progressContainer.activeAmplitude;
+                                        let frequency = 0.3;
+
+                                        ctx.lineCap = "round";
+                                        ctx.lineJoin = "round";
+
+                                        ctx.beginPath();
+                                        ctx.lineWidth = 2.5;
+                                        ctx.strokeStyle = Qt.rgba(Theme.subtext.r, Theme.subtext.g, Theme.subtext.b, 0.3);
+                                        ctx.moveTo(thumbX, midY);
+                                        ctx.lineTo(width - pad, midY);
+                                        ctx.stroke();
+
+                                        ctx.beginPath();
+                                        ctx.lineWidth = 2.5;
+                                        ctx.strokeStyle = Theme.accent;
+                                        ctx.moveTo(pad, midY + Math.sin(progressContainer.wavePhase) * amplitude);
+                                        
+                                        for (let x = pad; x <= thumbX; x += 2) {
+                                            let damping = Math.min(1, (thumbX - x) / 12.0); 
+                                            ctx.lineTo(x, midY + Math.sin((x - pad) * frequency + progressContainer.wavePhase) * amplitude * damping);
+                                        }
+                                        ctx.stroke();
+
+                                        ctx.beginPath();
+                                        ctx.arc(thumbX, midY, 4, 0, 2 * Math.PI);
+                                        ctx.fillStyle = Theme.accent;
+                                        ctx.fill();
+                                    }
+                                }
+                                Text {
+                                    text: progressContainer.durationText
+                                    anchors.right: parent.right
+                                    color: Theme.subtext
+                                    opacity: 0.6
+                                    font.pixelSize: 11
+                                    font.bold: true
+                                    visible: text !== ""
+                                }
                             }
                         }
 
