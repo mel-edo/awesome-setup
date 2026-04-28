@@ -93,7 +93,7 @@ Scope {
     }
 
     function populateWindows() {
-        clientProcess.running = true
+        if (!clientProcess.running) clientProcess.running = true
     }
 
     Variants {

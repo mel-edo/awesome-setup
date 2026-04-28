@@ -352,12 +352,16 @@ Scope {
             interval: 5000
             running: true
             repeat: true
-            onTriggered: btProcess.running = true
+            onTriggered: if (!btProcess.running) btProcess.running = true
         }
 
         Timer {
             interval: 2000; running: true; repeat: true
-            onTriggered: { cpuProcess.running = true; ramProcess.running = true; diskProcess.running = true }
+            onTriggered: { 
+                if (!cpuProcess.running) cpuProcess.running = true; 
+                if (!ramProcess.running) ramProcess.running = true; 
+                if (!diskProcess.running) diskProcess.running = true; 
+            }
         }
 
         Process {
@@ -464,7 +468,7 @@ Scope {
 
         Process {
             id: weatherProcess
-            command: [Quickshell.env("HOME") + "/.config/quickshell-new/mshell/scripts/calendar/weather.sh"]
+            command: [Quickshell.env("HOME") + "/.config/quickshell/mshell/scripts/calendar/weather.sh"]
             running: true
             stdout: StdioCollector {
                 onStreamFinished: {
@@ -480,7 +484,7 @@ Scope {
         }
 
         // Refresh weather every 15 minutes
-        Timer { interval: 900000; running: true; repeat: true; onTriggered: weatherProcess.running = true }
+        Timer { interval: 900000; running: true; repeat: true; onTriggered: { if (!weatherProcess.running) weatherProcess.running = true } }
 
         Rectangle {
             id: mainPill
@@ -1297,7 +1301,7 @@ Scope {
                             TapHandler {
                                 onTapped: {
                                     let rawPreview = model.preview.replace("file://", "")
-                                    let script = Quickshell.env("HOME") + "/.config/quickshell-new/mshell/scripts/set_wall.sh"
+                                    let script = Quickshell.env("HOME") + "/.config/quickshell/mshell/scripts/set_wall.sh"
                                     islandWindow.activeWallCache = model.type === "animated" ? rawPreview : model.path
                                     wallChangerProcess.command = ["bash", script, model.type, model.path, rawPreview, islandWindow.themeMode]
                                     wallChangerProcess.running = true

@@ -24,7 +24,7 @@ WlrLayershell {
 
     Process {
         id: appFetchProcess
-        command: ["python3", Quickshell.env("HOME") + "/.config/quickshell-new/mshell/scripts/app_fetcher.py"]
+        command: ["python3", Quickshell.env("HOME") + "/.config/quickshell/mshell/scripts/app_fetcher.py"]
         running: true
         stdout: StdioCollector {
             onStreamFinished: {
@@ -71,7 +71,7 @@ WlrLayershell {
     function launchTopApp() {
         if (appModel.count > 0) {
             launchProcess.command = ["hyprctl", "dispatch", "exec", appModel.get(0).exec]
-            launchProcess.running = true
+            if (!launchProcess.running) launchProcess.running = true
             shellRoot.launcherOpen = false
         }
     }
@@ -199,7 +199,7 @@ WlrLayershell {
                         TapHandler {
                             onTapped: {
                                 launchProcess.command = ["hyprctl", "dispatch", "exec", model.exec]
-                                launchProcess.running = true
+                                if (!launchProcess.running) launchProcess.running = true
                                 shellRoot.launcherOpen = false
                             }
                         }

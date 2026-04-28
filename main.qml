@@ -30,7 +30,7 @@ ShellRoot {
         }
     }
 
-    LockScreen {}
+    // LockScreen {}
     Overview {
         isOpen: shellRoot.overviewOpen
     }

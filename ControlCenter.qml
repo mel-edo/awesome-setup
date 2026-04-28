@@ -10,6 +10,7 @@ Column {
     property bool isOpen: false
     property QtObject parentWindow: null
     property string netSsid: ""
+    property int netSignal: 0
     property bool btConnected: false
     property int batLevel: 100
     property string batStatus: "Discharging"
@@ -19,10 +20,15 @@ Column {
     property var btDevices: []
     property string powerProfile: "balanced"
     property string batTimeLeft: ""
+    property string connectingWifi: ""
+    property string connectingBt: ""
+    
+    Timer { id: resetConnectingWifi; interval: 3000; onTriggered: root.connectingWifi = "" }
+    Timer { id: resetConnectingBt; interval: 3000; onTriggered: root.connectingBt = "" }
 
     Process {
         id: wifiListProcess
-        command: [Quickshell.env("HOME") + "/.config/quickshell-new/mshell/scripts/watchers/wifi_list.sh"]
+        command: [Quickshell.env("HOME") + "/.config/quickshell/mshell/scripts/watchers/wifi_list.sh"]
         stdout: StdioCollector {
             onStreamFinished: {
                 let lines = text.trim().split("\n").filter(x => x !== "")
@@ -40,7 +46,7 @@ Column {
 
     Process {
         id: btListProcess
-        command: [Quickshell.env("HOME") + "/.config/quickshell-new/mshell/scripts/watchers/bt_list.sh"]
+        command: [Quickshell.env("HOME") + "/.config/quickshell/mshell/scripts/watchers/bt_list.sh"]
         stdout: StdioCollector {
             onStreamFinished: {
                 let lines = text.trim().split("\n").filter(x => x !== "")
@@ -58,7 +64,7 @@ Column {
 
     Process {
         id: profileFetchProcess
-        command: [Quickshell.env("HOME") + "/.config/quickshell-new/mshell/scripts/watchers/power_profile.sh"]
+        command: [Quickshell.env("HOME") + "/.config/quickshell/mshell/scripts/watchers/power_profile.sh"]
         stdout: StdioCollector { onStreamFinished: root.powerProfile = text.trim() }
     }
 
@@ -77,15 +83,15 @@ Column {
     Process { id: profileProcess }
 
     // State refresh timers
-    Timer { interval: 10000; running: root.isOpen; repeat: true; onTriggered: wifiListProcess.running = true }
-    Timer { interval: 5000; running: root.isOpen; repeat: true; onTriggered: { btListProcess.running = true; batTimeProcess.running = true } }
+    Timer { interval: 10000; running: root.isOpen; repeat: true; onTriggered: { if (!wifiListProcess.running) if (!wifiListProcess.running) wifiListProcess.running = true } }
+    Timer { interval: 5000; running: root.isOpen; repeat: true; onTriggered: { if (!btListProcess.running) if (!btListProcess.running) btListProcess.running = true; if (!batTimeProcess.running) if (!batTimeProcess.running) batTimeProcess.running = true } }
 
     onIsOpenChanged: {
         if (isOpen) {
-            wifiListProcess.running = true
-            btListProcess.running = true
-            profileFetchProcess.running = true
-            batTimeProcess.running = true
+            if (!wifiListProcess.running) if (!wifiListProcess.running) wifiListProcess.running = true
+            if (!btListProcess.running) if (!btListProcess.running) btListProcess.running = true
+            if (!profileFetchProcess.running) if (!profileFetchProcess.running) profileFetchProcess.running = true
+            if (!batTimeProcess.running) if (!batTimeProcess.running) batTimeProcess.running = true
         }
     }
 
@@ -127,7 +133,7 @@ Column {
                     onTapped: {
                         root.wifiEnabled = !root.wifiEnabled
                         wifiToggleProcess.command = ["nmcli", "radio", "wifi", root.wifiEnabled ? "on" : "off"]
-                        wifiToggleProcess.running = true
+                        if (!wifiToggleProcess.running) wifiToggleProcess.running = true
                     }
                 }
             }
@@ -141,7 +147,16 @@ Column {
 
             Row {
                 anchors.fill: parent; anchors.leftMargin: 10; anchors.rightMargin: 10; spacing: 10
-                Text { text: "󰤨"; color: Theme.accent; font.pixelSize: 18; anchors.verticalCenter: parent.verticalCenter }
+                Text { 
+                    text: {
+                        if (root.netSignal > 80) return "󰤨"
+                        if (root.netSignal > 60) return "󰤥"
+                        if (root.netSignal > 40) return "󰤢"
+                        if (root.netSignal > 20) return "󰤟"
+                        return "󰤯"
+                    }
+                    color: Theme.accent; font.pixelSize: 18; anchors.verticalCenter: parent.verticalCenter 
+                }
                 Column {
                     anchors.verticalCenter: parent.verticalCenter
                     spacing: 2
@@ -153,6 +168,7 @@ Column {
 
         // Available networks
         ListView {
+            id: wifiListView
             width: parent.width
             height: Math.min(contentHeight, 140)
             visible: root.wifiEnabled && root.wifiNetworks.length > 0
@@ -163,7 +179,7 @@ Column {
             boundsBehavior: Flickable.StopAtBounds
 
             ScrollBar.vertical: ScrollBar {
-                policy: ScrollBar.AsNeeded
+                policy: wifiListView.contentHeight > wifiListView.height + 2 ? ScrollBar.AlwaysOn : ScrollBar.AlwaysOff
                 interactive: true
                 contentItem: Rectangle {
                     implicitWidth: 4
@@ -174,26 +190,26 @@ Column {
 
             delegate: Rectangle {
                 required property var modelData
-                width: parent ? parent.width : 0
+                width: parent ? parent.width - (wifiListView.ScrollBar.vertical.visible ? 10 : 0) : 0
                 height: 34; radius: 8
-                color: netItemHover.hovered ? Theme.surfaceHover : "transparent"
+                color: root.connectingWifi === modelData.ssid ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.15) : (netItemHover.hovered ? Theme.surfaceHover : "transparent")
                 Behavior on color { ColorAnimation { duration: 100 } }
 
                 Row {
                     anchors.fill: parent; anchors.leftMargin: 10; anchors.rightMargin: 10; spacing: 10
                     anchors.verticalCenter: parent.verticalCenter
 
-                    Row {
-                        spacing: 2; anchors.verticalCenter: parent.verticalCenter
-                        Repeater {
-                            model: 4
-                            Rectangle {
-                                required property int index
-                                width: 3; height: 5 + index * 3; radius: 1
-                                anchors.bottom: parent ? parent.bottom : undefined
-                                color: (modelData.signal / 25) > index ? Theme.accent : Qt.rgba(Theme.subtext.r, Theme.subtext.g, Theme.subtext.b, 0.3)
-                            }
+                    Text {
+                        text: {
+                            if (modelData.signal > 80) return "󰤨"
+                            if (modelData.signal > 60) return "󰤥"
+                            if (modelData.signal > 40) return "󰤢"
+                            if (modelData.signal > 20) return "󰤟"
+                            return "󰤯"
                         }
+                        color: modelData.signal > 20 ? Theme.accent : Theme.subtext
+                        font.pixelSize: 16
+                        anchors.verticalCenter: parent.verticalCenter
                     }
 
                     Row {
@@ -215,8 +231,10 @@ Column {
                 HoverHandler { id: netItemHover; cursorShape: Qt.PointingHandCursor }
                 TapHandler {
                     onTapped: {
+                        root.connectingWifi = modelData.ssid
+                        resetConnectingWifi.restart()
                         wifiConnectProcess.command = ["nmcli", "dev", "wifi", "connect", modelData.ssid]
-                        wifiConnectProcess.running = true
+                        if (!wifiConnectProcess.running) wifiConnectProcess.running = true
                     }
                 }
             }
@@ -276,13 +294,14 @@ Column {
                     onTapped: {
                         root.btEnabled = !root.btEnabled
                         btToggleProcess.command = ["bluetoothctl", "power", root.btEnabled ? "on" : "off"]
-                        btToggleProcess.running = true
+                        if (!btToggleProcess.running) btToggleProcess.running = true
                     }
                 }
             }
         }
 
         ListView {
+            id: btListView
             width: parent.width
             height: Math.min(contentHeight, 140)
             visible: root.btEnabled && root.btDevices.length > 0
@@ -292,7 +311,7 @@ Column {
             boundsBehavior: Flickable.StopAtBounds
 
             ScrollBar.vertical: ScrollBar {
-                policy: ScrollBar.AsNeeded
+                policy: btListView.contentHeight > btListView.height + 2 ? ScrollBar.AlwaysOn : ScrollBar.AlwaysOff
                 interactive: true
                 contentItem: Rectangle {
                     implicitWidth: 4
@@ -303,9 +322,9 @@ Column {
 
             delegate: Rectangle {
                 required property var modelData
-                width: parent ? parent.width : 0
+                width: parent ? parent.width - (btListView.ScrollBar.vertical.visible ? 10 : 0) : 0
                 height: 44; radius: 8
-                color: btItemHover.hovered ? Theme.surfaceHover : "transparent"
+                color: root.connectingBt === modelData.mac ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.15) : (btItemHover.hovered ? Theme.surfaceHover : "transparent")
                 Behavior on color { ColorAnimation { duration: 100 } }
 
                 Row {
@@ -362,6 +381,8 @@ Column {
                 HoverHandler { id: btItemHover; cursorShape: Qt.PointingHandCursor }
                 TapHandler {
                     onTapped: {
+                        root.connectingBt = modelData.mac
+                        resetConnectingBt.restart()
                         let action = "connect"
                         if (modelData.connected === "1") action = "disconnect"
                         else if (modelData.paired === "0") action = "pair"
@@ -370,8 +391,8 @@ Column {
                         } else {
                             btActionProcess.command = ["bluetoothctl", action, modelData.mac]
                         }
-                        btActionProcess.running = true
-                        Qt.callLater(() => { btListProcess.running = true })
+                        if (!btActionProcess.running) btActionProcess.running = true
+                        Qt.callLater(() => { if (!btListProcess.running) btListProcess.running = true })
                     }
                 }
             }
@@ -409,7 +430,7 @@ Column {
                 id: scanTap
                 onTapped: {
                     btScanProcess.command = ["bash", "-c", "bluetoothctl --timeout 5 scan on"]
-                    btScanProcess.running = true
+                    if (!btScanProcess.running) btScanProcess.running = true
                 }
             }
         }
@@ -495,7 +516,7 @@ Column {
                         onTapped: {
                             root.powerProfile = modelData.value
                             profileProcess.command = ["powerprofilesctl", "set", modelData.value]
-                            profileProcess.running = true
+                            if (!profileProcess.running) profileProcess.running = true
                         }
                     }
                 }

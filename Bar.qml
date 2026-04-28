@@ -191,7 +191,7 @@ Scope {
 
                 Process {
                     id: batteryProcess
-                    command: [Quickshell.env("HOME") + "/.config/quickshell-new/mshell/scripts/watchers/battery_fetch.sh"]
+                    command: [Quickshell.env("HOME") + "/.config/quickshell/mshell/scripts/watchers/battery_fetch.sh"]
                     running: true
                     stdout: SplitParser {
                         onRead: data => {
@@ -201,11 +201,11 @@ Scope {
                         }
                     }
                 }
-                Timer { interval: 5000; running: true; repeat: true; onTriggered: batteryProcess.running = true }
+                Timer { interval: 5000; running: true; repeat: true; onTriggered: { if (!batteryProcess.running) batteryProcess.running = true } }
 
                 Process {
                     id: networkProcess
-                    command: [Quickshell.env("HOME") + "/.config/quickshell-new/mshell/scripts/watchers/network_fetch.sh"]
+                    command: [Quickshell.env("HOME") + "/.config/quickshell/mshell/scripts/watchers/network_fetch.sh"]
                     running: true
                     stdout: SplitParser {
                         onRead: data => {
@@ -216,7 +216,7 @@ Scope {
                         }
                     }
                 }
-                Timer { interval: 3000; running: true; repeat: true; onTriggered: networkProcess.running = true }
+                Timer { interval: 3000; running: true; repeat: true; onTriggered: { if (!networkProcess.running) networkProcess.running = true } }
 
                 Timer { id: openDelay; interval: 80; onTriggered: rightLiquidPill.rightState = "cc" }
                 Timer { id: closeDelay; interval: 100; onTriggered: rightLiquidPill.rightState = "idle" }
@@ -356,6 +356,7 @@ Scope {
                                 isOpen: rightLiquidPill.rightState === "cc"
                                 parentWindow: rightLiquidPill
                                 netSsid: rightLiquidPill.netSsid
+                                netSignal: rightLiquidPill.netSignal
                                 batLevel: rightLiquidPill.batLevel
                                 batStatus: rightLiquidPill.batStatus
                                 btConnected: rightLiquidPill.btConnected
