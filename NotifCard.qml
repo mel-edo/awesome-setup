@@ -122,7 +122,7 @@ Item {
             maximumLineCount: 4 
             elide: Text.ElideRight
             visible: text !== ""
-            textFormat: Text.PlainText
+            textFormat: Text.RichText
             renderType: Text.NativeRendering
         }
     }

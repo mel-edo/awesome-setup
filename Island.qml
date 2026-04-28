@@ -61,6 +61,10 @@ Scope {
         property string themeMode: "dark"
         property string activeWallCache: ""
         property bool wasPlaying: false
+        property string persistentArtUrl: ""
+        property var pendingOsd: null
+        property bool pendingBt: false
+        property string currentAudioSink: ""
 
         Process {
             running: true
@@ -91,8 +95,12 @@ Scope {
         }
 
         function showBtPopup() {
-            if (islandWindow.islandState === "osd" || 
-                islandWindow.islandState === "calendar" || 
+            if (islandWindow.islandState === "osd") {
+                islandWindow.pendingBt = true
+                return
+            }
+            
+            if (islandWindow.islandState === "calendar" || 
                 islandWindow.islandState === "notification" || 
                 islandWindow.islandState === "notifications") return
                 
@@ -116,6 +124,11 @@ Scope {
         }
 
         function showOsd(value, type) {
+            if (islandWindow.islandState === "bluetooth") {
+                islandWindow.pendingBt = true
+                hubStayTimer.stop()
+            }
+            islandWindow.pendingOsd = null
             osdValue = value
             osdType = type
             islandWindow.islandState = "osd"
@@ -267,17 +280,37 @@ Scope {
                         break
                     }
                 }
+
+                if (!currentlyPlaying) {
+                    let stillExists = false;
+                    if (islandWindow.activePlayer) {
+                        for (let i = 0; i < players.length; i++) {
+                            if (players[i] === islandWindow.activePlayer) {
+                                stillExists = true;
+                                break;
+                            }
+                        }
+                    }
+                    currentlyPlaying = stillExists ? islandWindow.activePlayer : players[0]
+                }
                 
                 islandWindow.activePlayer = currentlyPlaying ? currentlyPlaying : players[0]
                 
-                let isNowPlaying = currentlyPlaying !== null
+                let isNowPlaying = currentlyPlaying !== null && (currentlyPlaying.playbackState === 1 || currentlyPlaying.playbackState === "Playing")
                 let newTitle = islandWindow.activePlayer ? (islandWindow.activePlayer.trackTitle || "") : ""
                 
                 let titleChanged = (islandWindow.currentTrackTitle !== "" && newTitle !== "" && islandWindow.currentTrackTitle !== newTitle)
                 let stateChangedToPlaying = (isNowPlaying && !islandWindow.wasPlaying)
                 
-                if (titleChanged || stateChangedToPlaying) {
+                if ((titleChanged && isNowPlaying) || stateChangedToPlaying) {
                     islandWindow.showMediaPopup()
+                }
+
+                let newArt = islandWindow.activePlayer ? islandWindow.activePlayer.trackArtUrl : ""
+                if (newArt && newArt !== "") {
+                    islandWindow.persistentArtUrl = newArt
+                } else if (!islandWindow.activePlayer) {
+                    islandWindow.persistentArtUrl = "" 
                 }
                 
                 islandWindow.currentTrackTitle = newTitle
@@ -310,6 +343,12 @@ Scope {
         }
 
         Timer {
+            id: btPopupDelayTimer
+            interval: 1200 
+            onTriggered: islandWindow.showBtPopup()
+        }
+
+        Timer {
             id: idleStayTimer
             interval: 3000 
             onTriggered: {
@@ -338,7 +377,13 @@ Scope {
             id: osdTimeoutTimer
             interval: 2500 
             onTriggered: {
-                islandWindow.closeToIdle()
+                if (islandWindow.pendingBt) {
+                    islandWindow.pendingBt = false
+                    islandWindow.islandState = "idle"
+                    islandWindow.showBtPopup()
+                } else {
+                    islandWindow.closeToIdle()
+                }
             }
         }
 
@@ -349,7 +394,7 @@ Scope {
         }
 
         Timer {
-            interval: 5000
+            interval: 2500
             running: true
             repeat: true
             onTriggered: if (!btProcess.running) btProcess.running = true
@@ -380,6 +425,42 @@ Scope {
             id: ramProcess
             command: ["bash", "-c", "free | grep Mem | awk '{print $3/$2 * 100.0}'"]
             stdout: StdioCollector { onStreamFinished: islandWindow.ramUsage = Math.round(Number(text)) }
+        }
+
+        Process {
+            id: sinkCheckProcess
+            command: ["pactl", "get-default-sink"]
+            stdout: StdioCollector {
+                onStreamFinished: {
+                    let sinkName = text.trim()
+                    if (islandWindow.currentAudioSink !== "" && islandWindow.currentAudioSink !== sinkName) {
+                        fetchVolProcess.running = true
+                    }
+                    islandWindow.currentAudioSink = sinkName
+                }
+            }
+        }
+
+        Process {
+            id: fetchVolProcess
+            command: ["bash", "-c", "wpctl get-volume @DEFAULT_AUDIO_SINK@ | awk '{print int($2 * 100)}'"]
+            stdout: StdioCollector {
+                onStreamFinished: {
+                    let vol = parseInt(text.trim())
+                    if (!isNaN(vol)) {
+                        islandWindow.showOsd(vol, "volume") 
+                    }
+                }
+            }
+        }
+
+        Timer {
+            interval: 1000
+            running: true
+            repeat: true
+            onTriggered: {
+                if (!sinkCheckProcess.running) sinkCheckProcess.running = true
+            }
         }
 
         Process {
@@ -418,12 +499,12 @@ Scope {
 
                         if (!device.shown) {
                             let hasBattery = bat !== "--" && bat !== ""
-                            let waitedLongEnough = (now - device.firstSeen) > 3000
+                            let waitedLongEnough = (now - device.firstSeen) > 1000
 
                             if (hasBattery || waitedLongEnough) {
                                 islandWindow.latestBtDevice = name
                                 islandWindow.latestBtBattery = bat
-                                islandWindow.showBtPopup()
+                                btPopupDelayTimer.restart()
                                 device.shown = true
                             }
                         }
@@ -979,9 +1060,8 @@ Scope {
                             Image {
                                 id: albumArt
                                 anchors.fill: parent
-                                source: islandWindow.activePlayer && islandWindow.activePlayer.trackArtUrl ? islandWindow.activePlayer.trackArtUrl : ""
+                                source: islandWindow.persistentArtUrl
                                 fillMode: Image.PreserveAspectCrop
-                                
                                 layer.enabled: true 
                                 visible: false 
                             }
@@ -1024,6 +1104,7 @@ Scope {
                                     id: pillMaskRect
                                     anchors.fill: parent
                                     radius: mainPill.radius
+                                    topLeftRadius: mainPill.topLeftRadius
                                     color: "black"
                                     layer.enabled: true
                                     visible: false
@@ -1031,15 +1112,16 @@ Scope {
 
                                 MultiEffect {
                                     width: 52
-                                    height: 52
+                                    height: mainPill.height
                                     x: (mainPill.width - mediaPanel.width) / 2
-                                    y: (mainPill.height - mediaPanel.height) / 2
+                                    y: 0
                                     source: albumGlowSrc
                                     blurEnabled: true
                                     blurMax: 64
                                     blur: 1.0
-                                    saturation: 1.8
-                                    opacity: albumArt.status === Image.Ready ? 0.45 : 0
+                                    saturation: 2.2
+                                    brightness: 1.0
+                                    opacity: albumArt.status === Image.Ready ? 0.50 : 0
                                     Behavior on opacity { NumberAnimation { duration: 200 } }
                                 }
                             }
@@ -1529,6 +1611,7 @@ Scope {
                     onVisibleChanged: {
                         if (visible) {
                             weatherDelayTimer.start()
+                            calGrid.currentDate = new Date()
                         } else {
                             calGrid.monthOffset = 0 
                         }
@@ -1607,14 +1690,15 @@ Scope {
                                 columns: 7; spacing: 4
                                 
                                 property int monthOffset: 0
+                                property var currentDate: new Date()
                                 property var calDate: {
-                                    let d = new Date()
+                                    let d = new Date(currentDate.getTime())
                                     d.setMonth(d.getMonth() + monthOffset)
                                     d.setDate(1); return d
                                 }
                                 property int startDay: (calDate.getDay() + 6) % 7
                                 property int daysInMonth: new Date(calDate.getFullYear(), calDate.getMonth() + 1, 0).getDate()
-                                property int today: new Date().getDate()
+                                property int today: currentDate.getDate()
 
                                 Repeater {
                                     model: 42 

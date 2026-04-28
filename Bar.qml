@@ -8,7 +8,6 @@ import Quickshell.Services.SystemTray
 import "."
 
 Scope {
-
     // Top strut
     Variants {
         model: Quickshell.screens
@@ -169,6 +168,7 @@ Scope {
                 layer: WlrLayer.Top
                 exclusiveZone: -1 
                 color: "transparent"
+                keyboardFocus: WlrKeyboardFocus.OnDemand
 
                 implicitWidth: 800
                 implicitHeight: 800 

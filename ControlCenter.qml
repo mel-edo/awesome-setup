@@ -22,6 +22,9 @@ Column {
     property string batTimeLeft: ""
     property string connectingWifi: ""
     property string connectingBt: ""
+    property string passwordSsid: ""
+    property string passwordText: ""
+    property bool passwordVisible: false
     
     Timer { id: resetConnectingWifi; interval: 3000; onTriggered: root.connectingWifi = "" }
     Timer { id: resetConnectingBt; interval: 3000; onTriggered: root.connectingBt = "" }
@@ -82,6 +85,19 @@ Column {
     Process { id: btScanProcess }
     Process { id: profileProcess }
 
+    Process {
+        id: wifiConnectWithPassProcess
+        stdout: StdioCollector {
+            onStreamFinished: {
+                // Connection attempted – clear password state regardless of result
+                root.passwordSsid = ""
+                root.passwordText = ""
+                root.passwordVisible = false
+                Qt.callLater(() => { if (!wifiListProcess.running) wifiListProcess.running = true })
+            }
+        }
+    }
+
     // State refresh timers
     Timer { interval: 10000; running: root.isOpen; repeat: true; onTriggered: { if (!wifiListProcess.running) if (!wifiListProcess.running) wifiListProcess.running = true } }
     Timer { interval: 5000; running: root.isOpen; repeat: true; onTriggered: { if (!btListProcess.running) if (!btListProcess.running) btListProcess.running = true; if (!batTimeProcess.running) if (!batTimeProcess.running) batTimeProcess.running = true } }
@@ -92,6 +108,10 @@ Column {
             if (!btListProcess.running) if (!btListProcess.running) btListProcess.running = true
             if (!profileFetchProcess.running) if (!profileFetchProcess.running) profileFetchProcess.running = true
             if (!batTimeProcess.running) if (!batTimeProcess.running) batTimeProcess.running = true
+        } else {
+            root.passwordSsid = ""
+            root.passwordText = ""
+            root.passwordVisible = false
         }
     }
 
@@ -189,54 +209,236 @@ Column {
             }
 
             delegate: Rectangle {
+                id: wifiDelegate
                 required property var modelData
+                property bool showPassword: root.passwordSsid === modelData.ssid
+
                 width: parent ? parent.width - (wifiListView.ScrollBar.vertical.visible ? 10 : 0) : 0
-                height: 34; radius: 8
-                color: root.connectingWifi === modelData.ssid ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.15) : (netItemHover.hovered ? Theme.surfaceHover : "transparent")
-                Behavior on color { ColorAnimation { duration: 100 } }
+                height: showPassword ? 88 : 34
+                radius: 10
+                clip: true
+                color: root.connectingWifi === modelData.ssid
+                    ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.15)
+                    : (netItemHover.hovered && !showPassword ? Theme.surfaceHover : "transparent")
 
-                Row {
-                    anchors.fill: parent; anchors.leftMargin: 10; anchors.rightMargin: 10; spacing: 10
-                    anchors.verticalCenter: parent.verticalCenter
+                Behavior on height   { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
+                Behavior on color    { ColorAnimation  { duration: 100 } }
 
-                    Text {
-                        text: {
-                            if (modelData.signal > 80) return "󰤨"
-                            if (modelData.signal > 60) return "󰤥"
-                            if (modelData.signal > 40) return "󰤢"
-                            if (modelData.signal > 20) return "󰤟"
-                            return "󰤯"
+                // ── Network row ────────────────────────────────────────────
+                Rectangle {
+                    id: netRow
+                    width: parent.width
+                    height: 34
+                    color: "transparent"
+                    radius: 10
+
+                    Row {
+                        anchors.fill: parent
+                        anchors.leftMargin: 10; anchors.rightMargin: 10
+                        spacing: 10
+
+                        Text {
+                            text: {
+                                if (modelData.signal > 80) return "󰤨"
+                                if (modelData.signal > 60) return "󰤥"
+                                if (modelData.signal > 40) return "󰤢"
+                                if (modelData.signal > 20) return "󰤟"
+                                return "󰤯"
+                            }
+                            color: modelData.signal > 20 ? Theme.accent : Theme.subtext
+                            font.pixelSize: 16
+                            anchors.verticalCenter: parent.verticalCenter
                         }
-                        color: modelData.signal > 20 ? Theme.accent : Theme.subtext
-                        font.pixelSize: 16
-                        anchors.verticalCenter: parent.verticalCenter
+
+                        Row {
+                            spacing: 6
+                            anchors.verticalCenter: parent.verticalCenter
+                            Text {
+                                text: modelData.ssid
+                                color: Theme.text; font.pixelSize: 12
+                                elide: Text.ElideRight; width: Math.min(implicitWidth, 140)
+                            }
+                            Text {
+                                text: modelData.security !== "" ? "󰌾" : ""
+                                color: Theme.subtext; font.pixelSize: 11
+                                visible: text !== ""
+                            }
+                        }
+                    }
+
+                    // Tap handler scoped ONLY to the network row
+                    HoverHandler { id: netItemHover; cursorShape: Qt.PointingHandCursor }
+                    MouseArea {
+                        anchors.fill: parent
+                        onClicked: {
+                            if (modelData.security !== "") {
+                                if (root.passwordSsid === modelData.ssid) {
+                                    root.passwordSsid = ""
+                                    root.passwordText = ""
+                                    root.passwordVisible = false
+                                } else {
+                                    root.passwordSsid = modelData.ssid
+                                    root.passwordText = ""
+                                    root.passwordVisible = false
+                                    pwField.text = ""
+                                    Qt.callLater(() => pwField.forceActiveFocus())
+                                }
+                                return
+                            }
+                            root.connectingWifi = modelData.ssid
+                            resetConnectingWifi.restart()
+                            wifiConnectProcess.command = ["nmcli", "dev", "wifi", "connect", modelData.ssid]
+                            if (!wifiConnectProcess.running) wifiConnectProcess.running = true
+                        }
+                    }
+                }
+
+                // ── Password row (slides in) ────────────────────────────────
+                Item {
+                    id: pwRow
+                    anchors.top: netRow.bottom
+                    anchors.topMargin: 2
+                    width: parent.width
+                    height: 50
+                    opacity: wifiDelegate.showPassword ? 1 : 0
+                    Behavior on opacity { NumberAnimation { duration: 180 } }
+
+                    // Block ALL mouse events from bubbling to the delegate
+                    MouseArea {
+                        anchors.fill: parent
+                        onClicked: {} // swallow
                     }
 
                     Row {
+                        anchors.fill: parent
+                        anchors.leftMargin: 10
+                        anchors.rightMargin: 10
                         spacing: 6
-                        anchors.verticalCenter: parent.verticalCenter
-                        Text {
-                            text: modelData.ssid
-                            color: Theme.text; font.pixelSize: 12
-                            elide: Text.ElideRight; width: Math.min(implicitWidth, 140)
+
+                        // Password field
+                        Rectangle {
+                            width: parent.width - 72
+                            height: 32
+                            anchors.verticalCenter: parent.verticalCenter
+                            radius: 8
+                            color: Qt.rgba(Theme.subtext.r, Theme.subtext.g, Theme.subtext.b, 0.10)
+                            border.width: pwField.activeFocus ? 1 : 0
+                            border.color: Theme.accent
+                            Behavior on border.width { NumberAnimation { duration: 100 } }
+
+                            Row {
+                                anchors.fill: parent
+                                anchors.leftMargin: 8
+                                anchors.rightMargin: 4
+                                spacing: 4
+
+                                // TextInput + manual placeholder overlay
+                                // Replace the old Item wrapping the Text and TextInput with this:
+                                Item {
+                                    width: parent.width - 28
+                                    height: parent.height
+
+                                    TextField {
+                                        id: pwField
+                                        anchors.fill: parent
+                                        verticalAlignment: TextInput.AlignVCenter
+                                        echoMode: root.passwordVisible ? TextInput.Normal : TextInput.Password
+                                        color: Theme.text
+                                        font.pixelSize: 12
+                                        font.family: "Inter"
+                                        
+                                        // Native placeholder support!
+                                        placeholderText: "Password"
+                                        placeholderTextColor: Theme.subtext
+                                        
+                                        // Remove the default styling so your custom Rectangle border shows through
+                                        background: Item {}
+                                        selectionColor: Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.35)
+
+                                        onTextChanged: root.passwordText = text
+                                        onAccepted: connectBtn.doConnect()
+                                        onVisibleChanged: if (visible && wifiDelegate.showPassword) forceActiveFocus()
+                                        
+                                        Keys.onEscapePressed: {
+                                            root.passwordSsid = ""
+                                            root.passwordText = ""
+                                            root.passwordVisible = false
+                                            text = ""
+                                        }
+                                    }
+                                }
+
+                                // Eye toggle
+                                Rectangle {
+                                    width: 24; height: 24
+                                    color: "transparent"
+                                    anchors.verticalCenter: parent.verticalCenter
+
+                                    Text {
+                                        anchors.horizontalCenter: parent.horizontalCenter
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        anchors.verticalCenterOffset: 1
+                                        text: root.passwordVisible ? "󰛐" : "󰛑"
+                                        font.pixelSize: 14
+                                        color: eyeHover.hovered ? Theme.accent : Theme.subtext
+                                        Behavior on color { ColorAnimation { duration: 100 } }
+                                    }
+                                    HoverHandler { id: eyeHover; cursorShape: Qt.PointingHandCursor }
+                                    MouseArea {
+                                        anchors.fill: parent
+                                        onClicked: {
+                                            root.passwordVisible = !root.passwordVisible
+                                            pwField.forceActiveFocus()
+                                        }
+                                    }
+                                }
+                            }
                         }
-                        Text {
-                            text: modelData.security !== "" ? "󰌾" : ""
-                            color: Theme.subtext; font.pixelSize: 11
-                            visible: text !== ""
+
+                        // Connect button
+                        Rectangle {
+                            id: connectBtn
+                            width: 62; height: 32
+                            anchors.verticalCenter: parent.verticalCenter
+                            radius: 8
+                            color: cbMouse.pressed ? Qt.darker(Theme.accent, 1.15) : (cbHover.hovered ? Qt.lighter(Theme.accent, 1.15) : Theme.accent)
+                            Behavior on color { ColorAnimation { duration: 150 } }
+
+                            function doConnect() {
+                                let ssid = wifiDelegate.modelData.ssid
+                                let pass = root.passwordText
+                                if (pass.length === 0) return
+                                root.connectingWifi = ssid
+                                resetConnectingWifi.restart()
+                                wifiConnectWithPassProcess.command = [
+                                    "nmcli", "dev", "wifi", "connect", ssid, "password", pass
+                                ]
+                                if (!wifiConnectWithPassProcess.running)
+                                    wifiConnectWithPassProcess.running = true
+                                pwField.text = ""
+                                root.passwordText = ""
+                                root.passwordSsid = ""
+                                root.passwordVisible = false
+                            }
+
+                            Text {
+                                anchors.centerIn: parent
+                                text: "Connect"
+                                font.pixelSize: 11; font.bold: true
+                                color: Theme.background
+                            }
+
+                            HoverHandler { id: cbHover; cursorShape: Qt.PointingHandCursor }
+                            MouseArea {
+                                id: cbMouse
+                                anchors.fill: parent
+                                onClicked: connectBtn.doConnect()
+                            }
                         }
                     }
                 }
 
-                HoverHandler { id: netItemHover; cursorShape: Qt.PointingHandCursor }
-                TapHandler {
-                    onTapped: {
-                        root.connectingWifi = modelData.ssid
-                        resetConnectingWifi.restart()
-                        wifiConnectProcess.command = ["nmcli", "dev", "wifi", "connect", modelData.ssid]
-                        if (!wifiConnectProcess.running) wifiConnectProcess.running = true
-                    }
-                }
+
             }
         }
 
