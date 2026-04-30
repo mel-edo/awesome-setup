@@ -28,7 +28,7 @@ Scope {
         target: Pipewire.defaultAudioSink ? Pipewire.defaultAudioSink.audio : null
         function onVolumeChanged() {
             let vol = Pipewire.defaultAudioSink.audio.volume;
-            if (!isNaN(vol)) {
+            if (!isNaN(vol) && !SharedState.isSuppressingOsd) {
                 islandWindow.showOsd(Math.round(vol * 100), "volume")
             }
         }
@@ -81,6 +81,7 @@ Scope {
         property bool pendingBt: false
         property string currentAudioSink: ""
         property bool isMediaPinned: false
+        property bool isStartingUp: true
 
         onWasPlayingChanged: {
             if (wasPlaying) {
@@ -108,10 +109,31 @@ Scope {
             }
         }
 
+        Timer {
+            id: startupTimer
+            interval: 2000
+            running: true
+            onTriggered: islandWindow.isStartingUp = false
+        }
+
         Process {
             running: true
             command: ["bash", "-c", "cat ~/.cache/mshell/wall_cache.txt 2>/dev/null || echo ''"]
             stdout: StdioCollector { onStreamFinished: islandWindow.activeWallCache = text.trim() }
+        }
+
+        Process {
+            id: brightnessWatcher
+            running: true
+            command: ["bash", "-c", "inotifywait -m -q -e modify /sys/class/backlight/*/brightness | while read -r _; do brightnessctl -m | awk -F, '{print int($4)}'; done"]
+            stdout: SplitParser {
+                onRead: data => {
+                    let val = parseInt(data.trim());
+                    if (!isNaN(val) && !SharedState.isSuppressingOsd) {
+                        islandWindow.showOsd(val, "brightness");
+                    }
+                }
+            }
         }
         
         Process {
@@ -178,6 +200,12 @@ Scope {
         }
 
         function showOsd(value, type) {
+            if (SharedState.isSuppressingOsd) return;
+            if (islandWindow.isStartingUp) {
+                osdValue = value;
+                osdType = type;
+                return;
+            }
             if (islandWindow.islandState === "bluetooth") {
                 islandWindow.pendingBt = true
                 hubStayTimer.stop()
@@ -741,7 +769,7 @@ Scope {
                         width: sliderHead.x + sliderHead.width 
                         radius: height / 2 
                         
-                        color: islandWindow.osdValue > 100 ? Theme.danger : Theme.subtext
+                        color: islandWindow.osdValue > 100 ? Theme.danger : Theme.accent
                         
                         Behavior on color { ColorAnimation { duration: 150 } }
                     }
@@ -773,7 +801,13 @@ Scope {
                                 }
                             }
                             color: Theme.background
-                            font.pixelSize: 18
+                            font.pixelSize: {
+                                if (islandWindow.osdType === "volume") {
+                                    return 18
+                                } else {
+                                    return 16
+                                }
+                            }
                             
                             opacity: islandWindow.isOsdIdle ? 1 : 0
                             Behavior on opacity { NumberAnimation { duration: 200; easing.type: Easing.InOutQuad } }

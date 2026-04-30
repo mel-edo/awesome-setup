@@ -1,5 +1,6 @@
 module mshell
 singleton Theme 1.0 Theme.qml
+singleton SharedState 1.0 SharedState.qml
 Bar 1.0 Bar.qml
 Island 1.0 Island.qml
 NotifCard 1.0 NotifCard.qml

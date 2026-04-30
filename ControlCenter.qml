@@ -17,6 +17,7 @@ Column {
     property bool wifiEnabled: true
     property bool btEnabled: true
     property var wifiNetworks: []
+    property var savedNetworks: []
     property var btDevices: []
     property string powerProfile: "balanced"
     property string batTimeLeft: ""
@@ -25,9 +26,46 @@ Column {
     property string passwordSsid: ""
     property string passwordText: ""
     property bool passwordVisible: false
+
+    property int volLevel: 50
+    property int briLevel: 50
+    property bool isDraggingSlider: volDragArea.pressed || briDragArea.pressed
+    onIsDraggingSliderChanged: SharedState.isSuppressingOsd = isDraggingSlider
     
     Timer { id: resetConnectingWifi; interval: 3000; onTriggered: root.connectingWifi = "" }
     Timer { id: resetConnectingBt; interval: 3000; onTriggered: root.connectingBt = "" }
+
+    // --- Media Fetchers ---
+    Process {
+        id: volFetchProcess
+        command: ["bash", "-c", "wpctl get-volume @DEFAULT_AUDIO_SINK@ | awk '{print int($2 * 100)}'"]
+        stdout: StdioCollector { onStreamFinished: root.volLevel = parseInt(text.trim()) || 0 }
+    }
+    
+    Process {
+        id: briFetchProcess
+        command: ["bash", "-c", "brightnessctl -m | awk -F, '{print int($4)}'"]
+        stdout: StdioCollector { onStreamFinished: root.briLevel = parseInt(text.trim()) || 0 }
+    }
+
+    // --- Data Fetchers ---
+    Process {
+        id: savedWifiFetchProcess
+        command: ["nmcli", "-t", "-f", "NAME,TYPE", "connection", "show"]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                let lines = text.trim().split("\n")
+                let saved = []
+                for (let line of lines) {
+                    let parts = line.split(":")
+                    if (parts.length >= 2 && parts[1].includes("wireless")) {
+                        saved.push(parts[0]) // Push the SSID/Connection Name
+                    }
+                }
+                root.savedNetworks = saved
+            }
+        }
+    }
 
     Process {
         id: wifiListProcess
@@ -77,19 +115,20 @@ Column {
         stdout: StdioCollector { onStreamFinished: root.batTimeLeft = text.trim() }
     }
 
-    // Toggles
+    // Toggles and Actions
     Process { id: wifiToggleProcess }
     Process { id: btToggleProcess }
     Process { id: wifiConnectProcess }
     Process { id: btActionProcess }
     Process { id: btScanProcess }
     Process { id: profileProcess }
+    Process { id: volSetProcess }
+    Process { id: briSetProcess }
 
     Process {
         id: wifiConnectWithPassProcess
         stdout: StdioCollector {
             onStreamFinished: {
-                // Connection attempted – clear password state regardless of result
                 root.passwordSsid = ""
                 root.passwordText = ""
                 root.passwordVisible = false
@@ -99,15 +138,29 @@ Column {
     }
 
     // State refresh timers
-    Timer { interval: 10000; running: root.isOpen; repeat: true; onTriggered: { if (!wifiListProcess.running) if (!wifiListProcess.running) wifiListProcess.running = true } }
-    Timer { interval: 5000; running: root.isOpen; repeat: true; onTriggered: { if (!btListProcess.running) if (!btListProcess.running) btListProcess.running = true; if (!batTimeProcess.running) if (!batTimeProcess.running) batTimeProcess.running = true } }
+    Timer { interval: 10000; running: root.isOpen; repeat: true; onTriggered: { if (!wifiListProcess.running) wifiListProcess.running = true; if (!savedWifiFetchProcess.running) savedWifiFetchProcess.running = true } }
+    Timer { interval: 5000; running: root.isOpen; repeat: true; onTriggered: { if (!btListProcess.running) btListProcess.running = true; if (!batTimeProcess.running) batTimeProcess.running = true } }
+    
+    // NEW: Fast timer to sync volume/brightness from hardware keys, paused while dragging
+    Timer { 
+        interval: 1000; 
+        running: root.isOpen && !root.isDraggingSlider; 
+        repeat: true; 
+        onTriggered: { 
+            if (!volFetchProcess.running) volFetchProcess.running = true; 
+            if (!briFetchProcess.running) briFetchProcess.running = true; 
+        } 
+    }
 
     onIsOpenChanged: {
         if (isOpen) {
-            if (!wifiListProcess.running) if (!wifiListProcess.running) wifiListProcess.running = true
-            if (!btListProcess.running) if (!btListProcess.running) btListProcess.running = true
-            if (!profileFetchProcess.running) if (!profileFetchProcess.running) profileFetchProcess.running = true
-            if (!batTimeProcess.running) if (!batTimeProcess.running) batTimeProcess.running = true
+            if (!savedWifiFetchProcess.running) savedWifiFetchProcess.running = true
+            if (!wifiListProcess.running) wifiListProcess.running = true
+            if (!btListProcess.running) btListProcess.running = true
+            if (!profileFetchProcess.running) profileFetchProcess.running = true
+            if (!batTimeProcess.running) batTimeProcess.running = true
+            if (!volFetchProcess.running) volFetchProcess.running = true
+            if (!briFetchProcess.running) briFetchProcess.running = true
         } else {
             root.passwordSsid = ""
             root.passwordText = ""
@@ -125,7 +178,7 @@ Column {
             height: 28
 
             Text {
-                text: "󰤨    Network"
+                text: "󰤨   Network"
                 color: Theme.text
                 font.pixelSize: 14
                 font.bold: true
@@ -271,7 +324,10 @@ Column {
                     MouseArea {
                         anchors.fill: parent
                         onClicked: {
-                            if (modelData.security !== "") {
+                            let isSaved = root.savedNetworks.includes(modelData.ssid)
+                            
+                            // If secure AND we don't have it saved, ask for password
+                            if (modelData.security !== "" && !isSaved) {
                                 if (root.passwordSsid === modelData.ssid) {
                                     root.passwordSsid = ""
                                     root.passwordText = ""
@@ -285,6 +341,8 @@ Column {
                                 }
                                 return
                             }
+                            
+                            // Otherwise, connect immediately
                             root.connectingWifi = modelData.ssid
                             resetConnectingWifi.restart()
                             wifiConnectProcess.command = ["nmcli", "dev", "wifi", "connect", modelData.ssid]
@@ -303,7 +361,6 @@ Column {
                     opacity: wifiDelegate.showPassword ? 1 : 0
                     Behavior on opacity { NumberAnimation { duration: 180 } }
 
-                    // Block ALL mouse events from bubbling to the delegate
                     MouseArea {
                         anchors.fill: parent
                         onClicked: {} // swallow
@@ -332,8 +389,6 @@ Column {
                                 anchors.rightMargin: 4
                                 spacing: 4
 
-                                // TextInput + manual placeholder overlay
-                                // Replace the old Item wrapping the Text and TextInput with this:
                                 Item {
                                     width: parent.width - 28
                                     height: parent.height
@@ -347,11 +402,9 @@ Column {
                                         font.pixelSize: 12
                                         font.family: "Inter"
                                         
-                                        // Native placeholder support!
                                         placeholderText: "Password"
                                         placeholderTextColor: Theme.subtext
                                         
-                                        // Remove the default styling so your custom Rectangle border shows through
                                         background: Item {}
                                         selectionColor: Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.35)
 
@@ -437,8 +490,6 @@ Column {
                         }
                     }
                 }
-
-
             }
         }
 
@@ -722,6 +773,195 @@ Column {
                         }
                     }
                 }
+            }
+        }
+    }
+
+    Rectangle { width: parent.width; height: 1; color: Qt.rgba(Theme.subtext.r, Theme.subtext.g, Theme.subtext.b, 0.12) }
+
+    // --- SYSTEM SLIDERS ---
+    Column {
+        width: parent.width
+        spacing: 12
+
+        // Section Title
+        Item {
+            width: parent.width
+            height: 28
+            Text {
+                text: "󰕾  System Sliders"
+                color: Theme.text
+                font.pixelSize: 14
+                font.bold: true
+                anchors.left: parent.left
+                anchors.verticalCenter: parent.verticalCenter
+            }
+        }
+
+        // Volume Slider
+        Item {
+            width: parent.width
+            height: 36
+            property bool isHovered: volDragArea.containsMouse || volDragArea.pressed
+
+            Rectangle {
+                anchors.fill: parent
+                radius: height / 2
+                color: Theme.surfaceHover 
+            }
+
+            Rectangle {
+                anchors.left: parent.left
+                anchors.top: parent.top
+                anchors.bottom: parent.bottom
+                width: volHead.x + volHead.width 
+                radius: height / 2 
+                color: Theme.accent
+                Behavior on color { ColorAnimation { duration: 150 } }
+            }
+
+            Rectangle {
+                id: volHead
+                width: parent.height 
+                height: parent.height
+                radius: width / 2
+                color: Theme.text
+                
+                x: (Math.min(root.volLevel, 100) / 100) * (parent.width - width)
+                Behavior on x { 
+                    enabled: !volDragArea.pressed
+                    NumberAnimation { duration: 120; easing.type: Easing.OutQuad } 
+                }
+
+                Text {
+                    anchors.centerIn: parent
+                    text: {
+                        if (root.volLevel <= 0) return "󰖁" 
+                        if (root.volLevel < 33) return "󰕿" 
+                        if (root.volLevel < 66) return "󰖀" 
+                        return "󰕾" 
+                    }
+                    color: Theme.background
+                    font.pixelSize: 18
+                    
+                    opacity: parent.parent.isHovered ? 0 : 1
+                    Behavior on opacity { NumberAnimation { duration: 200; easing.type: Easing.InOutQuad } }
+                }
+
+                Text {
+                    anchors.centerIn: parent
+                    text: root.volLevel
+                    color: Theme.background
+                    font.pixelSize: 13
+                    font.bold: true
+                    
+                    opacity: parent.parent.isHovered ? 1 : 0
+                    Behavior on opacity { NumberAnimation { duration: 200; easing.type: Easing.InOutQuad } }
+                }
+            }
+
+            MouseArea {
+                id: volDragArea
+                anchors.fill: parent
+                hoverEnabled: true
+                
+                function updateValue(mouse) {
+                    let headHalf = volHead.width / 2;
+                    let trackWidth = width - volHead.width;
+                    let rawX = mouse.x - headHalf;
+                    let pct = Math.max(0, Math.min(1, rawX / trackWidth));
+                    let val = Math.round(pct * 100);
+                    
+                    root.volLevel = val;
+                    volSetProcess.command = ["wpctl", "set-volume", "@DEFAULT_AUDIO_SINK@", (val/100).toFixed(2)];
+                    if (!volSetProcess.running) volSetProcess.running = true;
+                }
+                
+                onPressed: (mouse) => updateValue(mouse)
+                onPositionChanged: (mouse) => { if (pressed) updateValue(mouse) }
+            }
+        }
+
+        // Brightness Slider
+        Item {
+            width: parent.width
+            height: 36
+            property bool isHovered: briDragArea.containsMouse || briDragArea.pressed
+
+            Rectangle {
+                anchors.fill: parent
+                radius: height / 2
+                color: Theme.surfaceHover 
+            }
+
+            Rectangle {
+                anchors.left: parent.left
+                anchors.top: parent.top
+                anchors.bottom: parent.bottom
+                width: briHead.x + briHead.width 
+                radius: height / 2 
+                color: Theme.accent
+                Behavior on color { ColorAnimation { duration: 150 } }
+            }
+
+            Rectangle {
+                id: briHead
+                width: parent.height 
+                height: parent.height
+                radius: width / 2
+                color: Theme.text
+                
+                x: (Math.min(root.briLevel, 100) / 100) * (parent.width - width)
+                Behavior on x { 
+                    enabled: !briDragArea.pressed
+                    NumberAnimation { duration: 120; easing.type: Easing.OutQuad } 
+                }
+
+                Text {
+                    anchors.centerIn: parent
+                    text: {
+                        if (root.briLevel < 33) return "󰃞" 
+                        if (root.briLevel < 66) return "󰃟" 
+                        return "󰃠" 
+                    }
+                    color: Theme.background
+                    font.pixelSize: 14
+                    
+                    opacity: parent.parent.isHovered ? 0 : 1
+                    Behavior on opacity { NumberAnimation { duration: 200; easing.type: Easing.InOutQuad } }
+                }
+
+                Text {
+                    anchors.centerIn: parent
+                    text: root.briLevel
+                    color: Theme.background
+                    font.pixelSize: 13
+                    font.bold: true
+                    
+                    opacity: parent.parent.isHovered ? 1 : 0
+                    Behavior on opacity { NumberAnimation { duration: 200; easing.type: Easing.InOutQuad } }
+                }
+            }
+
+            MouseArea {
+                id: briDragArea
+                anchors.fill: parent
+                hoverEnabled: true
+                
+                function updateValue(mouse) {
+                    let headHalf = briHead.width / 2;
+                    let trackWidth = width - briHead.width;
+                    let rawX = mouse.x - headHalf;
+                    let pct = Math.max(0, Math.min(1, rawX / trackWidth));
+                    let val = Math.round(pct * 100);
+                    
+                    root.briLevel = val;
+                    briSetProcess.command = ["brightnessctl", "s", val + "%"];
+                    if (!briSetProcess.running) briSetProcess.running = true;
+                }
+                
+                onPressed: (mouse) => updateValue(mouse)
+                onPositionChanged: (mouse) => { if (pressed) updateValue(mouse) }
             }
         }
     }

@@ -25,18 +25,19 @@ WlrLayershell {
     Process {
         id: appFetchProcess
         command: ["python3", Quickshell.env("HOME") + "/.config/quickshell/mshell/scripts/app_fetcher.py"]
-        running: true
+        Component.onCompleted: running = true
         stdout: StdioCollector {
             onStreamFinished: {
                 try {
                     launcherRoot.allApps = JSON.parse(text.trim())
-                    filterApps("") 
+                    filterApps(searchInput.text) 
                 } catch(e) { console.log("Failed to parse apps: " + e) }
             }
         }
     }
 
     Process { id: launchProcess }
+    Process { id: recordProcess }
 
     function filterApps(query) {
         appModel.clear()
@@ -44,21 +45,26 @@ WlrLayershell {
 
         let results = []
         if (query === "") {
-            results = allApps
+            results = allApps 
         } else {
             let fuzzyPattern = query.toLowerCase().split('').join('.*')
             let regex = new RegExp(fuzzyPattern, "i")
-            
-            results = allApps.filter(app => {
+            results = allApps.map((app, index) => {
+                app._cacheRank = index; 
+                return app;
+            }).filter(app => {
                 let nameStr = (app.name || "").toLowerCase()
                 let execStr = (app.exec || "").toLowerCase()
                 return regex.test(nameStr) || regex.test(execStr)
             })
-            
             results.sort((a, b) => {
-                let aStarts = (a.name || "").toLowerCase().startsWith(query.toLowerCase()) ? -1 : 1
-                let bStarts = (b.name || "").toLowerCase().startsWith(query.toLowerCase()) ? -1 : 1
-                return aStarts - bStarts
+                let queryLower = query.toLowerCase()
+                let aStarts = (a.name || "").toLowerCase().startsWith(queryLower) ? 0 : 1
+                let bStarts = (b.name || "").toLowerCase().startsWith(queryLower) ? 0 : 1
+                if (aStarts !== bStarts) {
+                    return aStarts - bStarts 
+                }
+                return a._cacheRank - b._cacheRank
             })
         }
 
@@ -66,15 +72,19 @@ WlrLayershell {
             appModel.append(results[i])
         }
 
-        if (launcherRoot.isOpen) {
+        if (launcherRoot.isOpen && !openAnim.running) {
             droplet.height = searchContent.height
         }
     }
 
     function launchSelectedApp() {
         if (appModel.count > 0 && appList.currentIndex >= 0 && appList.currentIndex < appModel.count) {
-            launchProcess.command = ["hyprctl", "dispatch", "exec", appModel.get(appList.currentIndex).exec]
+            let app = appModel.get(appList.currentIndex)
+            launchProcess.command = ["hyprctl", "dispatch", "exec", app.exec]
             if (!launchProcess.running) launchProcess.running = true
+            recordProcess.command = ["python3", Quickshell.env("HOME") + "/.config/quickshell/mshell/scripts/app_fetcher.py", "--record", app.name]
+            recordProcess.running = true
+            
             shellRoot.launcherOpen = false
             searchInput.text = "" 
         }
@@ -88,6 +98,7 @@ WlrLayershell {
 
     onIsOpenChanged: {
         if (isOpen) {
+            appFetchProcess.running = true
             closeAnim.stop()
             openDelayTimer.restart() 
         } else {
@@ -294,6 +305,11 @@ WlrLayershell {
         }
         
         ScriptAction { script: searchInput.forceActiveFocus() }
+        onFinished: {
+            if (launcherRoot.isOpen) {
+                droplet.height = searchContent.height
+            }
+        }
     }
 
     SequentialAnimation {
