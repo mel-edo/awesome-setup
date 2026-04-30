@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Controls
+import QtQuick.Window
 import Quickshell
 import Quickshell.Wayland
 import Quickshell.Hyprland
@@ -10,6 +11,12 @@ Scope {
     id: root
 
     property bool isOpen: false
+    signal requestClose()
+    Window.onActiveChanged: {
+        if (!Window.active && isOpen) {
+            requestClose()
+        }
+    }
     signal windowsPopulated()
 
     IpcHandler {

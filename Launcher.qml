@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Controls
+import QtQuick.Window
 import Quickshell
 import Quickshell.Wayland
 import Quickshell.Io
@@ -19,7 +20,15 @@ WlrLayershell {
     visible: isOpen || openAnim.running || closeAnim.running || openDelayTimer.running
     property var allApps: []
     property bool isOpen: false
+    property bool isFullyOpen: false
     
+    signal requestClose()
+    Window.onActiveChanged: {
+        if (!Window.active && isOpen) {
+            requestClose()
+        }
+    }
+
     ListModel { id: appModel }
 
     Process {
@@ -72,7 +81,7 @@ WlrLayershell {
             appModel.append(results[i])
         }
 
-        if (launcherRoot.isOpen && !openAnim.running) {
+        if (isFullyOpen) {
             droplet.height = searchContent.height
         }
     }
@@ -102,6 +111,7 @@ WlrLayershell {
             closeAnim.stop()
             openDelayTimer.restart() 
         } else {
+            isFullyOpen = false
             openDelayTimer.stop()
             openAnim.stop()
             closeAnim.restart()
@@ -306,6 +316,7 @@ WlrLayershell {
         
         ScriptAction { script: searchInput.forceActiveFocus() }
         onFinished: {
+            isFullyOpen = true
             if (launcherRoot.isOpen) {
                 droplet.height = searchContent.height
             }

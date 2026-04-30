@@ -8,8 +8,11 @@ ShellRoot {
     id: shellRoot
     property bool launcherOpen: false
     property bool overviewOpen: false
-    onLauncherOpenChanged: { if (launcherOpen) overviewOpen = false }
-    onOverviewOpenChanged: { if (overviewOpen) launcherOpen = false }
+    property bool powerMenuOpen: false
+
+    onLauncherOpenChanged: { if (launcherOpen) { overviewOpen = false; powerMenuOpen = false; } }
+    onOverviewOpenChanged: { if (overviewOpen) { launcherOpen = false; powerMenuOpen = false; } }
+    onPowerMenuOpenChanged: { if (powerMenuOpen) { launcherOpen = false; overviewOpen = false; } }
 
     GlobalShortcut {
         name: "toggleLauncher"
@@ -19,6 +22,11 @@ ShellRoot {
     GlobalShortcut {
         name: "toggleOverview"
         onPressed: shellRoot.overviewOpen = !shellRoot.overviewOpen
+    }
+
+    GlobalShortcut {
+        name: "togglePowerMenu"
+        onPressed: shellRoot.powerMenuOpen = !shellRoot.powerMenuOpen
     }
 
     Bar {}
@@ -31,12 +39,20 @@ ShellRoot {
                 required property var modelData
                 screen: modelData
                 isOpen: shellRoot.launcherOpen
+                onRequestClose: shellRoot.launcherOpen = false
             }
         }
     }
 
     LockScreen {}
+    
     Overview {
         isOpen: shellRoot.overviewOpen
+        onRequestClose: shellRoot.overviewOpen = false
+    }
+
+    PowerMenu {
+        isOpen: shellRoot.powerMenuOpen
+        onRequestClose: shellRoot.powerMenuOpen = false
     }
 }
