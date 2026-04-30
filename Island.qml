@@ -4,6 +4,7 @@ import Quickshell.Wayland
 import Quickshell.Hyprland
 import Quickshell.Io
 import Quickshell.Services.Mpris
+import Quickshell.Services.Pipewire
 import Quickshell.Services.Notifications
 import QtQuick.Shapes
 import QtQuick.Effects
@@ -16,6 +17,20 @@ Scope {
         target: "island"
         function showOsd(value: string, type: string) {
             islandWindow.showOsd(Number(value), type)
+        }
+    }
+
+    PwObjectTracker {
+        objects: [ Pipewire.defaultAudioSink ]
+    }
+
+    Connections {
+        target: Pipewire.defaultAudioSink ? Pipewire.defaultAudioSink.audio : null
+        function onVolumeChanged() {
+            let vol = Pipewire.defaultAudioSink.audio.volume;
+            if (!isNaN(vol)) {
+                islandWindow.showOsd(Math.round(vol * 100), "volume")
+            }
         }
     }
 
@@ -1220,6 +1235,7 @@ Scope {
                         // Track metadata and Progress Bar
                         Column {
                             anchors.verticalCenter: parent.verticalCenter
+                            anchors.verticalCenterOffset: 4
                             width: 140 
                             spacing: 4 
 
@@ -1262,13 +1278,16 @@ Scope {
                                             let len = Number(player.length) || 0;
 
                                             if (len > 0 || pos > 0) {
-                                                // Normalize to seconds based on typical MPRIS microsecond format
                                                 let posSec = (pos > 10000000) ? pos / 1000000 : (pos > 10000 ? pos / 1000 : pos);
                                                 let lenSec = (len > 10000000) ? len / 1000000 : (len > 10000 ? len / 1000 : len);
+                                                
+                                                if (lenSec > 360000) lenSec = 0; 
+                                                if (posSec > 360000) posSec = Math.max(0, (posSec % 360000));
 
                                                 let formatTime = (secs) => {
                                                     if (isNaN(secs) || secs < 0) return "0:00";
                                                     let h = Math.floor(secs / 3600);
+                                                    if (h > 99) return "Live";
                                                     let m = Math.floor((secs % 3600) / 60);
                                                     let s = Math.floor(secs % 60);
                                                     let mStr = (h > 0 && m < 10) ? "0" + m : m;
@@ -1277,14 +1296,13 @@ Scope {
                                                     return mStr + ":" + sStr;
                                                 };
 
-                                                progressContainer.durationText = formatTime(lenSec);
+                                                progressContainer.durationText = formatTime(posSec);
 
                                                 if (lenSec > 0) {
                                                     if (posSec > lenSec) {
                                                         posSec = posSec % lenSec;
                                                     }
                                                     let r = posSec / lenSec;
-                                                    // Prevent runaway maxing out on pause anomalies
                                                     if (r > 1.05 && !islandWindow.wasPlaying) {
                                                         r = progressContainer.ratio;
                                                     }
@@ -1306,7 +1324,7 @@ Scope {
                                     anchors.left: parent.left
                                     anchors.top: parent.top
                                     anchors.bottom: parent.bottom
-                                    width: 100 // Fixed width for bar
+                                    width: 100
                                     onPaint: {
                                         var ctx = getContext("2d");
                                         ctx.clearRect(0, 0, width, height);
@@ -1539,7 +1557,7 @@ Scope {
                         model: wallpaperList
                         clip: true
                         
-                        cellWidth: 152 
+                        cellWidth: 152
                         cellHeight: 65
                         flow: GridView.FlowTopToBottom
                         
@@ -1551,46 +1569,74 @@ Scope {
                             height: 58
 
                             Rectangle {
+                                id: wallBg
                                 anchors.fill: parent
                                 radius: 8
                                 color: Theme.surfaceHover
-                                clip: true
+                                antialiasing: true
+                            }
+                            
+                            Rectangle {
+                                id: wallMask
+                                anchors.fill: parent
+                                anchors.margins: wallHover.hovered ? 2 : 0
+                                radius: Math.max(0, 8 - (wallHover.hovered ? 2 : 0))
+                                layer.enabled: true
+                                visible: false
+                                antialiasing: true
+                                Behavior on anchors.margins { NumberAnimation { duration: 150 } }
+                            }
 
-                                Image {
-                                    anchors.fill: parent
-                                    source: model.preview
-                                    fillMode: Image.PreserveAspectCrop
-                                    asynchronous: true
-                                    visible: model.preview !== ""
-                                    sourceSize.width: 144
-                                    sourceSize.height: 62
-                                }
-                                
-                                Text {
-                                    anchors.centerIn: parent
-                                    text: "󰸉"
-                                    color: Theme.subtext
-                                    font.pixelSize: 24
-                                    visible: model.preview === ""
-                                }
+                            Image {
+                                id: wallImg
+                                anchors.fill: parent
+                                anchors.margins: wallHover.hovered ? 2 : 0
+                                source: preview
+                                fillMode: Image.PreserveAspectCrop
+                                asynchronous: true
+                                layer.enabled: true
+                                visible: false
+                                sourceSize.width: 144
+                                sourceSize.height: 58
+                                antialiasing: true
+                                Behavior on anchors.margins { NumberAnimation { duration: 150 } }
+                            }
+                            
+                            MultiEffect {
+                                anchors.fill: parent
+                                anchors.margins: wallHover.hovered ? 2 : 0
+                                source: wallImg
+                                maskEnabled: true
+                                maskSource: wallMask
+                                visible: preview !== ""
+                                Behavior on anchors.margins { NumberAnimation { duration: 150 } }
+                            }
+                            
+                            Text {
+                                anchors.centerIn: parent
+                                text: "󰸉"
+                                color: Theme.subtext
+                                font.pixelSize: 24
+                                visible: preview === ""
+                            }
 
-                                Rectangle {
-                                    anchors.fill: parent
-                                    color: "transparent"
-                                    radius: 8
-                                    border.width: wallHover.hovered ? 2 : 0
-                                    border.color: Theme.accent
-                                    Behavior on border.width { NumberAnimation { duration: 150 } }
-                                }
+                            Rectangle {
+                                anchors.fill: parent
+                                color: "transparent"
+                                radius: 8
+                                border.width: wallHover.hovered ? 2 : 0
+                                border.color: Theme.accent
+                                antialiasing: true
+                                Behavior on border.width { NumberAnimation { duration: 150 } }
                             }
 
                             HoverHandler { id: wallHover; cursorShape: Qt.PointingHandCursor }
                             TapHandler {
                                 onTapped: {
-                                    let rawPreview = model.preview.replace("file://", "")
+                                    let rawPreview = preview.replace("file://", "")
                                     let script = Quickshell.env("HOME") + "/.config/quickshell/mshell/scripts/set_wall.sh"
-                                    islandWindow.activeWallCache = model.type === "animated" ? rawPreview : model.path
-                                    wallChangerProcess.command = ["bash", script, model.type, model.path, rawPreview, islandWindow.themeMode]
+                                    islandWindow.activeWallCache = type === "animated" ? rawPreview : path
+                                    wallChangerProcess.command = ["bash", script, type, path, rawPreview, islandWindow.themeMode]
                                     wallChangerProcess.running = true
                                     islandWindow.closeToIdle()
                                 }

@@ -16,6 +16,11 @@ ShellRoot {
         onPressed: shellRoot.launcherOpen = !shellRoot.launcherOpen
     }
 
+    GlobalShortcut {
+        name: "toggleOverview"
+        onPressed: shellRoot.overviewOpen = !shellRoot.overviewOpen
+    }
+
     Bar {}
     Island {}
     
@@ -30,7 +35,7 @@ ShellRoot {
         }
     }
 
-    // LockScreen {}
+    LockScreen {}
     Overview {
         isOpen: shellRoot.overviewOpen
     }
