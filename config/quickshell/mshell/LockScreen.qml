@@ -102,14 +102,30 @@ Scope {
                 property string weatherIcon: ""
                 property string weatherTemp: "--°C"
 
-                property real introState: 0.0
+                property real introState: 1.0 
                 property bool powerMenuOpen: false
                 property bool inputActive: false
-                property bool isPlayingIntro: true
+                property bool isPlayingIntro: false 
+
+                Timer {
+                    id: focusHammer
+                    interval: 50
+                    repeat: true
+                    property int attempts: 0
+                    onTriggered: {
+                        screenRoot.forceActiveFocus();
+                        attempts++;
+                        if (screenRoot.activeFocus || attempts > 20) {
+                            running = false;
+                        }
+                    }
+                }
 
                 Component.onCompleted: {
-                    introSequence.start()
-                    forceActiveFocus()
+                    lockUI.passwordBuffer = "";
+                    introSequence.start();
+                    focusHammer.attempts = 0;
+                    focusHammer.running = true;
                 }
 
                 // ROOT KEY HANDLER
@@ -306,7 +322,8 @@ Scope {
                 // MAIN CONTENT LAYER (Clock & Auth)
                 MouseArea {
                     anchors.fill: parent
-                    enabled: !screenRoot.isPlayingIntro
+                    hoverEnabled: true
+                    cursorShape: Qt.BlankCursor
                     onClicked: {
                         screenRoot.forceActiveFocus(); 
                     }
@@ -603,6 +620,12 @@ Scope {
                     }
                     SequentialAnimation {
                         id: introSequence
+                        ScriptAction { 
+                            script: { 
+                                screenRoot.isPlayingIntro = true;
+                                screenRoot.introState = 0.0; 
+                            } 
+                        }
                         ParallelAnimation {
                             NumberAnimation { target: introLockOrb; property: "scale"; from: 0.0; to: 1.0; duration: 300; easing.type: Easing.OutCubic }
                             NumberAnimation { target: introLockOrb; property: "opacity"; from: 0.0; to: 1.0; duration: 200; easing.type: Easing.OutCubic }

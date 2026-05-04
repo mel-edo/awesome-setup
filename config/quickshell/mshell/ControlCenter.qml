@@ -26,6 +26,8 @@ Column {
     property string passwordSsid: ""
     property string passwordText: ""
     property bool passwordVisible: false
+    property bool isScanningBt: false
+    property var visibleBtDevices: btDevices.filter(d => isScanningBt || d.paired === "1" || d.connected === "1")
 
     property int volLevel: 50
     property int briLevel: 50
@@ -35,7 +37,6 @@ Column {
     Timer { id: resetConnectingWifi; interval: 3000; onTriggered: root.connectingWifi = "" }
     Timer { id: resetConnectingBt; interval: 3000; onTriggered: root.connectingBt = "" }
 
-    // --- Media Fetchers ---
     Process {
         id: volFetchProcess
         command: ["bash", "-c", "wpctl get-volume @DEFAULT_AUDIO_SINK@ | awk '{print int($2 * 100)}'"]
@@ -48,7 +49,6 @@ Column {
         stdout: StdioCollector { onStreamFinished: root.briLevel = parseInt(text.trim()) || 0 }
     }
 
-    // --- Data Fetchers ---
     Process {
         id: savedWifiFetchProcess
         command: ["nmcli", "-t", "-f", "NAME,TYPE", "connection", "show"]
@@ -63,6 +63,16 @@ Column {
                     }
                 }
                 root.savedNetworks = saved
+            }
+        }
+    }
+
+    Process {
+        id: wifiRescanProcess
+        command: ["nmcli", "dev", "wifi", "rescan"]
+        onRunningChanged: {
+            if (!running && !wifiListProcess.running) {
+                wifiListProcess.running = true
             }
         }
     }
@@ -137,11 +147,9 @@ Column {
         }
     }
 
-    // State refresh timers
     Timer { interval: 10000; running: root.isOpen; repeat: true; onTriggered: { if (!wifiListProcess.running) wifiListProcess.running = true; if (!savedWifiFetchProcess.running) savedWifiFetchProcess.running = true } }
     Timer { interval: 5000; running: root.isOpen; repeat: true; onTriggered: { if (!btListProcess.running) btListProcess.running = true; if (!batTimeProcess.running) batTimeProcess.running = true } }
     
-    // NEW: Fast timer to sync volume/brightness from hardware keys, paused while dragging
     Timer { 
         interval: 1000; 
         running: root.isOpen && !root.isDraggingSlider; 
@@ -165,6 +173,7 @@ Column {
             root.passwordSsid = ""
             root.passwordText = ""
             root.passwordVisible = false
+            root.isScanningBt = false
         }
     }
 
@@ -186,27 +195,62 @@ Column {
                 anchors.verticalCenter: parent.verticalCenter
             }
 
-            Rectangle {
-                width: 40; height: 22; radius: 11
+            Row {
                 anchors.right: parent.right
                 anchors.verticalCenter: parent.verticalCenter
-                color: root.wifiEnabled ? Theme.accent : Theme.surfaceHover
-                Behavior on color { ColorAnimation { duration: 200 } }
+                spacing: 12
 
-                Rectangle {
-                    width: 16; height: 16; radius: 8
-                    color: root.wifiEnabled ? Theme.background : Theme.subtext
+                Text {
+                    id: rescanIcon
+                    text: "󰑐"
+                    font.pixelSize: 14
+                    
+                    color: wifiRescanTap.pressed ? Qt.darker(Theme.accent, 1.2) : (wifiRescanHover.hovered ? Theme.accent : Theme.text)
                     anchors.verticalCenter: parent.verticalCenter
-                    x: root.wifiEnabled ? parent.width - width - 3 : 3
-                    Behavior on x { NumberAnimation { duration: 200; easing.type: Easing.OutBack } }
+                    
+                    scale: wifiRescanTap.pressed ? 0.85 : 1.0
+                    Behavior on scale { NumberAnimation { duration: 100; easing.type: Easing.OutQuad } }
+                    Behavior on color { ColorAnimation { duration: 150 } }
+
+                    RotationAnimation on rotation {
+                        from: 0; to: 360; 
+                        duration: 750
+                        running: wifiRescanProcess.running
+                        loops: Animation.Infinite
+                    }
+
+                    HoverHandler { id: wifiRescanHover; cursorShape: Qt.PointingHandCursor }
+                    TapHandler {
+                        id: wifiRescanTap
+                        onTapped: {
+                            if (!wifiRescanProcess.running) {
+                                rescanIcon.rotation = 0
+                                wifiRescanProcess.running = true
+                            }
+                        }
+                    }
                 }
 
-                HoverHandler { cursorShape: Qt.PointingHandCursor }
-                TapHandler {
-                    onTapped: {
-                        root.wifiEnabled = !root.wifiEnabled
-                        wifiToggleProcess.command = ["nmcli", "radio", "wifi", root.wifiEnabled ? "on" : "off"]
-                        if (!wifiToggleProcess.running) wifiToggleProcess.running = true
+                Rectangle {
+                    width: 40; height: 22; radius: 11
+                    color: root.wifiEnabled ? Theme.accent : Theme.surfaceHover
+                    Behavior on color { ColorAnimation { duration: 200 } }
+
+                    Rectangle {
+                        width: 16; height: 16; radius: 8
+                        color: root.wifiEnabled ? Theme.background : Theme.subtext
+                        anchors.verticalCenter: parent.verticalCenter
+                        x: root.wifiEnabled ? parent.width - width - 3 : 3
+                        Behavior on x { NumberAnimation { duration: 200; easing.type: Easing.OutBack } }
+                    }
+
+                    HoverHandler { cursorShape: Qt.PointingHandCursor }
+                    TapHandler {
+                        onTapped: {
+                            root.wifiEnabled = !root.wifiEnabled
+                            wifiToggleProcess.command = ["nmcli", "radio", "wifi", root.wifiEnabled ? "on" : "off"]
+                            if (!wifiToggleProcess.running) wifiToggleProcess.running = true
+                        }
                     }
                 }
             }
@@ -557,8 +601,8 @@ Column {
             id: btListView
             width: parent.width
             height: Math.min(contentHeight, 140)
-            visible: root.btEnabled && root.btDevices.length > 0
-            model: root.btDevices
+            visible: root.btEnabled && root.visibleBtDevices.length > 0
+            model: root.visibleBtDevices
             clip: true; spacing: 2
             interactive: contentHeight > height
             boundsBehavior: Flickable.StopAtBounds
@@ -663,7 +707,7 @@ Column {
 
             Text { 
                 anchors.centerIn: parent
-                text: "󰑐  Scan for devices"
+                text: root.isScanningBt ? "󰑐  Scanning..." : "󰑐  Scan for devices"
                 color: scanHover.hovered ? Theme.accent : Theme.text
                 font.pixelSize: 11; font.bold: true 
                 Behavior on color { ColorAnimation { duration: 150 } }
@@ -682,6 +726,7 @@ Column {
             TapHandler {
                 id: scanTap
                 onTapped: {
+                    root.isScanningBt = true
                     btScanProcess.command = ["bash", "-c", "bluetoothctl --timeout 5 scan on"]
                     if (!btScanProcess.running) btScanProcess.running = true
                 }
@@ -747,7 +792,8 @@ Column {
                     required property var modelData
                     width: (parent.parent.width - 8) / 3
                     height: 30; radius: 8
-                    color: root.powerProfile === modelData.value ? Theme.accent : Theme.surfaceHover
+                    
+                    color: root.powerProfile === modelData.value ? Theme.accent : (profileHover.hovered ? Qt.lighter(Theme.surfaceHover, 1.3) : Theme.surfaceHover)
                     Behavior on color { ColorAnimation { duration: 200 } }
 
                     Row {
@@ -764,7 +810,7 @@ Column {
                         }
                     }
 
-                    HoverHandler { cursorShape: Qt.PointingHandCursor }
+                    HoverHandler { id: profileHover; cursorShape: Qt.PointingHandCursor }
                     TapHandler {
                         onTapped: {
                             root.powerProfile = modelData.value

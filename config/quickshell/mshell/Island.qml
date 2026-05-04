@@ -82,6 +82,7 @@ Scope {
         property string currentAudioSink: ""
         property bool isMediaPinned: false
         property bool isStartingUp: true
+        property bool ignorePillHover: false
 
         onWasPlayingChanged: {
             if (wasPlaying) {
@@ -114,6 +115,20 @@ Scope {
             interval: 2000
             running: true
             onTriggered: islandWindow.isStartingUp = false
+        }
+
+        Timer {
+            id: ignoreHoverTimer
+            interval: 1000 
+            onTriggered: {
+                islandWindow.ignorePillHover = false;
+                if (pillHover.hovered && !islandWindow.isMediaPinned) {
+                    hubStayTimer.stop();
+                    idleStayTimer.stop();
+                    islandWindow.postHubCava = false;
+                    hubDelayTimer.start();
+                }
+            }
         }
 
         Process {
@@ -387,6 +402,24 @@ Scope {
                 let stateChangedToPlaying = (isNowPlaying && !islandWindow.wasPlaying)
                 
                 if ((titleChanged && isNowPlaying) || stateChangedToPlaying) {
+                    if (titleChanged) {
+                        let len = Number(islandWindow.activePlayer.length) || 0;
+                        let pos = Number(islandWindow.activePlayer.position) || 0;
+                        
+                        let scale = 1000000;
+                        if (len > 0 && len < 100000) scale = 1;
+                        
+                        let posSec = pos / scale;
+                        let h = Math.floor(posSec / 3600);
+                        let m = Math.floor((posSec % 3600) / 60);
+                        let s = Math.floor(posSec % 60);
+                        
+                        let mStr = (h > 0 && m < 10) ? "0" + m : m;
+                        let sStr = s < 10 ? "0" + s : s;
+                        
+                        progressContainer.ratio = len > 0 ? Math.min(Math.max(posSec / (len / scale), 0), 1) : 0;
+                        progressContainer.durationText = isNaN(posSec) || posSec <= 0 ? "0:00" : (h > 0 ? h + ":" + mStr + ":" + sStr : mStr + ":" + sStr);
+                    }
                     islandWindow.showMediaPopup()
                 }
 
@@ -705,6 +738,10 @@ Scope {
             HoverHandler {
                 id: pillHover
                 onHoveredChanged: {
+                    if (islandWindow.ignorePillHover || islandWindow.isMediaPinned) {
+                        hubDelayTimer.stop();
+                        return;
+                    }
                     if (islandWindow.islandState === "notification" || notifRenderTimer.running) {
                         return;
                     }
@@ -1152,12 +1189,10 @@ Scope {
                         onTapped: {
                             if (islandWindow.isMediaPinned) {
                                 islandWindow.isMediaPinned = false
-                                if (!pillHover.hovered) {
-                                    islandWindow.closeToIdle()
-                                } else {
-                                    islandWindow.islandState = "hub"
-                                    islandWindow.postHubCava = false
-                                }
+                                islandWindow.ignorePillHover = true
+                                ignoreHoverTimer.restart()
+                                hubDelayTimer.stop()
+                                islandWindow.closeToIdle()
                             }
                         }
                     }
@@ -1311,42 +1346,38 @@ Scope {
                                             let pos = Number(player.position) || 0;
                                             let len = Number(player.length) || 0;
 
-                                            if (len > 0 || pos > 0) {
-                                                let posSec = (pos > 10000000) ? pos / 1000000 : (pos > 10000 ? pos / 1000 : pos);
-                                                let lenSec = (len > 10000000) ? len / 1000000 : (len > 10000 ? len / 1000 : len);
+                                            let scale = 1000000; 
+                                            if (len > 0 && len < 100000) {
+                                                scale = 1;
+                                            }
+
+                                            let posSec = pos / scale;
+                                            let lenSec = len / scale;
+
+                                            let formatTime = (secs) => {
+                                                if (isNaN(secs) || secs <= 0) return "0:00";
                                                 
-                                                if (lenSec > 360000) lenSec = 0; 
-                                                if (posSec > 360000) posSec = Math.max(0, (posSec % 360000));
+                                                let h = Math.floor(secs / 3600);
+                                                let m = Math.floor((secs % 3600) / 60);
+                                                let s = Math.floor(secs % 60);
+                                                
+                                                let mStr = (h > 0 && m < 10) ? "0" + m : m;
+                                                let sStr = s < 10 ? "0" + s : s;
+                                                
+                                                if (h > 0) return h + ":" + mStr + ":" + sStr;
+                                                return mStr + ":" + sStr;
+                                            };
 
-                                                let formatTime = (secs) => {
-                                                    if (isNaN(secs) || secs < 0) return "0:00";
-                                                    let h = Math.floor(secs / 3600);
-                                                    if (h > 99) return "Live";
-                                                    let m = Math.floor((secs % 3600) / 60);
-                                                    let s = Math.floor(secs % 60);
-                                                    let mStr = (h > 0 && m < 10) ? "0" + m : m;
-                                                    let sStr = s < 10 ? "0" + s : s;
-                                                    if (h > 0) return h + ":" + mStr + ":" + sStr;
-                                                    return mStr + ":" + sStr;
-                                                };
+                                            progressContainer.durationText = formatTime(posSec);
 
-                                                progressContainer.durationText = formatTime(posSec);
-
-                                                if (lenSec > 0) {
-                                                    if (posSec > lenSec) {
-                                                        posSec = posSec % lenSec;
-                                                    }
-                                                    let r = posSec / lenSec;
-                                                    if (r > 1.05 && !islandWindow.wasPlaying) {
-                                                        r = progressContainer.ratio;
-                                                    }
-                                                    progressContainer.ratio = Math.min(Math.max(r, 0), 1);
-                                                } else {
-                                                    progressContainer.ratio = 0;
+                                            if (lenSec > 0) {
+                                                let r = posSec / lenSec;
+                                                if (r > 1.05 && !islandWindow.wasPlaying) {
+                                                    r = progressContainer.ratio;
                                                 }
+                                                progressContainer.ratio = Math.min(Math.max(r, 0), 1);
                                             } else {
                                                 progressContainer.ratio = 0;
-                                                progressContainer.durationText = "0:00";
                                             }
                                         }
                                         waveCanvas.requestPaint();
@@ -1597,6 +1628,38 @@ Scope {
                         
                         flickableDirection: Flickable.HorizontalFlick
                         boundsBehavior: Flickable.StopAtBounds
+
+                        property real targetX: 0
+                        
+                        onMovementEnded: targetX = contentX 
+
+                        NumberAnimation {
+                            id: smoothScrollAnim
+                            target: wallGrid
+                            property: "contentX"
+                            to: wallGrid.targetX
+                            duration: 350
+                            easing.type: Easing.OutCubic
+                        }
+
+                        MouseArea {
+                            anchors.fill: parent
+                            acceptedButtons: Qt.NoButton 
+                            onWheel: (wheel) => {
+                                let delta = wheel.angleDelta.y ? wheel.angleDelta.y : wheel.angleDelta.x;
+                                
+                                if (!smoothScrollAnim.running) {
+                                    wallGrid.targetX = wallGrid.contentX;
+                                }
+
+                                let newX = wallGrid.targetX - delta;
+                                let maxX = Math.max(0, wallGrid.contentWidth - wallGrid.width);
+                                
+                                wallGrid.targetX = Math.max(0, Math.min(newX, maxX));
+                                smoothScrollAnim.restart();
+                                wheel.accepted = true;
+                            }
+                        }
 
                         delegate: Item {
                             width: 144

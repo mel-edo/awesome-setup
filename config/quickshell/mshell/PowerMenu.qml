@@ -17,7 +17,8 @@ WlrLayershell {
     
     layer: WlrLayer.Overlay
     keyboardFocus: WlrKeyboardFocus.Exclusive 
-    color: "transparent"
+    exclusiveZone: -1
+    color: Qt.rgba(0, 0, 0, 0.4 * contentOpacity)
     
     property bool isOpen: false
     property string uptimeString: "Fetching..."
@@ -250,7 +251,7 @@ WlrLayershell {
         
         ScriptAction {
             script: {
-                let offScreenY = -(powerRoot.height / 2) - 100;
+                let offScreenY = -(Screen.height / 2) - 100;
                 
                 leftBlock.x = 316; leftBlock.width = 48; leftBlock.y = offScreenY; leftBlock.height = 48;
                 rightBlock.x = 316; rightBlock.width = 48; rightBlock.y = offScreenY; rightBlock.height = 48;
