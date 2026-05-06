@@ -1621,6 +1621,7 @@ Scope {
                         
                         model: wallpaperList
                         clip: true
+                        cacheBuffer: 1500
                         
                         cellWidth: 152
                         cellHeight: 65

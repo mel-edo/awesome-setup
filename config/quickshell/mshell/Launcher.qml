@@ -30,21 +30,6 @@ WlrLayershell {
     }
 
     ListModel { id: appModel }
-
-    Process {
-        id: appFetchProcess
-        command: ["python3", Quickshell.env("HOME") + "/.config/quickshell/mshell/scripts/app_fetcher.py"]
-        Component.onCompleted: running = true
-        stdout: StdioCollector {
-            onStreamFinished: {
-                try {
-                    launcherRoot.allApps = JSON.parse(text.trim())
-                    filterApps(searchInput.text) 
-                } catch(e) { console.log("Failed to parse apps: " + e) }
-            }
-        }
-    }
-
     Process { id: launchProcess }
     Process { id: recordProcess }
 
@@ -105,9 +90,17 @@ WlrLayershell {
         onTriggered: openAnim.restart()
     }
 
+    onAllAppsChanged: {
+        if (isOpen && searchInput.text === "") {
+            filterApps("")
+        }
+    }
+
     onIsOpenChanged: {
         if (isOpen) {
-            appFetchProcess.running = true
+            if (searchInput.text === "") {
+                filterApps("") 
+            }
             closeAnim.stop()
             openDelayTimer.restart() 
         } else {
@@ -139,7 +132,6 @@ WlrLayershell {
         Item {
             id: searchContent
             width: 600
-            // Exact math: 60 (search) + 24 (margins) + up to 280 (5 items @ 56px) = 364 max
             height: 60 + (appModel.count === 0 ? 0 : Math.min((appModel.count * 56) + 24, 304))
             anchors.horizontalCenter: parent.horizontalCenter
             opacity: 0
@@ -177,7 +169,7 @@ WlrLayershell {
                         
                         onTextChanged: {
                             launcherRoot.filterApps(text)
-                            appList.positionViewAtIndex(0, ListView.Beginning) // Reset to top
+                            appList.positionViewAtIndex(0, ListView.Beginning)
                         }
                         
                         Keys.onPressed: event => {
@@ -203,7 +195,6 @@ WlrLayershell {
 
                             if (handled) {
                                 event.accepted = true;
-                                // Core Pagination Logic
                                 let newPage = Math.floor(appList.currentIndex / itemsPerPage);
                                 if (newPage !== oldPage) {
                                     appList.positionViewAtIndex(newPage * itemsPerPage, ListView.Beginning);
@@ -213,7 +204,6 @@ WlrLayershell {
                     }
                 }
                 
-                // Nested separator so it doesn't steal 1 pixel from the list math
                 Rectangle { 
                     anchors.bottom: parent.bottom
                     width: parent.width; height: 1; 
@@ -258,7 +248,7 @@ WlrLayershell {
                 delegate: Rectangle {
                     id: appDelegate 
                     width: appList.width
-                    height: 56 // Scaled up to 56 to match Overview exactly
+                    height: 56
                     radius: 8
                     
                     property bool isActive: appList.currentIndex === index || appHover.hovered
@@ -270,15 +260,16 @@ WlrLayershell {
                         
                         Image {
                             source: model.icon.startsWith("/") ? "file://" + model.icon : "image://icon/" + model.icon
-                            width: 28; height: 28; sourceSize: Qt.size(28, 28) // Scaled up to match overview
+                            width: 28; height: 28; sourceSize: Qt.size(28, 28)
                             anchors.verticalCenter: parent.verticalCenter
+                            asynchronous: true
                             onStatusChanged: if (status === Image.Error) source = "" 
                         }
                         
                         Text {
                             text: model.name
                             color: Theme.text
-                            font.pixelSize: 15 // Scaled to 15 to match overview
+                            font.pixelSize: 15
                             font.bold: appDelegate.isActive 
                             anchors.verticalCenter: parent.verticalCenter
                         }

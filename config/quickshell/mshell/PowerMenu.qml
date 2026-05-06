@@ -49,7 +49,7 @@ WlrLayershell {
     Process { id: actionProcess }
 
     function doAction(cmd) {
-        actionProcess.command = ["bash", "-c", cmd]
+        actionProcess.command = ["bash", "-c", cmd + " > /dev/null 2>&1"]
         actionProcess.running = true
         requestClose()
     }
@@ -251,7 +251,7 @@ WlrLayershell {
         
         ScriptAction {
             script: {
-                let offScreenY = -(Screen.height / 2) - 100;
+                let offScreenY = (Screen.height / 2) + 200;
                 
                 leftBlock.x = 316; leftBlock.width = 48; leftBlock.y = offScreenY; leftBlock.height = 48;
                 rightBlock.x = 316; rightBlock.width = 48; rightBlock.y = offScreenY; rightBlock.height = 48;

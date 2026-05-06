@@ -8,6 +8,7 @@ import Quickshell.Io
 import Quickshell.Wayland
 import Quickshell.Hyprland
 import Quickshell.Services.Pam
+import Quickshell.Services.Mpris
 import "."
 
 Scope {
@@ -76,6 +77,93 @@ Scope {
             }
         }
     }
+    property string activeWallCache: ""
+    property string batPct: "100"
+    property string batStatus: "AC"
+    property string currentUser: "User"
+    property string faceIconPath: ""
+    property string kbLayout: "US"
+    property string weatherIcon: ""
+    property string weatherTemp: "--°C"
+
+    Process {
+        running: true
+        command: ["bash", "-c", "cat ~/.cache/mshell/wall_cache.txt 2>/dev/null || echo ''"]
+        stdout: StdioCollector { onStreamFinished: root.activeWallCache = text.trim() }
+    }
+
+    Process {
+        id: userPoller
+        command: ["bash", "-c", "USER_VAR=$(whoami); ICON_PATH=\"\"; if [ -f ~/.face.icon ]; then ICON_PATH=$(readlink -f ~/.face.icon); elif [ -f ~/.face ]; then ICON_PATH=$(readlink -f ~/.face); fi; echo -n \"$USER_VAR|$ICON_PATH\""]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                let parts = this.text.trim().split("|");
+                if (parts.length > 0 && parts[0] !== "") root.currentUser = parts[0];
+                if (parts.length > 1 && parts[1].trim() !== "") {
+                    let path = parts[1].trim();
+                    root.faceIconPath = path.startsWith("file://") ? path : "file://" + path;
+                }
+            }
+        }
+        Component.onCompleted: running = true
+    }
+
+    Process {
+        id: kbPoller
+        command: ["bash", "-c", "hyprctl devices -j | jq -r '.keyboards[] | select(.main == true) | .active_keymap' | head -n1 | cut -c1-2 | tr '[:lower:]' '[:upper:]'"]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                let layout = this.text.trim();
+                if (layout !== "" && layout !== "null") root.kbLayout = layout;
+            }
+        }
+    }
+    Timer { interval: 1500; running: true; repeat: true; triggeredOnStart: true; onTriggered: { if (!kbPoller.running) kbPoller.running = true } }
+
+    Process {
+        id: batPoller
+        command: ["bash", "-c", "cat /sys/class/power_supply/BAT*/capacity 2>/dev/null | head -n1 || echo '100'; cat /sys/class/power_supply/BAT*/status 2>/dev/null | head -n1 || echo 'AC'"]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                let lines = this.text.trim().split("\n");
+                if (lines.length >= 2) {
+                    root.batPct = lines[0] || "100";
+                    root.batStatus = lines[1] || "Unknown";
+                }
+            }
+        }
+    }
+    Timer { interval: 5000; running: true; repeat: true; triggeredOnStart: true; onTriggered: { if (!batPoller.running) batPoller.running = true } }
+
+    function weatherIconCode(code) {
+        if (!code) return "󰖙"
+        let isNight = code.endsWith("n")
+        if (code.startsWith("01")) return isNight ? "󰖔" : "󰖙" 
+        if (code.startsWith("02")) return isNight ? "" : "󰖕" 
+        if (code.startsWith("03") || code.startsWith("04")) return "󰖐" 
+        if (code.startsWith("09") || code.startsWith("10")) return "󰖗" 
+        if (code.startsWith("11")) return "󰖓" 
+        if (code.startsWith("13")) return "󰖘" 
+        if (code.startsWith("50")) return "󰖑" 
+        return isNight ? "󰖔" : "󰖙" 
+    }
+
+    Process {
+        id: weatherPoller
+        command: [Quickshell.env("HOME") + "/.config/quickshell/mshell/scripts/calendar/weather.sh"]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                try {
+                    let data = JSON.parse(text)
+                    if (data && data.today) {
+                        root.weatherIcon = root.weatherIconCode(data.today.icon)
+                        root.weatherTemp = Math.round(data.today.temp) + "°C"
+                    }
+                } catch(e) {}
+            }
+        }
+    }
+    Timer { interval: 900000; running: true; repeat: true; triggeredOnStart: true; onTriggered: { if (!weatherPoller.running) weatherPoller.running = true } }
 
     // System action processes
     Process { id: suspendProcess; command: ["systemctl", "suspend"] }
@@ -211,8 +299,8 @@ Scope {
                         onStreamFinished: {
                             let lines = this.text.trim().split("\n");
                             if (lines.length >= 2) {
-                                screenRoot.batPct = lines[0] || "100";
-                                screenRoot.batStatus = lines[1] || "Unknown";
+                                root.batPct = lines[0] || "100";
+                                root.batStatus = lines[1] || "Unknown";
                             }
                         }
                     }
@@ -241,7 +329,7 @@ Scope {
                                 let data = JSON.parse(text)
                                 if (data && data.today) {
                                     screenRoot.weatherIcon = screenRoot.weatherIconCode(data.today.icon)
-                                    screenRoot.weatherTemp = Math.round(data.today.temp) + "°C"
+                                    root.weatherTemp = Math.round(data.today.temp) + "°C"
                                 }
                             } catch(e) {}
                         }
@@ -266,6 +354,8 @@ Scope {
                     asynchronous: true
                     visible: false
                     cache: false
+                    sourceSize.width: Screen.width
+                    sourceSize.height: Screen.height
                 }
                 MultiEffect {
                     source: bgWallpaper
@@ -329,6 +419,11 @@ Scope {
                     }
                 }
 
+                property var activePlayer: null
+                property string currentTrackTitle: ""
+                property string currentTrackArtist: ""
+                property string persistentArtUrl: ""
+
                 Item {
                     anchors.fill: parent
                     opacity: screenRoot.introState
@@ -342,50 +437,6 @@ Scope {
                         property string clockMinutes: "00"
                         property string clockSeconds: "00"
 
-                        Text {
-                            id: dateText
-                            anchors.horizontalCenter: parent.horizontalCenter
-                            anchors.top: parent.top
-                            anchors.topMargin: 80
-                            font.family: "JetBrains Mono"
-                            font.pixelSize: 22
-                            font.weight: Font.Bold
-                            color: root.text
-                        }
-
-                        Text {
-                            text: parent.clockHours
-                            font.family: "JetBrains Mono"
-                            font.pixelSize: 250
-                            font.weight: Font.ExtraBold
-                            color: root.text
-                            anchors.horizontalCenter: parent.horizontalCenter
-                            anchors.top: parent.top
-                            anchors.topMargin: 120
-                        }
-
-                        Text {
-                            text: parent.clockMinutes
-                            font.family: "JetBrains Mono"
-                            font.pixelSize: 250
-                            font.weight: Font.ExtraBold
-                            color: root.subtext0
-                            anchors.horizontalCenter: parent.horizontalCenter
-                            anchors.top: parent.top
-                            anchors.topMargin: 400
-                        }
-
-                        Text {
-                            text: parent.clockSeconds
-                            font.family: "JetBrains Mono"
-                            font.pixelSize: 45
-                            font.weight: Font.ExtraBold
-                            color: root.mauve
-                            anchors.horizontalCenter: parent.horizontalCenter
-                            anchors.top: parent.top
-                            anchors.topMargin: 400
-                        }
-
                         Timer {
                             interval: 500; running: true; repeat: true; triggeredOnStart: true
                             onTriggered: {
@@ -396,6 +447,233 @@ Scope {
                                 dateText.text = Qt.formatDateTime(d, "dddd, d MMMM");
                             }
                         }
+
+                        Text {
+                            id: dateText
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            anchors.top: parent.top
+                            anchors.topMargin: 60
+                            font.family: "JetBrainsMono Nerd Font"
+                            font.pixelSize: 22
+                            font.weight: Font.Bold
+                            color: root.text
+                        }
+
+                        Text {
+                            id: hourText
+                            text: parent.clockHours
+                            font.family: "JetBrainsMono Nerd Font"
+                            font.pixelSize: 250
+                            font.weight: Font.Bold
+                            color: root.text
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            anchors.top: dateText.bottom
+                            anchors.topMargin: 0
+                            z: 1
+                        }
+
+                        Text {
+                            id: secText
+                            text: parent.clockSeconds
+                            font.family: "JetBrainsMono Nerd Font"
+                            font.pixelSize: 60
+                            font.weight: Font.Bold
+                            color: root.mauve
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            anchors.top: hourText.bottom
+                            anchors.topMargin: -75
+                            z: 3
+                        }
+
+                        Text {
+                            id: minText
+                            text: parent.clockMinutes
+                            font.family: "JetBrainsMono Nerd Font"
+                            font.pixelSize: 250
+                            font.weight: Font.Bold
+                            color: root.subtext0
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            anchors.top: secText.bottom
+                            anchors.topMargin: -65
+                            z: 2 
+                        }
+                    }
+
+                    // --- LOCKSCREEN MEDIA PLAYER ---
+                    Timer {
+                        interval: 1000; running: true; repeat: true; triggeredOnStart: true
+                        onTriggered: {
+                            let players = Mpris.players.values
+                            if (!players || players.length === 0) {
+                                screenRoot.activePlayer = null
+                                return
+                            }
+                            
+                            let currentlyPlaying = null
+                            for (let i = 0; i < players.length; i++) {
+                                let state = players[i].playbackState
+                                if (state === 1 || state === "Playing") { 
+                                    currentlyPlaying = players[i]
+                                    break
+                                }
+                            }
+                            
+                            screenRoot.activePlayer = currentlyPlaying ? currentlyPlaying : players[0]
+                            screenRoot.currentTrackTitle = screenRoot.activePlayer.trackTitle || "Unknown Track"
+                            screenRoot.currentTrackArtist = screenRoot.activePlayer.trackArtist || "Unknown Artist"
+                            
+                            let newArt = screenRoot.activePlayer.trackArtUrl
+                            if (newArt && newArt !== "") {
+                                screenRoot.persistentArtUrl = newArt
+                            }
+                        }
+                    }
+
+                    Rectangle {
+                        id: lockMediaPanel
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        anchors.bottom: authModule.top
+                        anchors.bottomMargin: 40 
+                        
+                        width: 350
+                        height: 76 
+                        radius: 22 
+                        
+                        color: Qt.rgba(root.crust.r, root.crust.g, root.crust.b, 0.6)
+                        border.width: 1
+                        border.color: Qt.rgba(root.text.r, root.text.g, root.text.b, 0.1)
+                        
+                        opacity: (screenRoot.activePlayer ? 1.0 : 0.0) * screenRoot.introState
+                        visible: opacity > 0
+                        Behavior on opacity { NumberAnimation { duration: 300; easing.type: Easing.InOutQuad } }
+                        transform: Translate { y: 20 * (1.0 - screenRoot.introState) }
+
+                        // --- Localized Aura Effect ---
+                        Rectangle {
+                            id: lockMediaMask
+                            anchors.fill: parent
+                            radius: 22
+                            visible: false
+                            layer.enabled: true
+                        }
+
+                        Item {
+                            id: lockAlbumGlowContainer
+                            anchors.fill: parent
+                            visible: false
+                            layer.enabled: true
+                            
+                            Image {
+                                x: 12 
+                                y: 12 
+                                width: 52 
+                                height: 52
+                                source: screenRoot.persistentArtUrl
+                                fillMode: Image.PreserveAspectCrop
+                                
+                                // FIX: Bypass cache to prevent ghosting on subsequent locks
+                                cache: false
+                                asynchronous: true
+                                sourceSize.width: 128
+                                sourceSize.height: 128
+                            }
+                        }
+
+                        MultiEffect {
+                            anchors.fill: parent
+                            source: lockAlbumGlowContainer
+                            maskEnabled: true
+                            maskSource: lockMediaMask
+                            
+                            blurEnabled: true
+                            blurMax: 84 
+                            blur: 1.0
+                            saturation: 2.5 
+                            
+                            opacity: lockAlbumArt.status === Image.Ready ? 0.55 : 0
+                            Behavior on opacity { NumberAnimation { duration: 300 } }
+                        }
+
+                        Row {
+                            anchors.fill: parent
+                            anchors.margins: 12 
+                            spacing: 14
+
+                            // Album Art
+                            Item {
+                                width: 52; height: 52
+                                anchors.verticalCenter: parent.verticalCenter
+                                
+                                Rectangle {
+                                    anchors.fill: parent
+                                    radius: 14 
+                                    color: Theme.surfaceHover
+                                    Text {
+                                        anchors.centerIn: parent
+                                        text: "󰝚"
+                                        color: root.subtext0
+                                        font.pixelSize: 20
+                                    }
+                                }
+
+                                Image {
+                                    id: lockAlbumArt
+                                    anchors.fill: parent
+                                    source: screenRoot.persistentArtUrl
+                                    fillMode: Image.PreserveAspectCrop
+                                    layer.enabled: true
+                                    visible: false
+                                    
+                                    // FIX: Bypass cache to prevent ghosting on subsequent locks
+                                    cache: false
+                                    asynchronous: true
+                                    sourceSize.width: 128
+                                    sourceSize.height: 128
+                                }
+
+                                Rectangle {
+                                    id: lockArtMask
+                                    anchors.fill: parent
+                                    radius: 14
+                                    layer.enabled: true
+                                    visible: false
+                                }
+
+                                MultiEffect {
+                                    anchors.fill: parent
+                                    source: lockAlbumArt
+                                    maskEnabled: true
+                                    maskSource: lockArtMask
+                                    opacity: lockAlbumArt.status === Image.Ready ? 1 : 0
+                                    Behavior on opacity { NumberAnimation { duration: 200 } }
+                                }
+                            }
+
+                            // Track Info
+                            Column {
+                                anchors.verticalCenter: parent.verticalCenter
+                                width: 250
+                                spacing: 4
+                                
+                                Text {
+                                    text: screenRoot.currentTrackTitle
+                                    color: root.text
+                                    font.family: "JetBrainsMono Nerd Font"
+                                    font.pixelSize: 15
+                                    font.weight: Font.Bold
+                                    elide: Text.ElideRight
+                                    width: parent.width
+                                }
+                                Text {
+                                    text: screenRoot.currentTrackArtist
+                                    color: root.subtext0
+                                    font.family: "JetBrainsMono Nerd Font"
+                                    font.pixelSize: 13
+                                    elide: Text.ElideRight
+                                    width: parent.width
+                                }
+                            }
+                        }
                     }
 
                     // AUTHENTICATION MODULE
@@ -403,7 +681,7 @@ Scope {
                         id: authModule
                         anchors.horizontalCenter: parent.horizontalCenter
                         anchors.bottom: parent.bottom
-                        anchors.bottomMargin: 200
+                        anchors.bottomMargin: 150
                         spacing: 24
 
                         RowLayout {
@@ -502,6 +780,7 @@ Scope {
                         }
                     }
                 }
+
                 // BOTTOM GRADIENT
                 Rectangle {
                     anchors.bottom: parent.bottom
@@ -536,12 +815,12 @@ Scope {
                             id: batLayoutRow; anchors.centerIn: parent; spacing: 8
                             property color dynamicBatColor: {
                                 if (screenRoot.batStatus === "Charging") return root.green;
-                                let pct = parseInt(screenRoot.batPct);
+                                let pct = parseInt(root.batPct);
                                 if (pct <= 20) return root.red;
                                 return root.text;
                             }
-                            Text { text: screenRoot.batStatus === "Charging" ? "󰂄" : (parseInt(screenRoot.batPct) <= 20 ? "󰂃" : "󰁹"); font.family: "Iosevka Nerd Font"; font.pixelSize: 18; color: batLayoutRow.dynamicBatColor }
-                            Text { text: screenRoot.batPct + "%"; font.family: "JetBrains Mono"; font.pixelSize: 13; font.weight: Font.Black; color: batLayoutRow.dynamicBatColor }
+                            Text { text: screenRoot.batStatus === "Charging" ? "󰂄" : (parseInt(root.batPct) <= 20 ? "󰂃" : "󰁹"); font.family: "Iosevka Nerd Font"; font.pixelSize: 18; color: batLayoutRow.dynamicBatColor }
+                            Text { text: root.batPct + "%"; font.family: "JetBrains Mono"; font.pixelSize: 13; font.weight: Font.Black; color: batLayoutRow.dynamicBatColor }
                         }
                     }
 
@@ -550,14 +829,14 @@ Scope {
                         Layout.preferredHeight: 44
                         Layout.preferredWidth: weatherRow.implicitWidth + 32
                         radius: 22
-                        visible: screenRoot.weatherTemp !== "--°C"
+                        visible: root.weatherTemp !== "--°C"
                         color: Qt.rgba(root.surface0.r, root.surface0.g, root.surface0.b, 0.4)
                         border.color: Qt.rgba(root.text.r, root.text.g, root.text.b, 0.08)
                         border.width: 1
                         RowLayout {
                             id: weatherRow; anchors.centerIn: parent; spacing: 8
                             Text { text: screenRoot.weatherIcon; font.family: "Iosevka Nerd Font"; font.pixelSize: 18; color: root.subtext0 }
-                            Text { text: screenRoot.weatherTemp; font.family: "JetBrains Mono"; font.pixelSize: 13; font.weight: Font.Black; color: root.text }
+                            Text { text: root.weatherTemp; font.family: "JetBrains Mono"; font.pixelSize: 13; font.weight: Font.Black; color: root.text }
                         }
                     }
                 }

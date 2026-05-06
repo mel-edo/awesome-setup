@@ -8,6 +8,45 @@ import Quickshell.Services.SystemTray
 import "."
 
 Scope {
+    id: root
+
+    property string netSsid: ""
+    property int netSignal: 0
+    property bool btConnected: false
+    property string batStatus: "Discharging"
+    property int batLevel: 100
+    property int savedBriLevel: 50
+    property string savedPowerProfile: "balanced"
+
+    Process {
+        id: globalBatteryProcess
+        command: ["bash", "-c", Quickshell.env("HOME") + "/.config/quickshell/mshell/scripts/watchers/battery_fetch.sh"]
+        running: true
+        stdout: SplitParser {
+            onRead: data => {
+                let parts = data.trim().split(" ")
+                root.batLevel = parseInt(parts[0]) || 0
+                root.batStatus = parts.slice(1).join(" ")
+            }
+        }
+    }
+    Timer { interval: 5000; running: true; repeat: true; onTriggered: { if (!globalBatteryProcess.running) globalBatteryProcess.running = true } }
+
+    Process {
+        id: globalNetworkProcess
+        command: ["bash", "-c", Quickshell.env("HOME") + "/.config/quickshell/mshell/scripts/watchers/network_fetch.sh"]
+        running: true
+        stdout: SplitParser {
+            onRead: data => {
+                let parts = data.trim().split(":::")
+                root.netSsid = parts[0] === "disconnected" ? "" : parts[0]
+                root.netSignal = parseInt(parts[1] || "0")
+                root.btConnected = parts[2]?.trim() === "1"
+            }
+        }
+    }
+    Timer { interval: 3000; running: true; repeat: true; onTriggered: { if (!globalNetworkProcess.running) globalNetworkProcess.running = true } }
+
     // Top strut
     Variants {
         model: Quickshell.screens
@@ -115,7 +154,7 @@ Scope {
                 anchors.top: true
                 anchors.left: true
                 margins.top: 0
-                margins.left: 8 + (8 * 14 + 7 * 10 + 24) + 6  // 8px screen margin + wsPill width + 6px gap
+                margins.left: 8 + (8 * 14 + 7 * 10 + 24) + 6
                 exclusiveZone: -1
                 color: "transparent"
                 implicitWidth: titlePill.width
@@ -179,49 +218,14 @@ Scope {
                 property string activeMenuName: ""
                 property real activeMenuY: 0
                 property bool isMenuOpen: activeMenuHandle !== null && rightState === "cc"
-                property string netSsid: ""
-                property int netSignal: 0
-                property bool btConnected: false
-                property string batStatus: "Discharging"
-                property int batLevel: 100
                 
                 onRightStateChanged: {
                     if (rightState === "idle") activeMenuHandle = null
                 }
 
-                Process {
-                    id: batteryProcess
-                    command: [Quickshell.env("HOME") + "/.config/quickshell/mshell/scripts/watchers/battery_fetch.sh"]
-                    running: true
-                    stdout: SplitParser {
-                        onRead: data => {
-                            let parts = data.trim().split(" ")
-                            rightLiquidPill.batLevel = parseInt(parts[0])
-                            rightLiquidPill.batStatus = parts.slice(1).join(" ")
-                        }
-                    }
-                }
-                Timer { interval: 5000; running: true; repeat: true; onTriggered: { if (!batteryProcess.running) batteryProcess.running = true } }
-
-                Process {
-                    id: networkProcess
-                    command: [Quickshell.env("HOME") + "/.config/quickshell/mshell/scripts/watchers/network_fetch.sh"]
-                    running: true
-                    stdout: SplitParser {
-                        onRead: data => {
-                            let parts = data.trim().split(":::")
-                            rightLiquidPill.netSsid = parts[0] === "disconnected" ? "" : parts[0]
-                            rightLiquidPill.netSignal = parseInt(parts[1] || "0")
-                            rightLiquidPill.btConnected = parts[2]?.trim() === "1"
-                        }
-                    }
-                }
-                Timer { interval: 3000; running: true; repeat: true; onTriggered: { if (!networkProcess.running) networkProcess.running = true } }
-
                 Timer { id: openDelay; interval: 80; onTriggered: rightLiquidPill.rightState = "cc" }
                 Timer { id: closeDelay; interval: 100; onTriggered: rightLiquidPill.rightState = "idle" }
 
-                // Menu hover debounce timer
                 Timer {
                     id: menuCloseTimer
                     interval: 350
@@ -263,7 +267,6 @@ Scope {
                         
                         spacing: 0 
 
-                        // Main control center pill
                         Rectangle {
                             id: pillBackground
                             
@@ -271,7 +274,7 @@ Scope {
                             clip: true
 
                             width: rightLiquidPill.rightState === "idle" ? idleContent.implicitWidth + 24 : 340
-                            height: rightLiquidPill.rightState === "idle" ? 30 : ccContent.implicitHeight + 32
+                            height: rightLiquidPill.rightState === "idle" ? 30 : (ccLoader.item ? ccLoader.item.implicitHeight + 32 : 550)
                             
                             Behavior on width { NumberAnimation { duration: rightLiquidPill.rightState === "idle" ? 200 : 400; easing.type: Easing.OutExpo } }
                             Behavior on height { NumberAnimation { duration: rightLiquidPill.rightState === "idle" ? 200 : 400; easing.type: Easing.OutExpo } }
@@ -295,28 +298,48 @@ Scope {
                                 height: 22
                                 spacing: 12
 
-                                property bool isActive: rightLiquidPill.rightState === "idle"
-                                visible: isActive; opacity: isActive ? 1 : 0
-                                Behavior on opacity { 
-                                    SequentialAnimation {
-                                        PauseAnimation { duration: idleContent.isActive ? 300 : 0 }
-                                        NumberAnimation { duration: idleContent.isActive ? 150 : 0; easing.type: Easing.OutQuad }
+                                state: rightLiquidPill.rightState === "idle" ? "visible" : "hidden"
+
+                                states: [
+                                    State {
+                                        name: "visible"
+                                        PropertyChanges { target: idleContent; opacity: 1.0; visible: true }
+                                    },
+                                    State {
+                                        name: "hidden"
+                                        PropertyChanges { target: idleContent; opacity: 0.0; visible: false }
                                     }
-                                }
+                                ]
+
+                                transitions: [
+                                    Transition {
+                                        from: "visible"; to: "hidden"
+                                        PropertyAction { target: idleContent; property: "visible"; value: false }
+                                        PropertyAction { target: idleContent; property: "opacity"; value: 0.0 }
+                                    },
+                                    Transition {
+                                        from: "hidden"; to: "visible"
+                                        SequentialAnimation {
+                                            PauseAnimation { duration: 300 }
+                                            PropertyAction { target: idleContent; property: "visible"; value: true }
+                                            NumberAnimation { target: idleContent; property: "opacity"; duration: 150; easing.type: Easing.OutQuad }
+                                        }
+                                    }
+                                ]
 
                                 Row {
                                     spacing: 8
                                     anchors.verticalCenter: parent.verticalCenter
                                     Text {
                                         text: {
-                                            if (rightLiquidPill.netSsid === "") return "󰤭";
-                                            if (rightLiquidPill.netSignal > 80) return "󰤨";
-                                            if (rightLiquidPill.netSignal > 60) return "󰤥";
-                                            if (rightLiquidPill.netSignal > 40) return "󰤢";
-                                            if (rightLiquidPill.netSignal > 20) return "󰤟";
+                                            if (root.netSsid === "") return "󰤭";
+                                            if (root.netSignal > 80) return "󰤨";
+                                            if (root.netSignal > 60) return "󰤥";
+                                            if (root.netSignal > 40) return "󰤢";
+                                            if (root.netSignal > 20) return "󰤟";
                                             return "󰤯";
                                         }
-                                        color: rightLiquidPill.netSsid !== "" ? Theme.accent : Theme.danger
+                                        color: root.netSsid !== "" ? Theme.accent : Theme.danger
                                         font.pixelSize: 15
                                         anchors.verticalCenter: parent.verticalCenter
                                     }
@@ -329,22 +352,21 @@ Scope {
                                     anchors.verticalCenter: parent.verticalCenter
                                     Text {
                                         text: {
-                                            if (rightLiquidPill.batStatus === "Charging") return "󰂄"
-                                            if (rightLiquidPill.batLevel < 10) return "󰁺"
-                                            if (rightLiquidPill.batLevel < 30) return "󰁼"
-                                            if (rightLiquidPill.batLevel < 60) return "󰁿"
-                                            if (rightLiquidPill.batLevel < 90) return "󰂁"
+                                            if (root.batStatus === "Charging") return "󰂄"
+                                            if (root.batLevel < 10) return "󰁺"
+                                            if (root.batLevel < 30) return "󰁼"
+                                            if (root.batLevel < 60) return "󰁿"
+                                            if (root.batLevel < 90) return "󰂁"
                                             return "󰁹"
                                         }
-                                        color: rightLiquidPill.batStatus === "Charging" ? Theme.accent : (rightLiquidPill.batLevel <= 20 ? Theme.danger : Theme.accent)
+                                        color: root.batStatus === "Charging" ? Theme.accent : (root.batLevel <= 20 ? Theme.danger : Theme.accent)
                                         font.pixelSize: 15; anchors.verticalCenter: parent.verticalCenter
                                     }
-                                    Text { text: rightLiquidPill.batLevel + "%"; color: Theme.text; font.pixelSize: 14; anchors.verticalCenter: parent.verticalCenter }
+                                    Text { text: root.batLevel + "%"; color: Theme.text; font.pixelSize: 14; anchors.verticalCenter: parent.verticalCenter }
                                 }
                             }
-
-                            ControlCenter {
-                                id: ccContent
+                            Loader {
+                                id: ccLoader
                                 layer.enabled: true 
                                 
                                 width: 308 
@@ -353,20 +375,51 @@ Scope {
                                 anchors.top: parent.top
                                 anchors.topMargin: 16
 
-                                isOpen: rightLiquidPill.rightState === "cc"
-                                parentWindow: rightLiquidPill
-                                netSsid: rightLiquidPill.netSsid
-                                netSignal: rightLiquidPill.netSignal
-                                batLevel: rightLiquidPill.batLevel
-                                batStatus: rightLiquidPill.batStatus
-                                btConnected: rightLiquidPill.btConnected
+                                active: rightLiquidPill.rightState === "cc" || opacity > 0.01
+                                state: rightLiquidPill.rightState === "cc" ? "visible" : "hidden"
 
-                                property bool isActive: rightLiquidPill.rightState === "cc"
-                                visible: isActive; opacity: isActive ? 1 : 0
-                                Behavior on opacity {
-                                    SequentialAnimation {
-                                        PauseAnimation { duration: ccContent.isActive ? 100 : 0 }
-                                        NumberAnimation { duration: ccContent.isActive ? 250 : 50; easing.type: Easing.OutQuad }
+                                states: [
+                                    State {
+                                        name: "visible"
+                                        PropertyChanges { target: ccLoader; opacity: 1.0; visible: true }
+                                    },
+                                    State {
+                                        name: "hidden"
+                                        PropertyChanges { target: ccLoader; opacity: 0.0; visible: false }
+                                    }
+                                ]
+
+                                transitions: [
+                                    Transition {
+                                        from: "hidden"; to: "visible"
+                                        SequentialAnimation {
+                                            PropertyAction { target: ccLoader; property: "visible"; value: true }
+                                            PauseAnimation { duration: 150 }
+                                            NumberAnimation { target: ccLoader; property: "opacity"; duration: 250; easing.type: Easing.OutQuad }
+                                        }
+                                    },
+                                    Transition {
+                                        from: "visible"; to: "hidden"
+                                        SequentialAnimation {
+                                            NumberAnimation { target: ccLoader; property: "opacity"; duration: 100; easing.type: Easing.OutQuad }
+                                            PropertyAction { target: ccLoader; property: "visible"; value: false }
+                                        }
+                                    }
+                                ]
+
+                                sourceComponent: Component {
+                                    ControlCenter {
+                                        isOpen: rightLiquidPill.rightState === "cc"
+                                        parentWindow: rightLiquidPill
+                                        netSsid: root.netSsid
+                                        netSignal: root.netSignal
+                                        batLevel: root.batLevel
+                                        batStatus: root.batStatus
+                                        btConnected: root.btConnected
+                                        briLevel: root.savedBriLevel
+                                        powerProfile: root.savedPowerProfile
+                                        onBriLevelChanged: root.savedBriLevel = briLevel
+                                        onPowerProfileChanged: root.savedPowerProfile = powerProfile
                                     }
                                 }
                             }

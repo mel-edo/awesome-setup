@@ -123,32 +123,15 @@ Scope {
                 property bool isActuallyVisible: false
                 visible: isActuallyVisible
 
-                Timer {
-                    id: openDelayTimer
-                    interval: 30
-                    onTriggered: {
-                        root.populateWindows()
-                    }
-                }
-
-                Connections {
-                    target: root
-                    function onWindowsPopulated() {
-                        if (overviewRoot.isActuallyVisible) {
-                            openAnim.restart()
-                        }
-                    }
-                }
-
                 Connections {
                     target: root
                     function onIsOpenChanged() {
                         if (root.isOpen) {
                             closeAnim.stop()
                             overviewRoot.isActuallyVisible = true
-                            openDelayTimer.restart()
+                            openAnim.restart()
+                            root.populateWindows()
                         } else {
-                            openDelayTimer.stop()
                             openAnim.stop()
                             closeAnim.restart()
                         }
@@ -165,7 +148,9 @@ Scope {
                     
                     x: (parent.width - width) / 2
                     y: -100
-                    width: 40; height: 40; radius: 20
+                    width: 40
+                    height: 40
+                    radius: 20
                     
                     color: Theme.surface
                     border.width: 1
@@ -314,6 +299,7 @@ Scope {
                                     source: "image://icon/" + model.winIconName 
                                     width: 28; height: 28
                                     sourceSize: Qt.size(28, 28)
+                                    asynchronous: true
                                     onStatusChanged: {
                                         if (status === Image.Error) source = "" 
                                     }

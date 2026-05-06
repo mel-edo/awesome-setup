@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import Quickshell
 import Quickshell.Io
+import Quickshell.Services.Pipewire
 import "."
 
 Column {
@@ -29,7 +30,7 @@ Column {
     property bool isScanningBt: false
     property var visibleBtDevices: btDevices.filter(d => isScanningBt || d.paired === "1" || d.connected === "1")
 
-    property int volLevel: 50
+    property int volLevel: (Pipewire.defaultAudioSink && Pipewire.defaultAudioSink.audio) ? Math.round(Pipewire.defaultAudioSink.audio.volume * 100) : 50
     property int briLevel: 50
     property bool isDraggingSlider: volDragArea.pressed || briDragArea.pressed
     onIsDraggingSliderChanged: SharedState.isSuppressingOsd = isDraggingSlider
@@ -37,10 +38,17 @@ Column {
     Timer { id: resetConnectingWifi; interval: 3000; onTriggered: root.connectingWifi = "" }
     Timer { id: resetConnectingBt; interval: 3000; onTriggered: root.connectingBt = "" }
 
-    Process {
-        id: volFetchProcess
-        command: ["bash", "-c", "wpctl get-volume @DEFAULT_AUDIO_SINK@ | awk '{print int($2 * 100)}'"]
-        stdout: StdioCollector { onStreamFinished: root.volLevel = parseInt(text.trim()) || 0 }
+    PwObjectTracker {
+        objects: [ Pipewire.defaultAudioSink ]
+    }
+
+    Connections {
+        target: Pipewire.defaultAudioSink ? Pipewire.defaultAudioSink.audio : null
+        function onVolumeChanged() {
+            if (!root.isDraggingSlider) {
+                root.volLevel = Math.round(Pipewire.defaultAudioSink.audio.volume * 100);
+            }
+        }
     }
     
     Process {
@@ -155,7 +163,6 @@ Column {
         running: root.isOpen && !root.isDraggingSlider; 
         repeat: true; 
         onTriggered: { 
-            if (!volFetchProcess.running) volFetchProcess.running = true; 
             if (!briFetchProcess.running) briFetchProcess.running = true; 
         } 
     }
@@ -814,8 +821,9 @@ Column {
                     TapHandler {
                         onTapped: {
                             root.powerProfile = modelData.value
-                            profileProcess.command = ["powerprofilesctl", "set", modelData.value]
-                            if (!profileProcess.running) profileProcess.running = true
+                            if (profileProcess.running) profileProcess.running = false; 
+                            profileProcess.command = ["bash", "-c", "powerprofilesctl set " + modelData.value + " > /dev/null 2>&1"]
+                            profileProcess.running = true
                         }
                     }
                 }
@@ -919,8 +927,9 @@ Column {
                     let val = Math.round(pct * 100);
                     
                     root.volLevel = val;
-                    volSetProcess.command = ["wpctl", "set-volume", "@DEFAULT_AUDIO_SINK@", (val/100).toFixed(2)];
-                    if (!volSetProcess.running) volSetProcess.running = true;
+                    if (Pipewire.defaultAudioSink) {
+                        Pipewire.defaultAudioSink.audio.volume = val / 100;
+                    }
                 }
                 
                 onPressed: (mouse) => updateValue(mouse)
