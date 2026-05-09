@@ -23,11 +23,6 @@ WlrLayershell {
     property bool isFullyOpen: false
     
     signal requestClose()
-    Window.onActiveChanged: {
-        if (!Window.active && isOpen) {
-            requestClose()
-        }
-    }
 
     ListModel { id: appModel }
     Process { id: launchProcess }
@@ -118,6 +113,17 @@ WlrLayershell {
 
     Rectangle {
         id: droplet
+
+        property bool hasHadFocus: false 
+        
+        Window.onActiveChanged: {
+            if (Window.active) {
+                hasHadFocus = true 
+            } else if (hasHadFocus && launcherRoot.isOpen) {
+                launcherRoot.requestClose()
+                hasHadFocus = false
+            }
+        }
         
         x: (parent.width - width) / 2
         y: -100

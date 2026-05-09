@@ -174,7 +174,6 @@ Column {
             if (!btListProcess.running) btListProcess.running = true
             if (!profileFetchProcess.running) profileFetchProcess.running = true
             if (!batTimeProcess.running) batTimeProcess.running = true
-            if (!volFetchProcess.running) volFetchProcess.running = true
             if (!briFetchProcess.running) briFetchProcess.running = true
         } else {
             root.passwordSsid = ""

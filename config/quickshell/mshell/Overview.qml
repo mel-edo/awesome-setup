@@ -121,18 +121,21 @@ Scope {
                 color: "transparent"
                 
                 property bool isActuallyVisible: false
+                property bool isExpanded: false
                 visible: isActuallyVisible
 
                 Connections {
                     target: root
                     function onIsOpenChanged() {
                         if (root.isOpen) {
+                            overviewRoot.isExpanded = false
                             closeAnim.stop()
                             overviewRoot.isActuallyVisible = true
                             openAnim.restart()
                             root.populateWindows()
                         } else {
                             openAnim.stop()
+                            overviewRoot.isExpanded = false
                             closeAnim.restart()
                         }
                     }
@@ -149,8 +152,15 @@ Scope {
                     x: (parent.width - width) / 2
                     y: -100
                     width: 40
-                    height: 40
+                    height: overviewRoot.isExpanded ? listContent.height : 40
                     radius: 20
+
+                    Behavior on height {
+                        NumberAnimation {
+                            duration: root.isOpen ? 300 : 250
+                            easing.type: Easing.OutExpo
+                        }
+                    }
                     
                     color: Theme.surface
                     border.width: 1
@@ -365,9 +375,10 @@ Scope {
                         easing.type: Easing.OutExpo 
                     }
                     
+                    ScriptAction { script: overviewRoot.isExpanded = true }
+                    
                     ParallelAnimation {
                         NumberAnimation { target: droplet; property: "width"; to: 600; duration: 300; easing.type: Easing.OutExpo }
-                        NumberAnimation { target: droplet; property: "height"; to: listContent.height; duration: 300; easing.type: Easing.OutExpo } 
                         NumberAnimation { target: droplet; property: "radius"; to: 16; duration: 300; easing.type: Easing.OutExpo }
                         NumberAnimation { target: listContent; property: "opacity"; to: 1; duration: 250 }
                     }
@@ -381,7 +392,6 @@ Scope {
                     ParallelAnimation {
                         NumberAnimation { target: listContent; property: "opacity"; to: 0; duration: 150 }
                         NumberAnimation { target: droplet; property: "width"; to: 40; duration: 250; easing.type: Easing.OutExpo }
-                        NumberAnimation { target: droplet; property: "height"; to: 40; duration: 250; easing.type: Easing.OutExpo }
                         NumberAnimation { target: droplet; property: "radius"; to: 20; duration: 250; easing.type: Easing.OutExpo }
                     }
                     

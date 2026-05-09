@@ -424,10 +424,15 @@ Scope {
                 }
 
                 let newArt = islandWindow.activePlayer ? islandWindow.activePlayer.trackArtUrl : ""
-                if (newArt && newArt !== "") {
-                    islandWindow.persistentArtUrl = newArt
-                } else if (!islandWindow.activePlayer) {
-                    islandWindow.persistentArtUrl = "" 
+                let currentBaseArt = islandWindow.persistentArtUrl.split('?')[0]
+                let newBaseArt = newArt ? newArt.split('?')[0] : ""
+
+                if (titleChanged || currentBaseArt !== newBaseArt) {
+                    if (newArt && newArt !== "") {
+                        islandWindow.persistentArtUrl = newArt + (newArt.includes('?') ? '&' : '?') + "nocache=" + Date.now()
+                    } else if (!islandWindow.activePlayer) {
+                        islandWindow.persistentArtUrl = ""
+                    }
                 }
                 
                 islandWindow.currentTrackTitle = newTitle
@@ -1224,6 +1229,7 @@ Scope {
                                 anchors.fill: parent
                                 source: islandWindow.persistentArtUrl
                                 fillMode: Image.PreserveAspectCrop
+                                cache: false
                                 layer.enabled: true 
                                 visible: false 
                             }
@@ -1244,6 +1250,7 @@ Scope {
                                 anchors.fill: parent
                                 source: albumArt.source
                                 fillMode: Image.PreserveAspectCrop
+                                cache: false
                                 layer.enabled: true
                                 visible: false
                             }

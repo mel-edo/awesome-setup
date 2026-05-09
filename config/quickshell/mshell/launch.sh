@@ -2,5 +2,4 @@
 export QS_CONFIG_DIR="$HOME/.config/quickshell/mshell"
 pkill -x qs 2>/dev/null
 sleep 0.2
-qs -p ${QS_CONFIG_DIR}/main.qml &
-
+qs -p ${QS_CONFIG_DIR}/main.qml >~/.cache/quickshell.log 2>&1 &

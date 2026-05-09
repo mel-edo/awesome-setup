@@ -30,12 +30,6 @@ WlrLayershell {
     
     visible: isOpen || openAnim.running || closeAnim.running
 
-    Window.onActiveChanged: {
-        if (!Window.active && isOpen) {
-            requestClose()
-        }
-    }
-
     Process {
         id: uptimeProcess
         command: ["uptime", "-p"]
@@ -75,6 +69,16 @@ WlrLayershell {
     Item {
         id: focusCatcher
         focus: true
+        property bool hasHadFocus: false 
+        
+        Window.onActiveChanged: {
+            if (Window.active) {
+                hasHadFocus = true 
+            } else if (hasHadFocus && powerRoot.isOpen) {
+                powerRoot.requestClose()
+                hasHadFocus = false
+            }
+        }
         
         Keys.onRightPressed: powerRoot.currentIndex = (powerRoot.currentIndex + 1) % 5
         Keys.onLeftPressed: powerRoot.currentIndex = (powerRoot.currentIndex + 4) % 5

@@ -57,8 +57,25 @@ ShellRoot {
         model: Quickshell.screens
         delegate: Component {
             Loader {
+                id: launcherLoader
                 required property var modelData
-                active: shellRoot.launcherOpen || (item && item.visible)
+                Connections {
+                    target: shellRoot
+                    function onLauncherOpenChanged() {
+                        if (shellRoot.launcherOpen) launcherLoader.active = true;
+                    }
+                }
+                Connections {
+                    target: launcherLoader.item
+                    function onVisibleChanged() {
+                        if (launcherLoader.item && !launcherLoader.item.visible && !shellRoot.launcherOpen) {
+                            Qt.callLater(function() {
+                                launcherLoader.active = false;
+                            });
+                        }
+                    }
+                }
+
                 sourceComponent: Component {
                     Launcher {
                         screen: modelData
@@ -72,7 +89,25 @@ ShellRoot {
     }
     
     Loader {
-        active: shellRoot.overviewOpen || (item && item.visible)
+        id: overviewLoader
+        
+        Connections {
+            target: shellRoot
+            function onOverviewOpenChanged() {
+                if (shellRoot.overviewOpen) overviewLoader.active = true;
+            }
+        }
+        Connections {
+            target: overviewLoader.item
+            function onVisibleChanged() {
+                if (overviewLoader.item && !overviewLoader.item.visible && !shellRoot.overviewOpen) {
+                    Qt.callLater(function() {
+                        overviewLoader.active = false;
+                    });
+                }
+            }
+        }
+
         sourceComponent: Component {
             Overview {
                 isOpen: shellRoot.overviewOpen
@@ -82,7 +117,25 @@ ShellRoot {
     }
 
     Loader {
-        active: shellRoot.powerMenuOpen || (item && item.visible)
+        id: powerMenuLoader
+        
+        Connections {
+            target: shellRoot
+            function onPowerMenuOpenChanged() {
+                if (shellRoot.powerMenuOpen) powerMenuLoader.active = true;
+            }
+        }
+        Connections {
+            target: powerMenuLoader.item
+            function onVisibleChanged() {
+                if (powerMenuLoader.item && !powerMenuLoader.item.visible && !shellRoot.powerMenuOpen) {
+                    Qt.callLater(function() {
+                        powerMenuLoader.active = false;
+                    });
+                }
+            }
+        }
+
         sourceComponent: Component {
             PowerMenu {
                 isOpen: shellRoot.powerMenuOpen
