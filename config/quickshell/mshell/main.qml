@@ -11,6 +11,7 @@ ShellRoot {
     property bool overviewOpen: false
     property bool powerMenuOpen: false
     property var globalAllApps: []
+    property bool controlCenterOpen: false
     
     Process {
         id: globalAppFetchProcess
@@ -27,12 +28,13 @@ ShellRoot {
 
     onLauncherOpenChanged: { 
         if (launcherOpen) { 
-            overviewOpen = false; powerMenuOpen = false; 
+            overviewOpen = false; powerMenuOpen = false; controlCenterOpen = false; 
             if (!globalAppFetchProcess.running) globalAppFetchProcess.running = true;
         } 
     }
-    onOverviewOpenChanged: { if (overviewOpen) { launcherOpen = false; powerMenuOpen = false; } }
-    onPowerMenuOpenChanged: { if (powerMenuOpen) { launcherOpen = false; overviewOpen = false; } }
+    onOverviewOpenChanged: { if (overviewOpen) { launcherOpen = false; powerMenuOpen = false; controlCenterOpen = false; } }
+    onPowerMenuOpenChanged: { if (powerMenuOpen) { launcherOpen = false; overviewOpen = false; controlCenterOpen = false; } }
+    onControlCenterOpenChanged: { if (controlCenterOpen) { launcherOpen = false; overviewOpen = false; powerMenuOpen = false; } }
 
     GlobalShortcut {
         name: "toggleLauncher"

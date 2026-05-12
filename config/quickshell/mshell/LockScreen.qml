@@ -472,34 +472,43 @@ Scope {
                             z: 1
                         }
 
-                        Text {
-                            id: secText
-                            text: parent.clockSeconds
-                            font.family: "JetBrainsMono Nerd Font"
-                            font.pixelSize: 60
-                            font.weight: Font.Bold
-                            color: root.mauve
-                            anchors.horizontalCenter: parent.horizontalCenter
+                        Item {
+                            id: minSecContainer
+                            anchors.left: hourText.left
                             anchors.top: hourText.bottom
-                            anchors.topMargin: -75
-                            z: 3
-                        }
-
-                        Text {
-                            id: minText
-                            text: parent.clockMinutes
-                            font.family: "JetBrainsMono Nerd Font"
-                            font.pixelSize: 250
-                            font.weight: Font.Bold
-                            color: root.subtext0
-                            anchors.horizontalCenter: parent.horizontalCenter
-                            anchors.top: secText.bottom
                             anchors.topMargin: -65
-                            z: 2 
+                            
+                            width: minText.width + secText.width + 12
+                            height: minText.height
+                            z: 2
+
+                            Text {
+                                id: minText
+                                text: minSecContainer.parent.clockMinutes
+                                font.family: "JetBrainsMono Nerd Font"
+                                font.pixelSize: 250
+                                font.weight: Font.Bold
+                                color: root.subtext0
+                                anchors.left: parent.left
+                                anchors.top: parent.top
+                            }
+
+                            Text {
+                                id: secText
+                                text: minSecContainer.parent.clockSeconds
+                                font.family: "JetBrainsMono Nerd Font"
+                                font.pixelSize: 60
+                                font.weight: Font.Bold
+                                color: root.mauve
+                                
+                                anchors.left: minText.right
+                                anchors.leftMargin: 12
+                                anchors.baseline: minText.baseline 
+                            }
                         }
                     }
 
-                    // --- LOCKSCREEN MEDIA PLAYER ---
+                    // LOCKSCREEN MEDIA PLAYER
                     Timer {
                         interval: 1000; running: true; repeat: true; triggeredOnStart: true
                         onTriggered: {

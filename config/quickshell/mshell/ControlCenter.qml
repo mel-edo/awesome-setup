@@ -52,6 +52,18 @@ Column {
     }
     
     Process {
+        id: syncWifiState
+        command: ["bash", "-c", "nmcli -t radio wifi"]
+        stdout: StdioCollector { onStreamFinished: root.wifiEnabled = (text.trim() === "enabled") }
+    }
+
+    Process {
+        id: syncBtState
+        command: ["bash", "-c", "bluetoothctl show | grep -q 'Powered: yes' && echo 'true' || echo 'false'"]
+        stdout: StdioCollector { onStreamFinished: root.btEnabled = (text.trim() === "true") }
+    }
+
+    Process {
         id: briFetchProcess
         command: ["bash", "-c", "brightnessctl -m | awk -F, '{print int($4)}'"]
         stdout: StdioCollector { onStreamFinished: root.briLevel = parseInt(text.trim()) || 0 }
@@ -169,6 +181,8 @@ Column {
 
     onIsOpenChanged: {
         if (isOpen) {
+            syncWifiState.running = true
+            syncBtState.running = true
             if (!savedWifiFetchProcess.running) savedWifiFetchProcess.running = true
             if (!wifiListProcess.running) wifiListProcess.running = true
             if (!btListProcess.running) btListProcess.running = true

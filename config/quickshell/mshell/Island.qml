@@ -83,6 +83,7 @@ Scope {
         property bool isMediaPinned: false
         property bool isStartingUp: true
         property bool ignorePillHover: false
+        property string lastTrackArtRaw: ""
 
         onWasPlayingChanged: {
             if (wasPlaying) {
@@ -106,6 +107,18 @@ Scope {
                             islandWindow.postHubCava = false
                         }
                     }
+                }
+            }
+        }
+
+        Timer {
+            id: asyncArtTimer
+            interval: 1500
+            onTriggered: {
+                let player = islandWindow.activePlayer;
+                if (player && player.trackArtUrl) {
+                    let art = player.trackArtUrl;
+                    islandWindow.persistentArtUrl = art + (art.includes('?') ? '&' : '?') + "nocache=" + Date.now();
                 }
             }
         }
@@ -423,16 +436,20 @@ Scope {
                     islandWindow.showMediaPopup()
                 }
 
-                let newArt = islandWindow.activePlayer ? islandWindow.activePlayer.trackArtUrl : ""
-                let currentBaseArt = islandWindow.persistentArtUrl.split('?')[0]
-                let newBaseArt = newArt ? newArt.split('?')[0] : ""
+                let newArt = islandWindow.activePlayer ? (islandWindow.activePlayer.trackArtUrl || "") : ""
+                let rawArtChanged = (islandWindow.lastTrackArtRaw !== newArt)
+                let trackSwitched = (islandWindow.currentTrackTitle !== newTitle)
 
-                if (titleChanged || currentBaseArt !== newBaseArt) {
-                    if (newArt && newArt !== "") {
+                if (trackSwitched || rawArtChanged) {
+                    if (newArt !== "") {
                         islandWindow.persistentArtUrl = newArt + (newArt.includes('?') ? '&' : '?') + "nocache=" + Date.now()
+                        if (trackSwitched && !rawArtChanged && newArt.startsWith("file://")) {
+                            asyncArtTimer.restart()
+                        }
                     } else if (!islandWindow.activePlayer) {
                         islandWindow.persistentArtUrl = ""
                     }
+                    islandWindow.lastTrackArtRaw = newArt
                 }
                 
                 islandWindow.currentTrackTitle = newTitle
