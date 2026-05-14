@@ -424,18 +424,13 @@ Scope {
 
                             Item {
                                 id: flyoutClip
-                                width: rightLiquidPill.isMenuOpen ? 220 : 0
+                                anchors.right: parent.right
+                                width: rightLiquidPill.isMenuOpen ? 228 : 0
                                 height: flyoutBackground.height
-                                
                                 y: rightLiquidPill.activeMenuY
                                 clip: true
 
-                                Behavior on width { 
-                                    SequentialAnimation {
-                                        PauseAnimation { duration: rightLiquidPill.isMenuOpen ? 0 : 100 }
-                                        NumberAnimation { duration: 250; easing.type: Easing.OutExpo }
-                                    } 
-                                }
+                                Behavior on width { NumberAnimation { duration: 250; easing.type: Easing.OutExpo } }
                                 Behavior on y { NumberAnimation { duration: 150; easing.type: Easing.OutQuad } }
 
                                 Rectangle {
@@ -476,101 +471,6 @@ Scope {
                                         pushExit: Transition { NumberAnimation { property: "x"; from: 0; to: -menuStack.width; duration: 150; easing.type: Easing.OutCubic } }
                                         popEnter: Transition { NumberAnimation { property: "x"; from: -menuStack.width; to: 0; duration: 150; easing.type: Easing.OutCubic } }
                                         popExit: Transition { NumberAnimation { property: "x"; from: 0; to: menuStack.width; duration: 150; easing.type: Easing.OutCubic } }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-                
-                // Reusable menu component
-                Component {
-                    id: customMenuComponent
-
-                    Item {
-                        required property QsMenuHandle handle
-                        required property string appName
-
-                        implicitHeight: menuColumn.implicitHeight + 20
-
-                        Column {
-                            id: menuColumn
-                            anchors.fill: parent
-                            anchors.margins: 10
-                            spacing: 8
-
-                            Row {
-                                spacing: 8
-                                Rectangle {
-                                    width: 24; height: 24; radius: 6
-                                    color: backHover.hovered ? Theme.surfaceHover : "transparent"
-                                    Text { anchors.centerIn: parent; text: ""; color: Theme.text; font.pixelSize: 12 } 
-                                    HoverHandler { id: backHover; cursorShape: Qt.PointingHandCursor }
-                                    TapHandler { onTapped: menuStack.pop() }
-                                }
-                                Text {
-                                    text: appName
-                                    color: Theme.text; font.pixelSize: 13; font.bold: true
-                                    anchors.verticalCenter: parent.verticalCenter
-                                }
-                            }
-
-                            Rectangle { width: parent.width; height: 1; color: Qt.rgba(Theme.subtext.r, Theme.subtext.g, Theme.subtext.b, 0.2) }
-
-                            QsMenuOpener { id: menuOpener; menu: handle }
-
-                            ListView {
-                                width: parent.width
-                                height: contentHeight
-                                model: menuOpener.children
-                                clip: true
-                                spacing: 2
-                                interactive: false 
-                                
-                                delegate: Rectangle {
-                                    required property var modelData
-                                    width: parent ? parent.width : 0
-                                    height: modelData.isSeparator ? 1 : 28 
-                                    radius: 6
-                                    color: modelData.isSeparator ? Qt.rgba(Theme.subtext.r, Theme.subtext.g, Theme.subtext.b, 0.15) : (menuItemHover.hovered ? Theme.surfaceHover : "transparent")
-
-                                    Row {
-                                        anchors.fill: parent; anchors.leftMargin: 10; anchors.rightMargin: 8; spacing: 8
-                                        visible: !modelData.isSeparator
-
-                                        Image {
-                                            source: modelData.icon || ""
-                                            width: 14; height: 14; sourceSize: Qt.size(14, 14)
-                                            anchors.verticalCenter: parent.verticalCenter
-                                            visible: modelData.icon !== ""
-                                        }
-                                        
-                                        Text {
-                                            text: modelData.text || ""
-                                            color: modelData.enabled ? Theme.text : Theme.subtext
-                                            font.pixelSize: 12
-                                            anchors.verticalCenter: parent.verticalCenter
-                                        }
-                                    }
-
-                                    Text {
-                                        anchors.right: parent.right; anchors.rightMargin: 8; anchors.verticalCenter: parent.verticalCenter
-                                        text: "" 
-                                        color: Theme.subtext; font.pixelSize: 10
-                                        visible: modelData.hasChildren && !modelData.isSeparator
-                                    }
-
-                                    HoverHandler { id: menuItemHover; enabled: !modelData.isSeparator && modelData.enabled; cursorShape: Qt.PointingHandCursor }
-                                    TapHandler {
-                                        enabled: !modelData.isSeparator && modelData.enabled
-                                        onTapped: {
-                                            if (modelData.hasChildren) {
-                                                menuStack.push(customMenuComponent, { handle: modelData, appName: modelData.text.replace(/&/g, '') })
-                                            } else {
-                                                modelData.triggered()
-                                                menuStack.pop(null) 
-                                            }
-                                        }
                                     }
                                 }
                             }
@@ -710,17 +610,17 @@ Scope {
                             Behavior on topLeftRadius { NumberAnimation { duration: 250; easing.type: Easing.OutExpo } }
                             Behavior on bottomLeftRadius { NumberAnimation { duration: 250; easing.type: Easing.OutExpo } }
                             Rectangle {
-                                anchors.left: parent.left
+                                anchors.right: parent.right
                                 anchors.leftMargin: 2 
                                 anchors.verticalCenter: parent.verticalCenter
                                 
                                 height: 36
-                                width: 4
+                                width: 2
                                 radius: 2
                                 color: Theme.accent
                                 
                                 opacity: trayDrawerWindow.keepOpen ? 0.0 : 1.0
-                                Behavior on opacity { NumberAnimation { duration: 300; easing.type: Easing.InOutQuad } }
+                                Behavior on opacity { NumberAnimation { duration: 150; easing.type: Easing.InOutQuad } }
                             }
 
                             ListView {
