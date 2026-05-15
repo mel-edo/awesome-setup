@@ -1598,6 +1598,38 @@ Scope {
                         font.pixelSize: 14
                         font.bold: true
                     }
+
+                    // Refresh button
+                    Rectangle {
+                        anchors.verticalCenter: wallHeader.verticalCenter
+                        anchors.right: themeToggleRect.left
+                        anchors.rightMargin: 12
+                        width: 32; height: 32; radius: 10
+                        color: Theme.surfaceHover
+                        
+                        scale: refreshTap.pressed ? 0.9 : 1.0
+                        Behavior on scale { NumberAnimation { duration: 100 } }
+
+                        Text {
+                            anchors.centerIn: parent
+                            text: "󰑐"
+                            color: Theme.text
+                            font.pixelSize: 18
+                        }
+
+                        HoverHandler { id: refreshHover; cursorShape: Qt.PointingHandCursor }
+                        Rectangle { anchors.fill: parent; radius: 10; color: "white"; opacity: refreshHover.hovered ? 0.1 : 0; Behavior on opacity { NumberAnimation{duration:100} } }
+                        
+                        TapHandler { 
+                            id: refreshTap
+                            onTapped: {
+                                wallpaperList.clear()
+                                fetchStaticWalls.running = true
+                                fetchWeWalls.running = true
+                            }
+                        }
+                    }
+
                     // Theme control
                     Rectangle {
                         anchors.verticalCenter: wallHeader.verticalCenter

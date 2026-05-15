@@ -5,11 +5,10 @@ import shutil
 import shlex
 import sys
 
-# Where we will cache the launch counts
+# cache the launch counts
 HISTORY_FILE = os.path.expanduser("~/.cache/mshell/launcher_history.json")
 
 def record_launch(app_name):
-    """Increments the launch count for an app."""
     history = {}
     if os.path.exists(HISTORY_FILE):
         try:
@@ -25,7 +24,6 @@ def record_launch(app_name):
         json.dump(history, f)
 
 def binary_exists(exec_cmd):
-    """Verifies the application binary actually exists on the system."""
     if not exec_cmd:
         return False
     try:
@@ -34,7 +32,6 @@ def binary_exists(exec_cmd):
             return False
         
         cmd = parts[0]
-        # Handle cases where the command starts with environment variables e.g., 'env SOME_VAR=1 app_name'
         if cmd == 'env':
             for part in parts[1:]:
                 if '=' not in part:
@@ -47,7 +44,6 @@ def binary_exists(exec_cmd):
 
 def get_apps():
     apps = []
-    # Added standard Flatpak paths just in case!
     paths = [
         os.path.expanduser("~/.local/share/applications"),
         "/usr/share/applications",
@@ -94,18 +90,16 @@ def get_apps():
                                 no_display = True
                                 
                     if name and exec_cmd and not no_display:
-                        # THE GHOST FIX: Only add the app if the binary is still installed
                         if binary_exists(exec_cmd):
                             score = history.get(name, 0)
                             apps.append({"name": name, "icon": icon, "exec": exec_cmd, "score": score})
                 except Exception:
                     pass
                     
-    # Deduplicate apps
     seen = set()
     unique_apps = []
     
-    # SORT BY CACHE: Most launched apps go to the top, then alphabetically
+    # Most launched apps go to the top, then alphabetically
     apps.sort(key=lambda x: (-x["score"], x["name"].lower()))
     
     for app in apps:
@@ -116,7 +110,6 @@ def get_apps():
     return unique_apps
 
 if __name__ == "__main__":
-    # If called with --record, update the cache. Otherwise, spit out the JSON.
     if len(sys.argv) > 2 and sys.argv[1] == "--record":
         record_launch(sys.argv[2])
     else:
