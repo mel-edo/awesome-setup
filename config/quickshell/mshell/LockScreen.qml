@@ -165,7 +165,7 @@ Scope {
     }
     Timer { interval: 900000; running: true; repeat: true; triggeredOnStart: true; onTriggered: { if (!weatherPoller.running) weatherPoller.running = true } }
 
-    // System action processes
+    // System actions
     Process { id: suspendProcess; command: ["systemctl", "suspend"] }
     Process { id: poweroffProcess; command: ["systemctl", "poweroff"] }
     Process { id: reloadProcess; command: ["systemctl", "reboot"] }
@@ -216,7 +216,6 @@ Scope {
                     focusHammer.running = true;
                 }
 
-                // ROOT KEY HANDLER
                 focus: true 
                 Keys.onPressed: (event) => {
                     if (screenRoot.isPlayingIntro || lockUI.authenticating) return;
@@ -263,7 +262,6 @@ Scope {
                     onTriggered: screenRoot.inputActive = false
                 }
 
-                // BACKGROUND DATA POLLING
                 Process {
                     id: userPoller
                     command: ["bash", "-c", "USER_VAR=$(whoami); ICON_PATH=\"\"; if [ -f ~/.face.icon ]; then ICON_PATH=$(readlink -f ~/.face.icon); elif [ -f ~/.face ]; then ICON_PATH=$(readlink -f ~/.face); fi; echo -n \"$USER_VAR|$ICON_PATH\""]
@@ -305,6 +303,7 @@ Scope {
                         }
                     }
                 }
+
                 Timer { interval: 5000; running: true; repeat: true; triggeredOnStart: true; onTriggered: { if (!batPoller.running) batPoller.running = true } }
 
                 function weatherIconCode(code) {
@@ -335,8 +334,8 @@ Scope {
                         }
                     }
                 }
-                Timer { interval: 900000; running: true; repeat: true; triggeredOnStart: true; onTriggered: { if (!weatherPoller.running) weatherPoller.running = true } }
 
+                Timer { interval: 900000; running: true; repeat: true; triggeredOnStart: true; onTriggered: { if (!weatherPoller.running) weatherPoller.running = true } }
                 Rectangle { anchors.fill: parent; color: root.base }
 
                 property string activeWallCache: ""
@@ -409,7 +408,7 @@ Scope {
                     }
                 }
 
-                // MAIN CONTENT LAYER (Clock & Auth)
+                // Clock and Auth
                 MouseArea {
                     anchors.fill: parent
                     hoverEnabled: true
@@ -429,7 +428,7 @@ Scope {
                     opacity: screenRoot.introState
                     transform: Translate { y: 30 * (1.0 - screenRoot.introState) }
 
-                    // VERTICAL CLOCK
+                    // Clock
                     Item {
                         anchors.fill: parent
                         
@@ -508,7 +507,7 @@ Scope {
                         }
                     }
 
-                    // LOCKSCREEN MEDIA PLAYER
+                    // Media Player
                     Timer {
                         interval: 1000; running: true; repeat: true; triggeredOnStart: true
                         onTriggered: {
@@ -557,7 +556,6 @@ Scope {
                         Behavior on opacity { NumberAnimation { duration: 300; easing.type: Easing.InOutQuad } }
                         transform: Translate { y: 20 * (1.0 - screenRoot.introState) }
 
-                        // --- Localized Aura Effect ---
                         Rectangle {
                             id: lockMediaMask
                             anchors.fill: parent
@@ -580,7 +578,6 @@ Scope {
                                 source: screenRoot.persistentArtUrl
                                 fillMode: Image.PreserveAspectCrop
                                 
-                                // FIX: Bypass cache to prevent ghosting on subsequent locks
                                 cache: false
                                 asynchronous: true
                                 sourceSize.width: 128
@@ -632,8 +629,6 @@ Scope {
                                     fillMode: Image.PreserveAspectCrop
                                     layer.enabled: true
                                     visible: false
-                                    
-                                    // FIX: Bypass cache to prevent ghosting on subsequent locks
                                     cache: false
                                     asynchronous: true
                                     sourceSize.width: 128
@@ -685,7 +680,7 @@ Scope {
                         }
                     }
 
-                    // AUTHENTICATION MODULE
+                    // Authentication
                     ColumnLayout {
                         id: authModule
                         anchors.horizontalCenter: parent.horizontalCenter
@@ -729,7 +724,7 @@ Scope {
                                 if (lockUI.failed) return root.red;
                                 if (lockUI.authenticating) return root.green;
                                 if (lockUI.passwordBuffer.length > 0) return root.mauve;
-                                return Qt.rgba(root.mauve.r, root.mauve.g, root.mauve.b, 0.3); // Dimmer when empty
+                                return Qt.rgba(root.mauve.r, root.mauve.g, root.mauve.b, 0.3);
                             }
                             Behavior on border.color {
                                 ColorAnimation { duration: 300; easing.type: Easing.OutCubic }
@@ -775,7 +770,6 @@ Scope {
                                             height: 12
                                             radius: 6
                                             color: root.mauve
-                                            
                                             property bool isActive: index < lockUI.passwordBuffer.length
                                             opacity: isActive ? 1.0 : 0.0
                                             
@@ -790,7 +784,6 @@ Scope {
                     }
                 }
 
-                // BOTTOM GRADIENT
                 Rectangle {
                     anchors.bottom: parent.bottom
                     anchors.left: parent.left
@@ -803,7 +796,7 @@ Scope {
                     }
                 }
 
-                // BOTTOM SYSTEM INFO PILLS
+                // bottom pills
                 RowLayout {
                     anchors.bottom: parent.bottom
                     anchors.bottomMargin: 40
@@ -850,7 +843,7 @@ Scope {
                     }
                 }
 
-                // INTRO ANIMATION OVERLAY
+                // animation stuff
                 Item {
                     id: introOverlay
                     anchors.fill: parent
@@ -927,9 +920,9 @@ Scope {
                                 PauseAnimation { duration: 300 }
                                 ParallelAnimation {
                                     NumberAnimation { target: introIconUnlocked; property: "scale"; from: 1.0; to: 0.5; duration: 200; easing.type: Easing.InCubic }
-                                    NumberAnimation { target: introIconUnlocked; property: "opacity"; from: 1.0; to: 0.0; duration: 150 } // Increased for smooth crossfade
+                                    NumberAnimation { target: introIconUnlocked; property: "opacity"; from: 1.0; to: 0.0; duration: 150 }
                                     NumberAnimation { target: introIconLocked; property: "scale"; from: 1.6; to: 1.0; duration: 200; easing.type: Easing.OutBack }
-                                    NumberAnimation { target: introIconLocked; property: "opacity"; from: 0.0; to: 1.0; duration: 150 } // Increased for smooth crossfade
+                                    NumberAnimation { target: introIconLocked; property: "opacity"; from: 0.0; to: 1.0; duration: 150 }
                                     SequentialAnimation {
                                         NumberAnimation { target: introLockOrb; property: "anchors.verticalCenterOffset"; from: 0; to: 3; duration: 40; easing.type: Easing.OutQuad }
                                         NumberAnimation { target: introLockOrb; property: "anchors.verticalCenterOffset"; from: 3; to: 0; duration: 120; easing.type: Easing.OutBack }

@@ -210,7 +210,7 @@ Scope {
                                     
                                     onTextChanged: {
                                         root.filterWindows(text)
-                                        windowList.positionViewAtIndex(0, ListView.Beginning) // Reset to top
+                                        windowList.positionViewAtIndex(0, ListView.Beginning)
                                     }
                                     
                                     Keys.onPressed: event => {
@@ -242,7 +242,6 @@ Scope {
 
                                         if (handled) {
                                             event.accepted = true;
-                                            // Core Pagination Logic
                                             let newPage = Math.floor(windowList.currentIndex / itemsPerPage);
                                             if (newPage !== oldPage) {
                                                 windowList.positionViewAtIndex(newPage * itemsPerPage, ListView.Beginning);
@@ -252,7 +251,6 @@ Scope {
                                 }
                             }
                             
-                            // Nested separator
                             Rectangle {
                                 anchors.bottom: parent.bottom
                                 width: parent.width; height: 1
