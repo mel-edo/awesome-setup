@@ -180,16 +180,6 @@ Scope {
             Item {
                 id: screenRoot
                 anchors.fill: parent
-
-                property string staticWallpaperPath: "file:///tmp/lock_bg.png"
-                property string batPct: "100"
-                property string batStatus: "AC"
-                property string currentUser: "User"
-                property string faceIconPath: ""
-                property string kbLayout: "US"
-                property string weatherIcon: ""
-                property string weatherTemp: "--°C"
-
                 property real introState: 1.0 
                 property bool powerMenuOpen: false
                 property bool inputActive: false
@@ -262,93 +252,12 @@ Scope {
                     onTriggered: screenRoot.inputActive = false
                 }
 
-                Process {
-                    id: userPoller
-                    command: ["bash", "-c", "USER_VAR=$(whoami); ICON_PATH=\"\"; if [ -f ~/.face.icon ]; then ICON_PATH=$(readlink -f ~/.face.icon); elif [ -f ~/.face ]; then ICON_PATH=$(readlink -f ~/.face); fi; echo -n \"$USER_VAR|$ICON_PATH\""]
-                    stdout: StdioCollector {
-                        onStreamFinished: {
-                            let parts = this.text.trim().split("|");
-                            if (parts.length > 0 && parts[0] !== "") screenRoot.currentUser = parts[0];
-                            if (parts.length > 1 && parts[1].trim() !== "") {
-                                let path = parts[1].trim();
-                                screenRoot.faceIconPath = path.startsWith("file://") ? path : "file://" + path;
-                            }
-                        }
-                    }
-                    Component.onCompleted: running = true
-                }
-
-                Process {
-                    id: kbPoller
-                    command: ["bash", "-c", "hyprctl devices -j | jq -r '.keyboards[] | select(.main == true) | .active_keymap' | head -n1 | cut -c1-2 | tr '[:lower:]' '[:upper:]'"]
-                    stdout: StdioCollector {
-                        onStreamFinished: {
-                            let layout = this.text.trim();
-                            if (layout !== "" && layout !== "null") screenRoot.kbLayout = layout;
-                        }
-                    }
-                }
-                Timer { interval: 1500; running: true; repeat: true; triggeredOnStart: true; onTriggered: { if (!kbPoller.running) kbPoller.running = true } }
-
-                Process {
-                    id: batPoller
-                    command: ["bash", "-c", "cat /sys/class/power_supply/BAT*/capacity 2>/dev/null | head -n1 || echo '100'; cat /sys/class/power_supply/BAT*/status 2>/dev/null | head -n1 || echo 'AC'"]
-                    stdout: StdioCollector {
-                        onStreamFinished: {
-                            let lines = this.text.trim().split("\n");
-                            if (lines.length >= 2) {
-                                root.batPct = lines[0] || "100";
-                                root.batStatus = lines[1] || "Unknown";
-                            }
-                        }
-                    }
-                }
-
-                Timer { interval: 5000; running: true; repeat: true; triggeredOnStart: true; onTriggered: { if (!batPoller.running) batPoller.running = true } }
-
-                function weatherIconCode(code) {
-                    if (!code) return "󰖙"
-                    let isNight = code.endsWith("n")
-                    if (code.startsWith("01")) return isNight ? "󰖔" : "󰖙" 
-                    if (code.startsWith("02")) return isNight ? "" : "󰖕" 
-                    if (code.startsWith("03") || code.startsWith("04")) return "󰖐" 
-                    if (code.startsWith("09") || code.startsWith("10")) return "󰖗" 
-                    if (code.startsWith("11")) return "󰖓" 
-                    if (code.startsWith("13")) return "󰖘" 
-                    if (code.startsWith("50")) return "󰖑" 
-                    return isNight ? "󰖔" : "󰖙" 
-                }
-
-                Process {
-                    id: weatherPoller
-                    command: [Quickshell.env("HOME") + "/.config/quickshell/mshell/scripts/calendar/weather.sh"]
-                    stdout: StdioCollector {
-                        onStreamFinished: {
-                            try {
-                                let data = JSON.parse(text)
-                                if (data && data.today) {
-                                    screenRoot.weatherIcon = screenRoot.weatherIconCode(data.today.icon)
-                                    root.weatherTemp = Math.round(data.today.temp) + "°C"
-                                }
-                            } catch(e) {}
-                        }
-                    }
-                }
-
-                Timer { interval: 900000; running: true; repeat: true; triggeredOnStart: true; onTriggered: { if (!weatherPoller.running) weatherPoller.running = true } }
                 Rectangle { anchors.fill: parent; color: root.base }
-
-                property string activeWallCache: ""
-                Process {
-                    running: true
-                    command: ["bash", "-c", "cat ~/.cache/mshell/wall_cache.txt 2>/dev/null || echo ''"]
-                    stdout: StdioCollector { onStreamFinished: screenRoot.activeWallCache = text.trim() }
-                }
 
                 Image {
                     id: bgWallpaper
                     anchors.fill: parent
-                    source: screenRoot.activeWallCache ? "file://" + screenRoot.activeWallCache : ""
+                    source: root.activeWallCache ? "file://" + root.activeWallCache : ""
                     fillMode: Image.PreserveAspectCrop
                     asynchronous: true
                     visible: false
@@ -700,7 +609,7 @@ Scope {
                                 Layout.alignment: Qt.AlignVCenter
                             }
                             Text {
-                                text: screenRoot.currentUser
+                                text: root.currentUser
                                 font.family: "JetBrains Mono"
                                 font.pixelSize: 24
                                 font.weight: Font.Bold
@@ -816,12 +725,12 @@ Scope {
                         RowLayout {
                             id: batLayoutRow; anchors.centerIn: parent; spacing: 8
                             property color dynamicBatColor: {
-                                if (screenRoot.batStatus === "Charging") return root.green;
+                                if (root.batStatus === "Charging") return root.green;
                                 let pct = parseInt(root.batPct);
                                 if (pct <= 20) return root.red;
                                 return root.text;
                             }
-                            Text { text: screenRoot.batStatus === "Charging" ? "󰂄" : (parseInt(root.batPct) <= 20 ? "󰂃" : "󰁹"); font.family: "Iosevka Nerd Font"; font.pixelSize: 18; color: batLayoutRow.dynamicBatColor }
+                            Text { text: root.batStatus === "Charging" ? "󰂄" : (parseInt(root.batPct) <= 20 ? "󰂃" : "󰁹"); font.family: "Iosevka Nerd Font"; font.pixelSize: 18; color: batLayoutRow.dynamicBatColor }
                             Text { text: root.batPct + "%"; font.family: "JetBrains Mono"; font.pixelSize: 13; font.weight: Font.Black; color: batLayoutRow.dynamicBatColor }
                         }
                     }
@@ -837,7 +746,7 @@ Scope {
                         border.width: 1
                         RowLayout {
                             id: weatherRow; anchors.centerIn: parent; spacing: 8
-                            Text { text: screenRoot.weatherIcon; font.family: "Iosevka Nerd Font"; font.pixelSize: 18; color: root.subtext0 }
+                            Text { text: root.weatherIcon; font.family: "Iosevka Nerd Font"; font.pixelSize: 18; color: root.subtext0 }
                             Text { text: root.weatherTemp; font.family: "JetBrains Mono"; font.pixelSize: 13; font.weight: Font.Black; color: root.text }
                         }
                     }

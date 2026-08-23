@@ -11,6 +11,7 @@ Scope {
     id: root
 
     property bool isOpen: false
+    property string pendingFocusAddr: ""
     signal requestClose()
     Window.onActiveChanged: {
         if (!Window.active && isOpen) {
@@ -71,16 +72,24 @@ Scope {
                         let wsName = w.workspace ? w.workspace.name : "?";
                         if (wsName.startsWith("special")) wsName = "s";
                         let winClass = w.class || "";
+
                         let iconName = winClass;
-                        let lowerClass = winClass.toLowerCase();
-                        if (lowerClass === "codium") iconName = "vscodium";
-                        else if (lowerClass === "zen") iconName = "zen-browser";
-                        else if (lowerClass === "xreader") iconName = "document-viewer";
-                        else if (lowerClass === "com.github.th_ch.youtube_music") iconName = "youtube-music";
+                        let entry = DesktopEntries.heuristicLookup(winClass);
+                        if (entry && entry.icon) {
+                            iconName = entry.icon;
+                        } else {
+                            // keep your manual overrides as a fallback for edge cases
+                            let lowerClass = winClass.toLowerCase();
+                            if (lowerClass === "codium") iconName = "vscodium";
+                            else if (lowerClass === "zen") iconName = "zen-browser";
+                            else if (lowerClass === "xreader") iconName = "document-viewer";
+                            else if (lowerClass === "com.github.th_ch.youtube_music") iconName = "youtube-music";
+                        }
+
                         let rawAddress = String(w.address).trim();
                         if (!rawAddress.startsWith("0x")) rawAddress = "0x" + rawAddress;
                         root.allWindows.push({
-                            winAddress: rawAddress, 
+                            winAddress: rawAddress,
                             winTitle: w.title,
                             winIconName: iconName,
                             winWorkspace: wsName,
@@ -96,7 +105,7 @@ Scope {
     Process {
         id: hyprctlFocus
         property string targetAddr: ""
-        command: ["sh", "-c", "sleep 0.1 && hyprctl dispatch focuswindow address:" + targetAddr]
+        command: ["sh", "-c", "hyprctl dispatch 'hl.dsp.focus({ window = \"address:" + targetAddr + "\" })'"]
     }
 
     function populateWindows() {
@@ -229,9 +238,8 @@ Scope {
                                         } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
                                             if (windowList.currentIndex >= 0 && windowList.currentIndex < windowModel.count) {
                                                 let addr = windowModel.get(windowList.currentIndex).winAddress;
+                                                root.pendingFocusAddr = addr;
                                                 shellRoot.overviewOpen = false;
-                                                hyprctlFocus.targetAddr = addr;
-                                                hyprctlFocus.running = true;
                                                 searchInput.text = ""; 
                                             }
                                             handled = true;
@@ -352,9 +360,8 @@ Scope {
                                     onTapped: {
                                         windowList.currentIndex = index
                                         let addr = windowModel.get(windowList.currentIndex).winAddress
+                                        root.pendingFocusAddr = addr
                                         shellRoot.overviewOpen = false
-                                        hyprctlFocus.targetAddr = addr
-                                        hyprctlFocus.running = true
                                     }
                                 }
                             }
@@ -400,6 +407,11 @@ Scope {
                     onFinished: {
                         if (!root.isOpen) {
                             overviewRoot.isActuallyVisible = false
+                            if (root.pendingFocusAddr !== "") {
+                                hyprctlFocus.targetAddr = root.pendingFocusAddr
+                                hyprctlFocus.running = true
+                                root.pendingFocusAddr = ""
+                            }
                         }
                     }
                 }

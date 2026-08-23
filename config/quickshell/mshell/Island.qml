@@ -68,7 +68,7 @@ Scope {
         property string notifBody: ""
         property string notifIcon: ""
         property string notifImage: ""
-        property string weDir: Quickshell.env("HOME") + "/.local/share/Steam/steamapps/workshop/content/431960"
+        property string weDir: Quickshell.env("HOME") + "/yo/SteamLibrary/steamapps/workshop/content/431960"
         property bool isDnd: false
         property int cpuUsage: 0
         property int ramUsage: 0
@@ -330,15 +330,32 @@ Scope {
 
         ListModel {
             id: notifQueue
+            property int lastCount: 0
+            onCountChanged: {
+                if (count < lastCount && islandWindow.islandState === "notification") {
+                    islandWindow.closeToIdle()
+                }
+                lastCount = count
+            }
         }
+
 
         NotificationServer {
             id: notifServer
+            function stripMarkup(str) {
+                if (!str) return ""
+                return str.replace(/<[^>]*>/g, "")
+                        .replace(/&amp;/g, "&")
+                        .replace(/&lt;/g, "<")
+                        .replace(/&gt;/g, ">")
+                        .replace(/&quot;/g, "\"")
+            }
+
             onNotification: notification => {
                 notifQueue.insert(0, {
                     nApp: notification.appName || "System",
                     nSum: notification.summary || "",
-                    nBod: notification.body || "",
+                    nBod: stripMarkup(notification.body || ""),
                     nIco: notification.appIcon || "",
                     nImg: notification.image || ""
                 })
@@ -728,7 +745,8 @@ Scope {
                 if (islandWindow.islandState === "monitor") return 180
                 if (islandWindow.islandState === "osd") return 52
                 if (islandWindow.islandState === "media" || islandWindow.islandState === "hub" || islandWindow.islandState === "bluetooth") return 68
-                if (islandWindow.islandState === "calendar" || islandWindow.islandState === "wallpaper") return 290
+                if (islandWindow.islandState === "wallpaper") return 290
+                if (islandWindow.islandState === "calendar") return (calGrid.startDay + calGrid.daysInMonth > 35) ? 320 : 290
                 if (islandWindow.islandState === "notification") {
                     if (notifQueue.count === 0) return 34
                     return singleNotifCard.height + 16
@@ -2004,7 +2022,7 @@ Scope {
                 Item {
                     id: calendarPanel
                     width: 620
-                    height: 250
+                    height: (calGrid.startDay + calGrid.daysInMonth > 35) ? 280 : 250
                     anchors.centerIn: parent
                     layer.enabled: true
                     

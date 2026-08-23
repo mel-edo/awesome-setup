@@ -7,6 +7,7 @@ import Quickshell.Io
 import Quickshell.Services.SystemTray
 import "."
 
+
 Scope {
     id: root
 
@@ -17,6 +18,10 @@ Scope {
     property int batLevel: 100
     property int savedBriLevel: 50
     property string savedPowerProfile: "balanced"
+
+    function dispatchWorkspace(workspaceId) {
+        Hyprland.dispatch('hl.dsp.focus({ workspace = ' + workspaceId + '})')
+    }
 
     Process {
         id: globalBatteryProcess
@@ -134,7 +139,7 @@ Scope {
                                 MouseArea {
                                     anchors.fill: parent
                                     cursorShape: Qt.PointingHandCursor
-                                    onClicked: Hyprland.dispatch("workspace " + workspaceId)
+                                    onClicked: dispatchWorkspace(workspaceId)
                                 }
                             }
                         }

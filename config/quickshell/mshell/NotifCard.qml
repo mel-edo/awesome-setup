@@ -30,16 +30,7 @@ Item {
     TapHandler {
         onTapped: {
             notifQueue.remove(root.index) 
-            
-            if (notifQueue.count === 0) {
-                if (islandWindow.islandState === "notification") {
-                    islandWindow.closeToIdle()
-                } else {
-                    notificationTimer.restart()
-                }
-            } else {
-                notificationTimer.restart()
-            }
+            islandWindow.closeToIdle()
         }
     }
 
@@ -122,7 +113,7 @@ Item {
             maximumLineCount: 4 
             elide: Text.ElideRight
             visible: text !== ""
-            textFormat: Text.RichText
+            textFormat: Text.PlainText
             renderType: Text.NativeRendering
         }
     }

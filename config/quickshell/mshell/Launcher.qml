@@ -69,7 +69,8 @@ WlrLayershell {
     function launchSelectedApp() {
         if (appModel.count > 0 && appList.currentIndex >= 0 && appList.currentIndex < appModel.count) {
             let app = appModel.get(appList.currentIndex)
-            launchProcess.command = ["hyprctl", "dispatch", "exec", app.exec]
+            let escapedExec = app.exec.replace(/\\/g, '\\\\').replace(/"/g, '\\"')
+            launchProcess.command = ["hyprctl", "dispatch", `hl.dsp.exec_cmd("${escapedExec}")`]
             if (!launchProcess.running) launchProcess.running = true
             recordProcess.command = ["python3", Quickshell.env("HOME") + "/.config/quickshell/mshell/scripts/app_fetcher.py", "--record", app.name]
             recordProcess.running = true

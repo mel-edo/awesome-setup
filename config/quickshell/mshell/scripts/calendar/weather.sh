@@ -1,14 +1,14 @@
 #!/usr/bin/bash
-API_KEY=""
-CITY=""
+API_KEY="ccde65c11291847a9c378335f65e18ce"
+CITY="Bangalore"
 URL="https://api.openweathermap.org/data/2.5/forecast?q=${CITY}&appid=${API_KEY}&units=metric"
 CACHE_FILE="/tmp/island_weather_cache.json"
-CACHE_MINUTES=30 
+CACHE_MINUTES=30
 
 # If the file exists and was modified less than 30 minutes ago, read it and exit
 if find "$CACHE_FILE" -mmin -"$CACHE_MINUTES" -print -quit 2>/dev/null | grep -q .; then
-    cat "$CACHE_FILE"
-    exit 0
+  cat "$CACHE_FILE"
+  exit 0
 fi
 
 NEW_DATA=$(curl -s "$URL" | python3 -c "
@@ -84,5 +84,6 @@ print(json.dumps({
 }))
 ")
 
-echo "$NEW_DATA" > "$CACHE_FILE"
+echo "$NEW_DATA" >"$CACHE_FILE"
 echo "$NEW_DATA"
+
