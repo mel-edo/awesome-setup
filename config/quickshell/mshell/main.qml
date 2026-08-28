@@ -100,11 +100,9 @@ ShellRoot {
         }
         Connections {
             target: overviewLoader.item
-            function onVisibleChanged() {
-                if (overviewLoader.item && !overviewLoader.item.visible && !shellRoot.overviewOpen) {
-                    Qt.callLater(function() {
-                        overviewLoader.active = false;
-                    });
+            function onClosed() {
+                if (!shellRoot.overviewOpen) {
+                    overviewLoader.active = false;
                 }
             }
         }

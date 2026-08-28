@@ -1,6 +1,5 @@
 import QtQuick
 import QtQuick.Controls
-import QtQuick.Window
 import Quickshell
 import Quickshell.Wayland
 import Quickshell.Hyprland
@@ -13,11 +12,7 @@ Scope {
     property bool isOpen: false
     property string pendingFocusAddr: ""
     signal requestClose()
-    Window.onActiveChanged: {
-        if (!Window.active && isOpen) {
-            requestClose()
-        }
-    }
+    signal closed()
     signal windowsPopulated()
 
     IpcHandler {
@@ -174,19 +169,34 @@ Scope {
                 property bool isExpanded: false
                 visible: isActuallyVisible
 
+                function open() {
+                    overviewRoot.isExpanded = false
+                    closeAnim.stop()
+                    overviewRoot.isActuallyVisible = true
+                    openAnim.restart()
+                    root.populateWindows()
+                }
+
+                function close() {
+                    openAnim.stop()
+                    overviewRoot.isExpanded = false
+                    closeAnim.restart()
+                }
+
+                // Trigger open animation if already open when the Loader finishes creating this component
+                Component.onCompleted: {
+                    if (root.isOpen) {
+                        overviewRoot.open()
+                    }
+                }
+
                 Connections {
                     target: root
                     function onIsOpenChanged() {
                         if (root.isOpen) {
-                            overviewRoot.isExpanded = false
-                            closeAnim.stop()
-                            overviewRoot.isActuallyVisible = true
-                            openAnim.restart()
-                            root.populateWindows()
+                            overviewRoot.open()
                         } else {
-                            openAnim.stop()
-                            overviewRoot.isExpanded = false
-                            closeAnim.restart()
+                            overviewRoot.close()
                         }
                     }
                 }
@@ -453,6 +463,7 @@ Scope {
                                 hyprctlFocus.running = true
                                 root.pendingFocusAddr = ""
                             }
+                            root.closed()
                         }
                     }
                 }

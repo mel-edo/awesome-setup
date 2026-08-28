@@ -515,12 +515,6 @@ Scope {
         }
 
         Timer {
-            id: weatherDelayTimer
-            interval: 300
-            onTriggered: weatherProcess.running = true
-        }
-
-        Timer {
             id: hubDelayTimer
             interval: 80
             onTriggered: islandWindow.islandState = "hub"
@@ -1620,6 +1614,7 @@ Scope {
 
                     // Theme control
                     Rectangle {
+                        id: themeToggleRect
                         anchors.verticalCenter: wallHeader.verticalCenter
                         anchors.right: parent.right
                         anchors.rightMargin: 12
@@ -1995,7 +1990,9 @@ Scope {
 
                     onVisibleChanged: {
                         if (visible) {
-                            weatherDelayTimer.start()
+                            if (!weatherProcess.running && islandWindow.weatherToday === null) {
+                                weatherProcess.running = true
+                            }
                             calGrid.currentDate = new Date()
                         } else {
                             calGrid.monthOffset = 0 
@@ -2125,72 +2122,113 @@ Scope {
                             }
 
                             Column {
-                                anchors.fill: parent; anchors.margins: 14; spacing: 16
+                                anchors.centerIn: parent
+                                width: parent.width - 24
+                                spacing: 10
                                 visible: islandWindow.weatherToday !== null
 
+                                // Main Weather Info (Enlarged & Focused)
                                 Row {
-                                    spacing: 16; anchors.horizontalCenter: parent.horizontalCenter
+                                    spacing: 18
+                                    anchors.horizontalCenter: parent.horizontalCenter
+            
                                     Text {
                                         text: islandWindow.weatherToday ? islandWindow.weatherIcon(islandWindow.weatherToday.icon) : ""
-                                        color: Theme.accent; font.pixelSize: 46; anchors.verticalCenter: parent.verticalCenter
+                                        color: Theme.accent
+                                        font.pixelSize: 52
+                                        anchors.verticalCenter: parent.verticalCenter
                                     }
+            
                                     Column {
                                         anchors.verticalCenter: parent.verticalCenter
-                                        Text { text: islandWindow.weatherToday ? islandWindow.weatherToday.temp + "°C" : ""; color: Theme.text; font.pixelSize: 26; font.bold: true }
-                                        Text { text: islandWindow.weatherToday ? islandWindow.weatherToday.desc : ""; color: Theme.text; font.pixelSize: 13; font.bold: true }
-                                        Text { text: islandWindow.weatherToday ? "H: " + islandWindow.weatherToday.high + "°  L: " + islandWindow.weatherToday.low + "°" : ""; color: Theme.subtext; font.pixelSize: 12 }
+                                        spacing: 1
+                
+                                        Text { 
+                                            text: islandWindow.weatherToday ? islandWindow.weatherToday.temp + "°C" : ""
+                                            color: Theme.text
+                                            font.pixelSize: 32
+                                            font.bold: true 
+                                        }
+                                        Text { 
+                                            text: islandWindow.weatherToday ? islandWindow.weatherToday.desc : ""
+                                            color: Theme.text
+                                            font.pixelSize: 13
+                                            font.bold: true 
+                                        }
+                                        Text { 
+                                            text: islandWindow.weatherToday ? "H: " + islandWindow.weatherToday.high + "°   L: " + islandWindow.weatherToday.low + "°" : ""
+                                            color: Theme.subtext
+                                            font.pixelSize: 12 
+                                        }
                                     }
                                 }
 
+                                // Stats Row (Rain / Feels Like / Wind)
                                 Row {
                                     anchors.horizontalCenter: parent.horizontalCenter
-                                spacing: 10
-                                
-                                // Rain Chance (PoP)
-                                Row {
-                                    spacing: 4
-                                    Text { text: "󰖎"; color: "#60A5FA"; font.pixelSize: 14; anchors.baseline: popTxt.baseline }
-                                    Text { id: popTxt; text: islandWindow.weatherToday ? islandWindow.weatherToday.pop + "%" : "--%"; color: Theme.subtext; font.pixelSize: 12; font.bold: true }
-                                }
-                                // Feels Like
-                                Row {
-                                    spacing: 4
-                                    Text { text: ""; color: Theme.accentAlt; font.pixelSize: 13; anchors.baseline: feelsTxt.baseline }
-                                    Text { id: feelsTxt; text: islandWindow.weatherToday ? islandWindow.weatherToday.feels + "°" : "--°"; color: Theme.subtext; font.pixelSize: 12; font.bold: true }
-                                }
-                                // Wind
-                                Row {
-                                    spacing: 4
-                                    Text { text: "󰖝"; color: Theme.accentAlt; font.pixelSize: 13; anchors.baseline: windTxt.baseline }
-                                    Text { id: windTxt; text: islandWindow.weatherToday ? islandWindow.weatherToday.wind + " km/h" : "--"; color: Theme.subtext; font.pixelSize: 12; font.bold: true }
-                                }
-                                // Sunrise
-                                Row {
-                                    spacing: 4
-                                    Text { text: "󰖜"; color: Theme.accentAlt; font.pixelSize: 14; anchors.baseline: sunriseTxt.baseline }
-                                    Text { id: sunriseTxt; text: islandWindow.weatherToday ? islandWindow.weatherToday.sunrise : "--:--"; color: Theme.subtext; font.pixelSize: 12; font.bold: true }
-                                }
-                                // Sunset
-                                Row {
-                                    spacing: 4
-                                    Text { text: "󰖛"; color: Theme.accentAlt; font.pixelSize: 14; anchors.baseline: sunsetTxt.baseline }
-                                    Text { id: sunsetTxt; text: islandWindow.weatherToday ? islandWindow.weatherToday.sunset : "--:--"; color: Theme.subtext; font.pixelSize: 12; font.bold: true }
-                                }
+                                    spacing: 12
+            
+                                    // Rain Chance (PoP)
+                                    Row {
+                                        spacing: 4
+                                        Text { text: "󰖎"; color: "#60A5FA"; font.pixelSize: 13; anchors.baseline: popTxt.baseline }
+                                        Text { id: popTxt; text: islandWindow.weatherToday ? islandWindow.weatherToday.pop + "%" : "--%"; color: Theme.subtext; font.pixelSize: 11; font.bold: true }
+                                    }
+                                    // Feels Like
+                                    Row {
+                                        spacing: 4
+                                        Text { text: ""; color: Theme.accentAlt; font.pixelSize: 12; anchors.baseline: feelsTxt.baseline }
+                                        Text { id: feelsTxt; text: islandWindow.weatherToday ? islandWindow.weatherToday.feels + "°" : "--°"; color: Theme.subtext; font.pixelSize: 11; font.bold: true }
+                                    }
+                                    // Wind
+                                    Row {
+                                        spacing: 4
+                                        Text { text: "󰖝"; color: Theme.accentAlt; font.pixelSize: 12; anchors.baseline: windTxt.baseline }
+                                        Text { id: windTxt; text: islandWindow.weatherToday ? islandWindow.weatherToday.wind + " km/h" : "--"; color: Theme.subtext; font.pixelSize: 11; font.bold: true }
+                                    }
                                 }
 
-                                Rectangle { width: parent.width; height: 1; color: Qt.rgba(Theme.subtext.r, Theme.subtext.g, Theme.subtext.b, 0.2) }
+                                // Sun Cycle Row (Sunrise / Sunset)
+                                Row {
+                                    anchors.horizontalCenter: parent.horizontalCenter
+                                    spacing: 16
 
+                                    // Sunrise
+                                    Row {
+                                        spacing: 4
+                                        Text { text: "󰖜"; color: Theme.accentAlt; font.pixelSize: 13; anchors.baseline: sunriseTxt.baseline }
+                                        Text { id: sunriseTxt; text: islandWindow.weatherToday ? islandWindow.weatherToday.sunrise : "--:--"; color: Theme.subtext; font.pixelSize: 11; font.bold: true }
+                                    }
+                                    // Sunset
+                                    Row {
+                                        spacing: 4
+                                        Text { text: "󰖛"; color: Theme.accentAlt; font.pixelSize: 13; anchors.baseline: sunsetTxt.baseline }
+                                        Text { id: sunsetTxt; text: islandWindow.weatherToday ? islandWindow.weatherToday.sunset : "--:--"; color: Theme.subtext; font.pixelSize: 11; font.bold: true }
+                                    }
+                                }
+
+                                // Divider
+                                Rectangle { 
+                                    width: parent.width - 8
+                                    anchors.horizontalCenter: parent.horizontalCenter
+                                    height: 1 
+                                    color: Qt.rgba(Theme.subtext.r, Theme.subtext.g, Theme.subtext.b, 0.2) 
+                                }
+
+                                // Forecast Grid
                                 Grid {
                                     anchors.horizontalCenter: parent.horizontalCenter
-                                    columns: 2; columnSpacing: 10; rowSpacing: 10
+                                    columns: 2
+                                    columnSpacing: 10
+                                    rowSpacing: 6
                                     Repeater {
                                         model: islandWindow.weatherForecast
                                         Row {
                                             spacing: 4
-                                            Text { text: modelData.day; color: Theme.subtext; font.pixelSize: 13; font.bold: true; width: 24; anchors.baseline: forecastHigh.baseline }
-                                            Text { text: islandWindow.weatherIcon(modelData.icon); color: Theme.accentAlt; font.pixelSize: 14; anchors.baseline: forecastHigh.baseline }
-                                            Text { id: forecastHigh; text: modelData.high + "°"; color: Theme.text; font.pixelSize: 13; font.bold: true }
-                                            Text { text: modelData.low + "°"; color: Theme.subtext; font.pixelSize: 12; anchors.baseline: forecastHigh.baseline }
+                                            Text { text: modelData.day; color: Theme.subtext; font.pixelSize: 12; font.bold: true; width: 24; anchors.baseline: forecastHigh.baseline }
+                                            Text { text: islandWindow.weatherIcon(modelData.icon); color: Theme.accentAlt; font.pixelSize: 13; anchors.baseline: forecastHigh.baseline }
+                                            Text { id: forecastHigh; text: modelData.high + "°"; color: Theme.text; font.pixelSize: 12; font.bold: true }
+                                            Text { text: modelData.low + "°"; color: Theme.subtext; font.pixelSize: 11; anchors.baseline: forecastHigh.baseline }
                                             Text { text: "󰖎" + modelData.pop + "%"; color: "#60A5FA"; font.pixelSize: 10; font.bold: true; anchors.baseline: forecastHigh.baseline; visible: modelData.pop >= 20 }
                                         }
                                     }

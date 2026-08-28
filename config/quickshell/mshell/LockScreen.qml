@@ -287,7 +287,7 @@ Scope {
                     fillMode: Image.PreserveAspectCrop
                     cache: false
                     asynchronous: false
-                    source: "file://" + root.lockSnapshotDir + "/" + (surface.screen ? surface.screen.name : "") + ".png"
+                    source: (surface.screen && surface.screen.name) ? ("file://" + root.lockSnapshotDir + "/" + surface.screen.name + ".png") : ""
                     visible: opacity > 0
                 }
 
@@ -802,9 +802,8 @@ Scope {
                     PauseAnimation { duration: 20 }
                     ParallelAnimation {
                         NumberAnimation { target: freezeFrame; property: "opacity"; to: 0.0; duration: 150; easing.type: Easing.OutCubic }
-                        NumberAnimation { target: clockGroup; property: "opacity"; from: 0.0; to: 1.0; duration: 150; easing.type: Easing.OutCubic }
+                        NumberAnimation { target: screenRoot; property: "introState"; from: 0.0; to: 1.0; duration: 150; easing.type: Easing.OutCubic }
                     }
-                    NumberAnimation { target: screenRoot; property: "introState"; from: 0.0; to: 1.0; duration: 150; easing.type: Easing.OutCubic }
                     PropertyAction { target: screenRoot; property: "isPlayingIntro"; value: false }
                     ScriptAction {
                         script: {
