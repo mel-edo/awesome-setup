@@ -68,7 +68,7 @@ def get_apps():
                     with open(filepath, 'r', encoding='utf-8') as f:
                         lines = f.readlines()
                         
-                    name, icon, exec_cmd, no_display = "", "", "", False
+                    name, icon, exec_cmd, no_display, wm_class = "", "", "", False, ""
                     in_entry = False
                     
                     for line in lines:
@@ -88,11 +88,14 @@ def get_apps():
                                 exec_cmd = raw_exec.split("%")[0].strip()
                             elif line.startswith("NoDisplay=true") or line.startswith("Hidden=true"):
                                 no_display = True
+                            elif line.startswith("StartupWMClass="):
+                                wm_class = line.split("=", 1)[1]
                                 
                     if name and exec_cmd and not no_display:
                         if binary_exists(exec_cmd):
                             score = history.get(name, 0)
-                            apps.append({"name": name, "icon": icon, "exec": exec_cmd, "score": score})
+                            desktop_id = os.path.splitext(file)[0]
+                            apps.append({"name": name, "icon": icon, "exec": exec_cmd, "score": score, "wmClass": wm_class, "desktopId": desktop_id})
                 except Exception:
                     pass
                     
@@ -105,7 +108,7 @@ def get_apps():
     for app in apps:
         if app["name"] not in seen:
             seen.add(app["name"])
-            unique_apps.append({"name": app["name"], "icon": app["icon"], "exec": app["exec"]})
+            unique_apps.append({"name": app["name"], "icon": app["icon"], "exec": app["exec"], "wmClass": app["wmClass"], "desktopId": app["desktopId"]})
             
     return unique_apps
 

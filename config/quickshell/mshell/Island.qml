@@ -70,9 +70,6 @@ Scope {
         property string notifImage: ""
         property string weDir: Quickshell.env("HOME") + "/yo/SteamLibrary/steamapps/workshop/content/431960"
         property bool isDnd: false
-        property int cpuUsage: 0
-        property int ramUsage: 0
-        property int diskUsage: 0
         property string themeMode: "dark"
         property string activeWallCache: ""
         property bool wasPlaying: false
@@ -556,33 +553,6 @@ Scope {
             onTriggered: if (!btProcess.running) btProcess.running = true
         }
 
-        Timer {
-            interval: 2000; running: true; repeat: true
-            onTriggered: { 
-                if (!cpuProcess.running) cpuProcess.running = true; 
-                if (!ramProcess.running) ramProcess.running = true; 
-                if (!diskProcess.running) diskProcess.running = true; 
-            }
-        }
-
-        Process {
-            id: diskProcess
-            command: ["bash", "-c", "df / | awk 'NR==2 {print $5}' | sed 's/%//'"]
-            stdout: StdioCollector { onStreamFinished: islandWindow.diskUsage = Math.round(Number(text)) }
-        }
-
-        Process {
-            id: cpuProcess
-            command: ["bash", "-c", "top -bn1 | grep 'Cpu(s)' | sed 's/.*, *\\([0-9.]*\\)%* id.*/\\1/' | awk '{print 100 - $1}'"]
-            stdout: StdioCollector { onStreamFinished: islandWindow.cpuUsage = Math.round(Number(text)) }
-        }
-
-        Process {
-            id: ramProcess
-            command: ["bash", "-c", "free | grep Mem | awk '{print $3/$2 * 100.0}'"]
-            stdout: StdioCollector { onStreamFinished: islandWindow.ramUsage = Math.round(Number(text)) }
-        }
-
         Process {
             id: sinkCheckProcess
             command: ["pactl", "get-default-sink"]
@@ -731,7 +701,7 @@ Scope {
             // Main Width vals
             width: {
                 if (islandWindow.islandState === "idle") return 180
-                if (islandWindow.islandState === "monitor") return 460
+                if (islandWindow.islandState === "audio") return 460
                 if (islandWindow.islandState === "osd") return 252
                 if (islandWindow.islandState === "media" || islandWindow.islandState === "hub" || islandWindow.islandState === "bluetooth") return 350
                 if (islandWindow.islandState === "notification" || islandWindow.islandState === "notifications") return 410
@@ -742,7 +712,7 @@ Scope {
             // Main Height vals
             height: {
                 if (islandWindow.islandState === "idle") return 34
-                if (islandWindow.islandState === "monitor") return 180
+                if (islandWindow.islandState === "audio") return 56 + Math.max(1, audioPanel.outputDevices.length) * 40
                 if (islandWindow.islandState === "osd") return 52
                 if (islandWindow.islandState === "media" || islandWindow.islandState === "hub" || islandWindow.islandState === "bluetooth") return 68
                 if (islandWindow.islandState === "wallpaper") return 290
@@ -1168,7 +1138,7 @@ Scope {
                                 { icon: "󰃶", state: "calendar", accent: Theme.accent },
                                 { icon: "󰂚", state: "notifications", accent: Theme.accent },
                                 { icon: "󰸉", state: "wallpaper", accent: Theme.accent },
-                                { icon: "󰓅", state: "monitor", accent: Theme.accent }
+                                { icon: "󰕾", state: "audio", accent: Theme.accent }
                             ];
                             if (islandWindow.wasPlaying || islandWindow.cavaActive) {
                                 items.push({ icon: "󰝚", state: "media_pin", accent: Theme.accent });
@@ -1838,183 +1808,175 @@ Scope {
                         }
                     }
                 }
-                // System monitor
+                // Audio control (per-device volume, inline row layout, dynamic height)
                 Item {
-                    id: monitorPanel
-                    width: 440; height: 160
+                    id: audioPanel
+                    width: 440
+                    height: 56 + Math.max(1, outputDevices.length) * 40
                     anchors.centerIn: parent
-                    
-                    property bool isActive: islandWindow.islandState === "monitor"
+
+                    property bool isActive: islandWindow.islandState === "audio"
                     visible: isActive; opacity: isActive ? 1 : 0
                     Behavior on opacity { NumberAnimation { duration: 250; easing.type: Easing.OutQuad } }
+                    Behavior on height { NumberAnimation { duration: 200; easing.type: Easing.OutQuad } }
+                    onIsActiveChanged: SharedState.isSuppressingOsd = isActive
 
-                    Text {
-                        anchors.top: parent.top; anchors.horizontalCenter: parent.horizontalCenter; anchors.topMargin: 8
-                        text: "󰓅  System Monitor"; color: Theme.text; font.pixelSize: 14; font.bold: true
+                    property var sinkNode: Pipewire.defaultAudioSink
+
+                    property var outputDevices: {
+                        let list = []
+                        let nodes = Pipewire.nodes.values
+                        for (let i = 0; i < nodes.length; i++) {
+                            let n = nodes[i]
+                            if (n.isSink && n.audio && !n.isStream) list.push(n)
+                        }
+                        return list
                     }
 
-                    // Animation phase clock
-                    property real phase: 0
-                    Timer { interval: 16; running: monitorPanel.isActive; repeat: true; onTriggered: { monitorPanel.phase += 0.05; cpuCanvas.requestPaint(); ramCanvas.requestPaint(); diskCanvas.requestPaint() } }
+                    PwObjectTracker {
+                        objects: audioPanel.outputDevices
+                    }
 
-                    Row {
-                        anchors.top: parent.top; anchors.topMargin: 50; anchors.horizontalCenter: parent.horizontalCenter
-                        spacing: 36
+                    function deviceIcon(node) {
+                        let props = node.properties || {}
+                        let formFactor = (props["device.form-factor"] || "").toLowerCase()
+                        let api = (props["device.api"] || "").toLowerCase()
+                        let name = (node.name || "").toLowerCase()
+                        if (api === "bluez5" || name.indexOf("bluez") !== -1) return "\u{f00b1}"
+                        if (formFactor === "headset" || formFactor === "headphone" || name.indexOf("headset") !== -1 || name.indexOf("headphone") !== -1) return "\u{f02cb}"
+                        if (formFactor === "hdmi" || name.indexOf("hdmi") !== -1) return "\u{f0841}"
+                        return "\u{f04c3}"
+                    }
 
-                        // CPU gauge
-                        Item {
-                            width: 80; height: 80
-                            Rectangle {
-                                anchors.fill: parent; radius: 40; color: Theme.surfaceHover
-                                
-                                Canvas {
-                                    id: cpuCanvas
-                                    anchors.fill: parent
-                                    onPaint: {
-                                        var ctx = getContext("2d");
-                                        ctx.clearRect(0, 0, width, height);
-                                        
-                                        ctx.save();
-                                        ctx.beginPath();
-                                        ctx.arc(width/2, height/2, width/2, 0, 2 * Math.PI);
-                                        ctx.clip();
+                    Text {
+                        id: audioHeader
+                        anchors.top: parent.top; anchors.horizontalCenter: parent.horizontalCenter; anchors.topMargin: 20
+                        text: "\u{f057e}  Sound"; color: Theme.text; font.pixelSize: 14; font.bold: true
+                    }
 
-                                        let fillHeight = height - (height * (islandWindow.cpuUsage / 100));
+                    Column {
+                        anchors.top: audioHeader.bottom; anchors.topMargin: 16
+                        anchors.left: parent.left; anchors.right: parent.right
+                        anchors.margins: 20
+                        spacing: 8
 
-                                        // Background wave
-                                        ctx.fillStyle = "#6660A5FA"; 
-                                        ctx.beginPath();
-                                        ctx.moveTo(0, height);
-                                        ctx.lineTo(0, fillHeight);
-                                        for (let x = 0; x <= width; x += 5) {
-                                            ctx.lineTo(x, fillHeight + Math.sin(x * 0.03 + monitorPanel.phase * 1.5) * 8); 
-                                        }
-                                        ctx.lineTo(width, height);
-                                        ctx.closePath();
-                                        ctx.fill();
+                        Repeater {
+                            model: audioPanel.outputDevices
+                            Row {
+                                id: deviceRow
+                                required property var modelData
+                                width: parent.width
+                                height: 32
+                                spacing: 10
 
-                                        // Foreground wave
-                                        ctx.fillStyle = "#60A5FA"; 
-                                        ctx.beginPath();
-                                        ctx.moveTo(0, height);
-                                        ctx.lineTo(0, fillHeight);
-                                        for (let x = 0; x <= width; x += 5) {
-                                            ctx.lineTo(x, fillHeight + Math.sin(x * 0.05 + monitorPanel.phase) * 6);
-                                        }
-                                        ctx.lineTo(width, height);
-                                        ctx.closePath();
-                                        ctx.fill();
+                                property bool isDefault: audioPanel.sinkNode && deviceRow.modelData.id === audioPanel.sinkNode.id
+                                property bool ready: deviceRow.modelData && deviceRow.modelData.ready && deviceRow.modelData.audio
+                                property real vol: deviceRow.ready ? deviceRow.modelData.audio.volume : 0
+                                property bool muted: deviceRow.ready ? deviceRow.modelData.audio.muted : false
 
-                                        ctx.restore();
+                                // Icon — tap to mute/unmute this device
+                                Item {
+                                    width: 20; height: 32
+                                    Text {
+                                        anchors.centerIn: parent
+                                        text: audioPanel.deviceIcon(deviceRow.modelData)
+                                        color: deviceRow.muted ? Theme.danger : (deviceRow.isDefault ? Theme.accent : Theme.subtext)
+                                        font.pixelSize: 13
+                                    }
+                                    HoverHandler { cursorShape: Qt.PointingHandCursor }
+                                    TapHandler {
+                                        onTapped: if (deviceRow.ready) deviceRow.modelData.audio.muted = !deviceRow.modelData.audio.muted
                                     }
                                 }
-                                Text { anchors.centerIn: parent; text: islandWindow.cpuUsage + "%"; color: "white"; font.pixelSize: 18; font.bold: true }
-                            }
-                            Text { anchors.top: parent.bottom; anchors.topMargin: 8; anchors.horizontalCenter: parent.horizontalCenter; text: "CPU"; color: Theme.subtext; font.pixelSize: 12; font.bold: true }
-                        }
 
-                        // RAM gauge
-                        Item {
-                            width: 80; height: 80
-                            Rectangle {
-                                anchors.fill: parent; radius: 40; color: Theme.surfaceHover
-                                
-                                Canvas {
-                                    id: ramCanvas
-                                    anchors.fill: parent
-                                    onPaint: {
-                                        var ctx = getContext("2d");
-                                        ctx.clearRect(0, 0, width, height);
-                                        
-                                        ctx.save();
-                                        ctx.beginPath();
-                                        ctx.arc(width/2, height/2, width/2, 0, 2 * Math.PI);
-                                        ctx.clip();
+                                // Name — tap to make this the default output
+                                Item {
+                                    width: 110; height: 32
+                                    Text {
+                                        anchors.left: parent.left
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        text: deviceRow.modelData.description || deviceRow.modelData.nickname || deviceRow.modelData.name
+                                        color: deviceRow.isDefault ? Theme.text : Theme.subtext
+                                        font.pixelSize: 12
+                                        font.bold: deviceRow.isDefault
+                                        elide: Text.ElideRight
+                                        width: parent.width
+                                    }
+                                    HoverHandler { cursorShape: Qt.PointingHandCursor }
+                                    TapHandler { onTapped: Pipewire.preferredDefaultAudioSink = deviceRow.modelData }
+                                }
 
-                                        let fillHeight = height - (height * (islandWindow.ramUsage / 100));
+                                // Volume bar sits in front of (to the right of) the name, same row
+                                Item {
+                                    id: miniSlider
+                                    width: parent.width - 20 - 110 - parent.spacing * 2
+                                    height: 26
+                                    anchors.verticalCenter: parent.verticalCenter
 
-                                        // Background wave
-                                        ctx.fillStyle = "#66A78BFA"; 
-                                        ctx.beginPath();
-                                        ctx.moveTo(0, height);
-                                        ctx.lineTo(0, fillHeight);
-                                        for (let x = 0; x <= width; x += 5) {
-                                            ctx.lineTo(x, fillHeight + Math.sin(x * 0.03 + monitorPanel.phase * 1.5) * 8); 
+                                    property bool sliderHovered: false
+
+                                    Rectangle { anchors.fill: parent; radius: height / 2; color: Theme.highlight }
+
+                                    Rectangle {
+                                        anchors.left: parent.left; anchors.top: parent.top; anchors.bottom: parent.bottom
+                                        width: miniHead.x + miniHead.width
+                                        radius: height / 2
+                                        color: (deviceRow.muted ? 0 : deviceRow.vol) * 100 > 100 ? Theme.danger : (deviceRow.isDefault ? Theme.accent : Theme.subtext)
+                                        Behavior on color { ColorAnimation { duration: 150 } }
+                                    }
+
+                                    Rectangle {
+                                        id: miniHead
+                                        width: parent.height; height: parent.height
+                                        radius: width / 2
+                                        color: Theme.text
+                                        x: Math.max(0, Math.min(1, deviceRow.muted ? 0 : deviceRow.vol)) * (parent.width - width)
+                                        Behavior on x { enabled: !miniDrag.pressed; NumberAnimation { duration: 120; easing.type: Easing.OutQuad } }
+
+                                        Text {
+                                            anchors.centerIn: parent
+                                            text: {
+                                                if (deviceRow.muted || deviceRow.vol <= 0) return "\u{f0581}"
+                                                if (deviceRow.vol < 0.33) return "\u{f057f}"
+                                                if (deviceRow.vol < 0.66) return "\u{f0580}"
+                                                return "\u{f057e}"
+                                            }
+                                            color: Theme.background
+                                            font.pixelSize: 13
+                                            opacity: miniSlider.sliderHovered ? 0 : 1
+                                            Behavior on opacity { NumberAnimation { duration: 200; easing.type: Easing.InOutQuad } }
                                         }
-                                        ctx.lineTo(width, height);
-                                        ctx.closePath();
-                                        ctx.fill();
 
-                                        // Foreground wave
-                                        ctx.fillStyle = "#A78BFA"; 
-                                        ctx.beginPath();
-                                        ctx.moveTo(0, height);
-                                        ctx.lineTo(0, fillHeight);
-                                        for (let x = 0; x <= width; x += 5) {
-                                            ctx.lineTo(x, fillHeight + Math.sin(x * 0.05 + monitorPanel.phase) * 6);
+                                        Text {
+                                            anchors.centerIn: parent
+                                            text: Math.round((deviceRow.muted ? 0 : deviceRow.vol) * 100)
+                                            color: Theme.background
+                                            font.pixelSize: 11
+                                            font.bold: true
+                                            opacity: miniSlider.sliderHovered ? 1 : 0
+                                            Behavior on opacity { NumberAnimation { duration: 200; easing.type: Easing.InOutQuad } }
                                         }
-                                        ctx.lineTo(width, height);
-                                        ctx.closePath();
-                                        ctx.fill();
+                                    }
 
-                                        ctx.restore();
+                                    MouseArea {
+                                        id: miniDrag
+                                        anchors.fill: parent
+                                        hoverEnabled: true
+                                        cursorShape: Qt.PointingHandCursor
+                                        onEntered: miniSlider.sliderHovered = true
+                                        onExited: miniSlider.sliderHovered = false
+                                        function updateVol(mx) {
+                                            let ratio = Math.max(0, Math.min(1, mx / width))
+                                            if (deviceRow.ready) {
+                                                deviceRow.modelData.audio.muted = false
+                                                deviceRow.modelData.audio.volume = ratio
+                                            }
+                                        }
+                                        onPressed: mouse => updateVol(mouse.x)
+                                        onPositionChanged: mouse => { if (pressed) updateVol(mouse.x) }
                                     }
                                 }
-                                Text { anchors.centerIn: parent; text: islandWindow.ramUsage + "%"; color: "white"; font.pixelSize: 18; font.bold: true }
                             }
-                            Text { anchors.top: parent.bottom; anchors.topMargin: 8; anchors.horizontalCenter: parent.horizontalCenter; text: "RAM"; color: Theme.subtext; font.pixelSize: 12; font.bold: true }
-                        }
-
-                        // Disk gauge
-                        Item {
-                            width: 80; height: 80
-                            Rectangle {
-                                anchors.fill: parent; radius: 40; color: Theme.surfaceHover
-                                
-                                Canvas {
-                                    id: diskCanvas
-                                    anchors.fill: parent
-                                    onPaint: {
-                                        var ctx = getContext("2d");
-                                        ctx.clearRect(0, 0, width, height);
-                                        
-                                        ctx.save();
-                                        ctx.beginPath();
-                                        ctx.arc(width/2, height/2, width/2, 0, 2 * Math.PI);
-                                        ctx.clip();
-
-                                        let fillHeight = height - (height * (islandWindow.diskUsage / 100));
-
-                                        // Background wave
-                                        ctx.fillStyle = "#6634D399"; 
-                                        ctx.beginPath();
-                                        ctx.moveTo(0, height);
-                                        ctx.lineTo(0, fillHeight);
-                                        for (let x = 0; x <= width; x += 5) {
-                                            ctx.lineTo(x, fillHeight + Math.sin(x * 0.03 + monitorPanel.phase * 1.5) * 8); 
-                                        }
-                                        ctx.lineTo(width, height);
-                                        ctx.closePath();
-                                        ctx.fill();
-
-                                        // Foreground wave
-                                        ctx.fillStyle = "#34D399"; 
-                                        ctx.beginPath();
-                                        ctx.moveTo(0, height);
-                                        ctx.lineTo(0, fillHeight);
-                                        for (let x = 0; x <= width; x += 5) {
-                                            ctx.lineTo(x, fillHeight + Math.sin(x * 0.05 + monitorPanel.phase) * 6);
-                                        }
-                                        ctx.lineTo(width, height);
-                                        ctx.closePath();
-                                        ctx.fill();
-
-                                        ctx.restore();
-                                    }
-                                }
-                                Text { anchors.centerIn: parent; text: islandWindow.diskUsage + "%"; color: "white"; font.pixelSize: 18; font.bold: true }
-                            }
-                            Text { anchors.top: parent.bottom; anchors.topMargin: 8; anchors.horizontalCenter: parent.horizontalCenter; text: "DISK"; color: Theme.subtext; font.pixelSize: 12; font.bold: true }
                         }
                     }
                 }

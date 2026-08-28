@@ -14,16 +14,40 @@ import "."
 Scope {
     id: root
 
+    property string lockSnapshotDir: Quickshell.env("XDG_RUNTIME_DIR") + "/mshell-lock-snapshots"
+
+    Process {
+        id: lockSnapshotProc
+        property bool pendingLock: false
+        onRunningChanged: {
+            if (!running && pendingLock) {
+                pendingLock = false
+                rootLock.locked = true
+            }
+        }
+    }
+
+    function requestSessionLock() {
+        if (rootLock.locked) return
+        lockSnapshotProc.pendingLock = true
+        lockSnapshotProc.command = [
+            "bash", "-c",
+            "mkdir -p '" + root.lockSnapshotDir + "' && rm -f '" + root.lockSnapshotDir + "'/*.png && " +
+            "for o in $(hyprctl monitors -j | jq -r '.[].name'); do grim -o \"$o\" \"" + root.lockSnapshotDir + "/$o.png\"; done"
+        ]
+        lockSnapshotProc.running = true
+    }
+
     IpcHandler {
         target: "lock"
         function triggerSessionLock(): void {
-            rootLock.locked = true
+            root.requestSessionLock()
         }
     }
 
     GlobalShortcut {
         name: "triggerSessionLock"
-        onPressed: rootLock.locked = true
+        onPressed: root.requestSessionLock()
     }
 
     readonly property color base:      Theme.background
@@ -86,10 +110,12 @@ Scope {
     property string weatherIcon: ""
     property string weatherTemp: "--°C"
 
-    Process {
-        running: true
-        command: ["bash", "-c", "cat ~/.cache/mshell/wall_cache.txt 2>/dev/null || echo ''"]
-        stdout: StdioCollector { onStreamFinished: root.activeWallCache = text.trim() }
+    FileView {
+        id: wallCacheFile
+        path: Quickshell.env("HOME") + "/.cache/mshell/wall_cache.txt"
+        watchChanges: true
+        onFileChanged: reload()
+        onLoaded: root.activeWallCache = text().trim()
     }
 
     Process {
@@ -253,6 +279,17 @@ Scope {
                 }
 
                 Rectangle { anchors.fill: parent; color: root.base }
+
+                Image {
+                    id: freezeFrame
+                    anchors.fill: parent
+                    z: 500
+                    fillMode: Image.PreserveAspectCrop
+                    cache: false
+                    asynchronous: false
+                    source: "file://" + root.lockSnapshotDir + "/" + (surface.screen ? surface.screen.name : "") + ".png"
+                    visible: opacity > 0
+                }
 
                 Image {
                     id: bgWallpaper
@@ -753,106 +790,29 @@ Scope {
                 }
 
                 // animation stuff
-                Item {
-                    id: introOverlay
-                    anchors.fill: parent
-                    z: 999
-                    visible: screenRoot.isPlayingIntro || opacity > 0
-                    Rectangle {
-                        id: ring3
-                        width: 360; height: 360; radius: 180
-                        anchors.centerIn: parent
-                        color: "transparent"
-                        border.color: root.mauve
-                        border.width: 1
-                        scale: 0.5; opacity: 0.0
-                    }
-                    Rectangle {
-                        id: ring2
-                        width: 300; height: 300; radius: 150
-                        anchors.centerIn: parent
-                        color: "transparent"
-                        border.color: root.text
-                        border.width: 1
-                        scale: 0.8; opacity: 0.0
-                    }
-                    Rectangle {
-                        id: ring1
-                        width: 240; height: 240; radius: 120
-                        anchors.centerIn: parent
-                        color: "transparent"
-                        border.color: root.text
-                        border.width: 2
-                        scale: 0.8; opacity: 0.0
-                    }
-                    Item {
-                        id: introLockOrb
-                        width: 170; height: 170
-                        anchors.centerIn: parent
-                        scale: 0.0; opacity: 0.0
-                        Rectangle {
-                            anchors.fill: parent; radius: 85
-                            color: Qt.rgba(root.surface0.r, root.surface0.g, root.surface0.b, 0.9)
-                            border.color: root.text; border.width: 2
-                        }
-                        Text {
-                            id: introIconUnlocked
-                            anchors.centerIn: parent
-                            text: "󰌿"; font.family: "Iosevka Nerd Font"; font.pixelSize: 64
-                            color: root.text; opacity: 1.0; scale: 1.0
-                        }
-                        Text {
-                            id: introIconLocked
-                            anchors.centerIn: parent
-                            text: "󰌾"; font.family: "Iosevka Nerd Font"; font.pixelSize: 64
-                            color: root.text; opacity: 0.0; scale: 1.6
+                SequentialAnimation {
+                    id: introSequence
+                    ScriptAction {
+                        script: {
+                            screenRoot.isPlayingIntro = true;
+                            screenRoot.introState = 0.0;
+                            freezeFrame.opacity = 1.0;
                         }
                     }
-                    SequentialAnimation {
-                        id: introSequence
-                        ScriptAction { 
-                            script: { 
-                                screenRoot.isPlayingIntro = true;
-                                screenRoot.introState = 0.0; 
-                            } 
-                        }
-                        ParallelAnimation {
-                            NumberAnimation { target: introLockOrb; property: "scale"; from: 0.0; to: 1.0; duration: 300; easing.type: Easing.OutCubic }
-                            NumberAnimation { target: introLockOrb; property: "opacity"; from: 0.0; to: 1.0; duration: 200; easing.type: Easing.OutCubic }
-                            NumberAnimation { target: ring1; property: "scale"; from: 0.8; to: 1.25; duration: 250; easing.type: Easing.OutCubic }
-                            NumberAnimation { target: ring1; property: "opacity"; from: 0.6; to: 0.0; duration: 250; easing.type: Easing.OutCubic }
-                            NumberAnimation { target: ring2; property: "scale"; from: 0.8; to: 1.4; duration: 300; easing.type: Easing.OutCubic }
-                            NumberAnimation { target: ring2; property: "opacity"; from: 0.4; to: 0.0; duration: 300; easing.type: Easing.OutCubic }
-                            NumberAnimation { target: ring3; property: "scale"; from: 0.5; to: 1.5; duration: 350; easing.type: Easing.OutCubic }
-                            NumberAnimation { target: ring3; property: "opacity"; from: 0.3; to: 0.0; duration: 350; easing.type: Easing.OutCubic }
-                            SequentialAnimation {
-                                PauseAnimation { duration: 300 }
-                                ParallelAnimation {
-                                    NumberAnimation { target: introIconUnlocked; property: "scale"; from: 1.0; to: 0.5; duration: 200; easing.type: Easing.InCubic }
-                                    NumberAnimation { target: introIconUnlocked; property: "opacity"; from: 1.0; to: 0.0; duration: 150 }
-                                    NumberAnimation { target: introIconLocked; property: "scale"; from: 1.6; to: 1.0; duration: 200; easing.type: Easing.OutBack }
-                                    NumberAnimation { target: introIconLocked; property: "opacity"; from: 0.0; to: 1.0; duration: 150 }
-                                    SequentialAnimation {
-                                        NumberAnimation { target: introLockOrb; property: "anchors.verticalCenterOffset"; from: 0; to: 3; duration: 40; easing.type: Easing.OutQuad }
-                                        NumberAnimation { target: introLockOrb; property: "anchors.verticalCenterOffset"; from: 3; to: 0; duration: 120; easing.type: Easing.OutBack }
-                                    }
-                                }
-                            }
-                        }
-                        PauseAnimation { duration: 50 }
-                        SequentialAnimation {
-                            ParallelAnimation {
-                                NumberAnimation { target: introLockOrb; property: "scale"; to: 1.8; duration: 100; easing.type: Easing.InCubic }
-                                NumberAnimation { target: introOverlay; property: "opacity"; to: 0.0; duration: 100; easing.type: Easing.InCubic }
-                            }
-                            NumberAnimation { target: screenRoot; property: "introState"; from: 0.0; to: 1.0; duration: 100; easing.type: Easing.OutCubic }
-                        }
-                        PropertyAction { target: screenRoot; property: "isPlayingIntro"; value: false }
-                        ScriptAction { 
-                            script: { 
-                                lockUI.passwordBuffer = ""; 
-                                screenRoot.forceActiveFocus(); 
-                            } 
+                    PauseAnimation { duration: 20 }
+                    ParallelAnimation {
+                        NumberAnimation { target: freezeFrame; property: "opacity"; to: 0.0; duration: 150; easing.type: Easing.OutCubic }
+                        NumberAnimation { target: clockGroup; property: "opacity"; from: 0.0; to: 1.0; duration: 150; easing.type: Easing.OutCubic }
+                    }
+                    NumberAnimation { target: screenRoot; property: "introState"; from: 0.0; to: 1.0; duration: 150; easing.type: Easing.OutCubic }
+                    PropertyAction { target: screenRoot; property: "isPlayingIntro"; value: false }
+                    ScriptAction {
+                        script: {
+                            freezeFrame.opacity = 0.0;
+                            lockUI.passwordBuffer = "";
+                            screenRoot.forceActiveFocus();
+                            focusHammer.attempts = 0;
+                            focusHammer.running = true;
                         }
                     }
                 }

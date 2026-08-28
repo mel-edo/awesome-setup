@@ -1,6 +1,6 @@
 #!/usr/bin/bash
-API_KEY="ccde65c11291847a9c378335f65e18ce"
-CITY="Bangalore"
+API_KEY=""
+CITY=""
 URL="https://api.openweathermap.org/data/2.5/forecast?q=${CITY}&appid=${API_KEY}&units=metric"
 CACHE_FILE="/tmp/island_weather_cache.json"
 CACHE_MINUTES=30

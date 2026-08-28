@@ -32,6 +32,13 @@ Scope {
     }
 
     property var allWindows: []
+    property var iconMap: ({})
+    property var nameMap: ({})
+
+    function normalizeName(str) {
+        return str.toLowerCase().replace(/[^a-z0-9]/g, "");
+    }
+    property var genericClasses: ["steam_proton", "steam_app"]
 
     function filterWindows(query) {
         windowModel.clear()
@@ -59,6 +66,25 @@ Scope {
     }
 
     Process {
+        id: appIconProcess
+        command: ["python3", Quickshell.env("HOME") + "/.config/quickshell/mshell/scripts/app_fetcher.py"]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                if (text.trim() === "") return;
+                let apps = JSON.parse(text);
+                root.iconMap = {};
+                root.nameMap = {};
+                for (let i = 0; i < apps.length; i++) {
+                    let a = apps[i];
+                    if (a.wmClass) root.iconMap[a.wmClass.toLowerCase()] = a.icon;
+                    if (a.desktopId) root.iconMap[a.desktopId.toLowerCase()] = a.icon;
+                    if (a.name) root.nameMap[normalizeName(a.name)] = a.icon;
+                }
+            }
+        }
+    }
+
+    Process {
         id: clientProcess
         command: ["hyprctl", "clients", "-j"]
         stdout: StdioCollector {
@@ -74,16 +100,30 @@ Scope {
                         let winClass = w.class || "";
 
                         let iconName = winClass;
-                        let entry = DesktopEntries.heuristicLookup(winClass);
-                        if (entry && entry.icon) {
-                            iconName = entry.icon;
+                        let lowerClass = winClass.toLowerCase();
+
+                        if (root.genericClasses.indexOf(lowerClass) !== -1) {
+                            let normTitle = normalizeName(w.title);
+                            if (root.nameMap[normTitle]) {
+                                iconName = root.nameMap[normTitle];
+                            } else {
+                                // try substring match as a looser fallback
+                                let matchKey = Object.keys(root.nameMap).find(k => k.includes(normTitle) || normTitle.includes(k));
+                                if (matchKey) iconName = root.nameMap[matchKey];
+                            }
+                        } else if (root.iconMap[lowerClass]) {
+                            iconName = root.iconMap[lowerClass];
                         } else {
-                            // keep your manual overrides as a fallback for edge cases
-                            let lowerClass = winClass.toLowerCase();
-                            if (lowerClass === "codium") iconName = "vscodium";
-                            else if (lowerClass === "zen") iconName = "zen-browser";
-                            else if (lowerClass === "xreader") iconName = "document-viewer";
-                            else if (lowerClass === "com.github.th_ch.youtube_music") iconName = "youtube-music";
+                            let entry = DesktopEntries.heuristicLookup(winClass);
+                            if (entry && entry.icon) {
+                                iconName = entry.icon;
+                            } else {
+                                if (lowerClass === "codium") iconName = "vscodium";
+                                else if (lowerClass === "zen") iconName = "zen-browser";
+                                else if (lowerClass === "xreader") iconName = "document-viewer";
+                                else if (lowerClass === "com.github.th-ch.youtube-music") iconName = "youtube-music";
+                                else if (lowerClass === "steam_proton") iconName = "steam";
+                            }
                         }
 
                         let rawAddress = String(w.address).trim();
@@ -109,6 +149,7 @@ Scope {
     }
 
     function populateWindows() {
+        if (!appIconProcess.running) appIconProcess.running = true
         if (!clientProcess.running) clientProcess.running = true
     }
 
@@ -312,7 +353,7 @@ Scope {
                                     anchors.left: parent.left
                                     anchors.leftMargin: 16
                                     anchors.verticalCenter: parent.verticalCenter
-                                    source: "image://icon/" + model.winIconName 
+                                    source: model.winIconName.startsWith("/") ? "file://" + model.winIconName : "image://icon/" + model.winIconName
                                     width: 28; height: 28
                                     sourceSize: Qt.size(28, 28)
                                     asynchronous: true
