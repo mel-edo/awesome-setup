@@ -710,7 +710,7 @@ Scope {
                 if (islandWindow.islandState === "osd") return 52
                 if (islandWindow.islandState === "media" || islandWindow.islandState === "hub" || islandWindow.islandState === "bluetooth") return 68
                 if (islandWindow.islandState === "wallpaper") return 290
-                if (islandWindow.islandState === "calendar") return (calGrid.startDay + calGrid.daysInMonth > 35) ? 320 : 290
+                if (islandWindow.islandState === "calendar") return 320
                 if (islandWindow.islandState === "notification") {
                     if (notifQueue.count === 0) return 34
                     return singleNotifCard.height + 16
@@ -1979,7 +1979,7 @@ Scope {
                 Item {
                     id: calendarPanel
                     width: 620
-                    height: (calGrid.startDay + calGrid.daysInMonth > 35) ? 280 : 250
+                    height: 280
                     anchors.centerIn: parent
                     layer.enabled: true
                     
@@ -2014,7 +2014,7 @@ Scope {
 
                     Row {
                         anchors.fill: parent
-                        anchors.topMargin: 32
+                        anchors.topMargin: 42
                         anchors.leftMargin: 12
                         anchors.rightMargin: 12
                         anchors.bottomMargin: 12
