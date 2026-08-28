@@ -15,6 +15,17 @@ Scope {
     id: root
 
     property string lockSnapshotDir: Quickshell.env("XDG_RUNTIME_DIR") + "/mshell-lock-snapshots"
+    property bool capsLockActive: false
+    property bool initialLockDone: false
+
+    function getGreetingParts(): var {
+        let h = new Date().getHours()
+        if (h >= 5 && h < 12) return { prefix: "Good", main: "Morning" }
+        if (h >= 12 && h < 17) return { prefix: "Good", main: "Afternoon" }
+        if (h >= 17 && h < 22) return { prefix: "Good", main: "Evening" }
+        if (h >= 22 || h < 2) return { prefix: "Good", main: "Night" }
+        return { prefix: "Sweet", main: "Dreams" }
+    }
 
     Process {
         id: lockSnapshotProc
@@ -134,17 +145,23 @@ Scope {
         Component.onCompleted: running = true
     }
 
+    // Keyboard layout & Caps Lock Poller
     Process {
         id: kbPoller
-        command: ["bash", "-c", "hyprctl devices -j | jq -r '.keyboards[] | select(.main == true) | .active_keymap' | head -n1 | cut -c1-2 | tr '[:lower:]' '[:upper:]'"]
+        command: ["bash", "-c", "hyprctl devices -j | jq -r '.keyboards[] | select(.main == true) | \"\\(.active_keymap // \"US\")|\\(.capsLock // false)\"' | head -n1"]
         stdout: StdioCollector {
             onStreamFinished: {
-                let layout = this.text.trim();
-                if (layout !== "" && layout !== "null") root.kbLayout = layout;
+                let parts = this.text.trim().split("|");
+                if (parts.length > 0 && parts[0] !== "" && parts[0] !== "null") {
+                    root.kbLayout = parts[0].substring(0, 2).toUpperCase();
+                }
+                if (parts.length > 1) {
+                    root.capsLockActive = (parts[1].trim() === "true");
+                }
             }
         }
     }
-    Timer { interval: 1500; running: true; repeat: true; triggeredOnStart: true; onTriggered: { if (!kbPoller.running) kbPoller.running = true } }
+    Timer { interval: 1000; running: true; repeat: true; triggeredOnStart: true; onTriggered: { if (!kbPoller.running) kbPoller.running = true } }
 
     Process {
         id: batPoller
@@ -191,14 +208,15 @@ Scope {
     }
     Timer { interval: 900000; running: true; repeat: true; triggeredOnStart: true; onTriggered: { if (!weatherPoller.running) weatherPoller.running = true } }
 
-    // System actions
-    Process { id: suspendProcess; command: ["systemctl", "suspend"] }
-    Process { id: poweroffProcess; command: ["systemctl", "poweroff"] }
-    Process { id: reloadProcess; command: ["systemctl", "reboot"] }
-
     WlSessionLock {
         id: rootLock
         locked: false
+
+        onLockedChanged: {
+            if (!locked) {
+                root.initialLockDone = false;
+            }
+        }
 
         WlSessionLockSurface {
             id: surface
@@ -211,23 +229,77 @@ Scope {
                 property bool inputActive: false
                 property bool isPlayingIntro: false 
 
+                // Automatic keyboard focus recovery on wake from suspend
+                onActiveFocusChanged: {
+                    if (!activeFocus && rootLock.locked) {
+                        focusHammer.attempts = 0;
+                        focusHammer.running = true;
+                    }
+                }
+
                 Timer {
                     id: focusHammer
-                    interval: 50
+                    interval: 60
                     repeat: true
                     property int attempts: 0
                     onTriggered: {
                         screenRoot.forceActiveFocus();
                         attempts++;
-                        if (screenRoot.activeFocus || attempts > 20) {
+                        if (screenRoot.activeFocus || attempts > 25) {
                             running = false;
+                        }
+                    }
+                }
+
+                // Frame pump to force Wayland buffer damage on wake (bypasses Hyprland VFR sleep)
+                Canvas {
+                    id: framePump
+                    width: 1
+                    height: 1
+                    opacity: 0.01
+                    anchors.top: parent.top
+                    anchors.left: parent.left
+                    
+                    Timer {
+                        interval: 200
+                        running: rootLock.locked
+                        repeat: true
+                        onTriggered: framePump.requestPaint()
+                    }
+
+                    onPaint: {
+                        let ctx = getContext("2d");
+                        ctx.clearRect(0, 0, 1, 1);
+                        ctx.fillStyle = Qt.rgba(1, 1, 1, 0.01);
+                        ctx.fillRect(0, 0, 1, 1);
+                    }
+                }
+
+                // Heartbeat to guarantee focus when session is locked
+                Timer {
+                    interval: 1000
+                    running: rootLock.locked
+                    repeat: true
+                    onTriggered: {
+                        if (!screenRoot.activeFocus) {
+                            screenRoot.forceActiveFocus();
                         }
                     }
                 }
 
                 Component.onCompleted: {
                     lockUI.passwordBuffer = "";
-                    introSequence.start();
+                    
+                    if (!root.initialLockDone) {
+                        root.initialLockDone = true;
+                        introSequence.start();
+                    } else {
+                        // Wake from sleep / monitor reconnect: skip snapshot and show lock screen immediately
+                        screenRoot.introState = 1.0;
+                        freezeFrame.opacity = 0.0;
+                        freezeFrame.source = "";
+                    }
+
                     focusHammer.attempts = 0;
                     focusHammer.running = true;
                 }
@@ -238,7 +310,10 @@ Scope {
 
                     inputActive = true; 
 
-                    if (event.key === Qt.Key_Escape) {
+                    if (event.key === Qt.Key_CapsLock) {
+                        root.capsLockActive = !root.capsLockActive;
+                        if (!kbPoller.running) kbPoller.running = true;
+                    } else if (event.key === Qt.Key_Escape) {
                         lockUI.passwordBuffer = "";
                     } else if (event.key === Qt.Key_Backspace) {
                         if (event.modifiers & Qt.ControlModifier) {
@@ -298,7 +373,7 @@ Scope {
                     fillMode: Image.PreserveAspectCrop
                     asynchronous: true
                     visible: false
-                    cache: false
+                    cache: true
                     sourceSize.width: Screen.width
                     sourceSize.height: Screen.height
                 }
@@ -359,9 +434,7 @@ Scope {
                     anchors.fill: parent
                     hoverEnabled: true
                     cursorShape: Qt.BlankCursor
-                    onClicked: {
-                        screenRoot.forceActiveFocus(); 
-                    }
+                    onClicked: screenRoot.forceActiveFocus()
                 }
 
                 property var activePlayer: null
@@ -453,7 +526,7 @@ Scope {
                         }
                     }
 
-                    // Media Player
+                    // MPRIS Media Card
                     Timer {
                         interval: 1000; running: true; repeat: true; triggeredOnStart: true
                         onTriggered: {
@@ -487,15 +560,15 @@ Scope {
                         id: lockMediaPanel
                         anchors.horizontalCenter: parent.horizontalCenter
                         anchors.bottom: authModule.top
-                        anchors.bottomMargin: 40 
+                        anchors.bottomMargin: 36
                         
-                        width: 350
-                        height: 76 
-                        radius: 22 
+                        width: 360
+                        height: 78
+                        radius: 20
                         
-                        color: Qt.rgba(root.crust.r, root.crust.g, root.crust.b, 0.6)
+                        color: Qt.rgba(root.crust.r, root.crust.g, root.crust.b, 0.55)
                         border.width: 1
-                        border.color: Qt.rgba(root.text.r, root.text.g, root.text.b, 0.1)
+                        border.color: Qt.rgba(root.text.r, root.text.g, root.text.b, 0.12)
                         
                         opacity: (screenRoot.activePlayer ? 1.0 : 0.0) * screenRoot.introState
                         visible: opacity > 0
@@ -505,7 +578,7 @@ Scope {
                         Rectangle {
                             id: lockMediaMask
                             anchors.fill: parent
-                            radius: 22
+                            radius: 20
                             visible: false
                             layer.enabled: true
                         }
@@ -517,13 +590,9 @@ Scope {
                             layer.enabled: true
                             
                             Image {
-                                x: 12 
-                                y: 12 
-                                width: 52 
-                                height: 52
+                                x: 12; y: 12; width: 54; height: 54
                                 source: screenRoot.persistentArtUrl
                                 fillMode: Image.PreserveAspectCrop
-                                
                                 cache: false
                                 asynchronous: true
                                 sourceSize.width: 128
@@ -536,35 +605,33 @@ Scope {
                             source: lockAlbumGlowContainer
                             maskEnabled: true
                             maskSource: lockMediaMask
-                            
                             blurEnabled: true
-                            blurMax: 84 
+                            blurMax: 84
                             blur: 1.0
-                            saturation: 2.5 
-                            
-                            opacity: lockAlbumArt.status === Image.Ready ? 0.55 : 0
+                            saturation: 2.5
+                            opacity: lockAlbumArt.status === Image.Ready ? 0.5 : 0
                             Behavior on opacity { NumberAnimation { duration: 300 } }
                         }
 
                         Row {
                             anchors.fill: parent
-                            anchors.margins: 12 
+                            anchors.margins: 12
                             spacing: 14
 
-                            // Album Art
+                            // Album Artwork
                             Item {
-                                width: 52; height: 52
+                                width: 54; height: 54
                                 anchors.verticalCenter: parent.verticalCenter
                                 
                                 Rectangle {
                                     anchors.fill: parent
-                                    radius: 14 
+                                    radius: 14
                                     color: Theme.surfaceHover
                                     Text {
                                         anchors.centerIn: parent
                                         text: "󰝚"
                                         color: root.subtext0
-                                        font.pixelSize: 20
+                                        font.pixelSize: 22
                                     }
                                 }
 
@@ -599,12 +666,12 @@ Scope {
                                 }
                             }
 
-                            // Track Info
+                            // Track Metadata
                             Column {
                                 anchors.verticalCenter: parent.verticalCenter
-                                width: 250
+                                width: parent.width - 54 - 14
                                 spacing: 4
-                                
+
                                 Text {
                                     text: screenRoot.currentTrackTitle
                                     color: root.text
@@ -626,29 +693,30 @@ Scope {
                         }
                     }
 
-                    // Authentication
+                    // Authentication Module
                     ColumnLayout {
                         id: authModule
                         anchors.horizontalCenter: parent.horizontalCenter
                         anchors.bottom: parent.bottom
-                        anchors.bottomMargin: 150
-                        spacing: 24
+                        anchors.bottomMargin: 140
+                        spacing: 20
 
+                        // User profile info
                         RowLayout {
                             Layout.alignment: Qt.AlignHCenter
                             spacing: 8
                             Text {
                                 text: ""
                                 font.family: "JetBrainsMono Nerd Font"
-                                font.pixelSize: 24
+                                font.pixelSize: 22
                                 font.weight: Font.Bold
-                                color: root.text
+                                color: root.mauve
                                 Layout.alignment: Qt.AlignVCenter
                             }
                             Text {
                                 text: root.currentUser
                                 font.family: "JetBrains Mono"
-                                font.pixelSize: 24
+                                font.pixelSize: 22
                                 font.weight: Font.Bold
                                 color: root.text
                                 Layout.alignment: Qt.AlignVCenter
@@ -660,9 +728,9 @@ Scope {
                             id: pinPill
                             Layout.alignment: Qt.AlignHCenter
                             width: 300
-                            height: 60
-                            radius: 30
-                            clip: true
+                            height: 56
+                            radius: 28
+                            clip: false
                             color: Qt.rgba(root.base.r, root.base.g, root.base.b, 0.9)
                             border.width: 2
                             
@@ -726,6 +794,46 @@ Scope {
                                     }
                                 }
                             }
+
+                            // Caps Lock Warning Pill
+                            Rectangle {
+                                id: capsWarning
+                                anchors.top: parent.bottom
+                                anchors.topMargin: 12
+                                anchors.horizontalCenter: parent.horizontalCenter
+                                height: 28
+                                width: capsRow.implicitWidth + 24
+                                radius: 14
+                                color: Qt.rgba(root.peach.r, root.peach.g, root.peach.b, 0.15)
+                                border.width: 1
+                                border.color: Qt.rgba(root.peach.r, root.peach.g, root.peach.b, 0.4)
+
+                                opacity: root.capsLockActive ? 1.0 : 0.0
+                                visible: opacity > 0
+                                Behavior on opacity { NumberAnimation { duration: 200; easing.type: Easing.InOutQuad } }
+
+                                Row {
+                                    id: capsRow
+                                    anchors.centerIn: parent
+                                    spacing: 6
+
+                                    Text {
+                                        text: "󰪛"
+                                        font.family: "JetBrainsMono Nerd Font"
+                                        font.pixelSize: 13
+                                        color: root.peach
+                                        anchors.verticalCenter: parent.verticalCenter
+                                    }
+                                    Text {
+                                        text: "Caps Lock is on"
+                                        font.family: "JetBrains Mono"
+                                        font.pixelSize: 11
+                                        font.weight: Font.Bold
+                                        color: root.peach
+                                        anchors.verticalCenter: parent.verticalCenter
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -742,7 +850,64 @@ Scope {
                     }
                 }
 
-                // bottom pills
+                // Greeting Card (Bottom-Left)
+                Rectangle {
+                    id: greetingCard
+                    anchors.bottom: parent.bottom
+                    anchors.bottomMargin: 40
+                    anchors.left: parent.left
+                    anchors.leftMargin: 40
+
+                    property var greeting: root.getGreetingParts()
+
+                    width: greetingLayout.implicitWidth + 64
+                    height: greetingLayout.implicitHeight + 44
+                    radius: 28
+
+                    color: Qt.rgba(root.crust.r, root.crust.g, root.crust.b, 0.65)
+                    border.width: 1.5
+                    border.color: Qt.rgba(root.mauve.r, root.mauve.g, root.mauve.b, 0.25)
+                    clip: true
+
+                    opacity: screenRoot.introState
+                    transform: Translate { y: 25 * (1.0 - screenRoot.introState) }
+
+                    Rectangle {
+                        anchors.fill: parent
+                        radius: 28
+                        gradient: Gradient {
+                            orientation: Gradient.TopLeftToBottomRight
+                            GradientStop { position: 0.0; color: Qt.rgba(root.mauve.r, root.mauve.g, root.mauve.b, 0.16) }
+                            GradientStop { position: 0.6; color: "transparent" }
+                            GradientStop { position: 1.0; color: Qt.rgba(root.peach.r, root.peach.g, root.peach.b, 0.08) }
+                        }
+                    }
+
+                    Column {
+                        id: greetingLayout
+                        anchors.centerIn: parent
+                        spacing: -7
+
+                        Text {
+                            text: greetingCard.greeting.prefix
+                            font.family: "Product Sans, Google Sans, sans-serif"
+                            font.pixelSize: 42
+                            font.weight: Font.Black
+                            color: root.text
+                        }
+
+                        Text {
+                            text: greetingCard.greeting.main
+                            leftPadding: 36
+                            font.family: "Product Sans, Google Sans, sans-serif"
+                            font.pixelSize: 46
+                            font.weight: Font.Black
+                            color: root.mauve
+                        }
+                    }
+                }
+
+                // Bottom Status Pills
                 RowLayout {
                     anchors.bottom: parent.bottom
                     anchors.bottomMargin: 40
@@ -789,7 +954,7 @@ Scope {
                     }
                 }
 
-                // animation stuff
+                // Animation Sequencer
                 SequentialAnimation {
                     id: introSequence
                     ScriptAction {
@@ -808,6 +973,7 @@ Scope {
                     ScriptAction {
                         script: {
                             freezeFrame.opacity = 0.0;
+                            freezeFrame.source = "";
                             lockUI.passwordBuffer = "";
                             screenRoot.forceActiveFocus();
                             focusHammer.attempts = 0;
