@@ -102,7 +102,9 @@ ShellRoot {
             target: overviewLoader.item
             function onClosed() {
                 if (!shellRoot.overviewOpen) {
-                    overviewLoader.active = false;
+                    Qt.callLater(function() {
+                        overviewLoader.active = false;
+                    });
                 }
             }
         }

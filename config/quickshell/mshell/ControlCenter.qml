@@ -3,6 +3,7 @@ import QtQuick.Controls
 import Quickshell
 import Quickshell.Io
 import Quickshell.Services.Pipewire
+import Quickshell.Services.UPower
 import "."
 
 Column {
@@ -21,7 +22,6 @@ Column {
     property var savedNetworks: []
     property var btDevices: []
     property string powerProfile: "balanced"
-    property string batTimeLeft: ""
     property string connectingWifi: ""
     property string connectingBt: ""
     property string passwordSsid: ""
@@ -50,7 +50,17 @@ Column {
             }
         }
     }
-    
+
+    property string batTimeLeft: {
+        let secs = UPower.displayDevice.state === UPowerDeviceState.Charging
+            ? UPower.displayDevice.timeToFull
+            : UPower.displayDevice.timeToEmpty
+        if (!secs || secs <= 0) return ""
+        let mins = secs / 60
+        if (mins < 60) return Math.round(mins) + " minutes"
+        return (mins / 60).toFixed(1) + " hours"
+    }
+
     Process {
         id: syncWifiState
         command: ["bash", "-c", "nmcli -t radio wifi"]
@@ -139,12 +149,6 @@ Column {
         stdout: StdioCollector { onStreamFinished: root.powerProfile = text.trim() }
     }
 
-    Process {
-        id: batTimeProcess
-        command: ["bash", "-c", "upower -i /org/freedesktop/UPower/devices/battery_BAT1 2>/dev/null | grep 'time to' | awk '{print $4, $5}'"]
-        stdout: StdioCollector { onStreamFinished: root.batTimeLeft = text.trim() }
-    }
-
     // Toggles and Actions
     Process { id: wifiToggleProcess }
     Process { id: btToggleProcess }
@@ -168,8 +172,8 @@ Column {
     }
 
     Timer { interval: 10000; running: root.isOpen; repeat: true; onTriggered: { if (!wifiListProcess.running) wifiListProcess.running = true; if (!savedWifiFetchProcess.running) savedWifiFetchProcess.running = true } }
-    Timer { interval: 5000; running: root.isOpen; repeat: true; onTriggered: { if (!btListProcess.running) btListProcess.running = true; if (!batTimeProcess.running) batTimeProcess.running = true } }
-    
+    Timer { interval: 5000; running: root.isOpen; repeat: true; onTriggered: { if (!btListProcess.running) btListProcess.running = true } }
+
     Timer { 
         interval: 1000; 
         running: root.isOpen && !root.isDraggingSlider; 
@@ -187,7 +191,6 @@ Column {
             if (!wifiListProcess.running) wifiListProcess.running = true
             if (!btListProcess.running) btListProcess.running = true
             if (!profileFetchProcess.running) profileFetchProcess.running = true
-            if (!batTimeProcess.running) batTimeProcess.running = true
             if (!briFetchProcess.running) briFetchProcess.running = true
         } else {
             root.passwordSsid = ""

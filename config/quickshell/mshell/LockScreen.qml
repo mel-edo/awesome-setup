@@ -9,6 +9,7 @@ import Quickshell.Wayland
 import Quickshell.Hyprland
 import Quickshell.Services.Pam
 import Quickshell.Services.Mpris
+import Quickshell.Services.UPower
 import "."
 
 Scope {
@@ -113,13 +114,23 @@ Scope {
         }
     }
     property string activeWallCache: ""
-    property string batPct: "100"
-    property string batStatus: "AC"
     property string currentUser: "User"
     property string faceIconPath: ""
     property string kbLayout: "US"
     property string weatherIcon: ""
     property string weatherTemp: "--°C"
+
+    property real batPct: UPower.displayDevice.percentage * 100
+    property string batStatus: {
+        switch (UPower.displayDevice.state) {
+            case UPowerDeviceState.Charging: return "Charging"
+            case UPowerDeviceState.Discharging: return "Discharging"
+            case UPowerDeviceState.FullyCharged: return "Full"
+            case UPowerDeviceState.PendingCharge: return "Charging"
+            case UPowerDeviceState.PendingDischarge: return "Discharging"
+            default: return "Unknown"
+        }
+    }
 
     FileView {
         id: wallCacheFile
@@ -145,9 +156,9 @@ Scope {
         Component.onCompleted: running = true
     }
 
-    // Keyboard layout & Caps Lock Poller
+    // Initial layout & Caps Lock fetch on load
     Process {
-        id: kbPoller
+        id: initialKbFetch
         command: ["bash", "-c", "hyprctl devices -j | jq -r '.keyboards[] | select(.main == true) | \"\\(.active_keymap // \"US\")|\\(.capsLock // false)\"' | head -n1"]
         stdout: StdioCollector {
             onStreamFinished: {
@@ -160,23 +171,23 @@ Scope {
                 }
             }
         }
+        Component.onCompleted: running = true
     }
-    Timer { interval: 1000; running: true; repeat: true; triggeredOnStart: true; onTriggered: { if (!kbPoller.running) kbPoller.running = true } }
 
-    Process {
-        id: batPoller
-        command: ["bash", "-c", "cat /sys/class/power_supply/BAT*/capacity 2>/dev/null | head -n1 || echo '100'; cat /sys/class/power_supply/BAT*/status 2>/dev/null | head -n1 || echo 'AC'"]
-        stdout: StdioCollector {
-            onStreamFinished: {
-                let lines = this.text.trim().split("\n");
-                if (lines.length >= 2) {
-                    root.batPct = lines[0] || "100";
-                    root.batStatus = lines[1] || "Unknown";
+    // Event-driven IPC listener
+    Socket {
+        path: Quickshell.env("XDG_RUNTIME_DIR") + "/hypr/" + Quickshell.env("HYPRLAND_INSTANCE_SIGNATURE") + "/.socket2.sock"
+        parser: SplitParser {
+            onRead: data => {
+                if (data.startsWith("activelayout>>")) {
+                    let parts = data.substring(14).split(",");
+                    if (parts.length > 1) {
+                        root.kbLayout = parts[1].substring(0, 2).toUpperCase();
+                    }
                 }
             }
         }
     }
-    Timer { interval: 5000; running: true; repeat: true; triggeredOnStart: true; onTriggered: { if (!batPoller.running) batPoller.running = true } }
 
     function weatherIconCode(code) {
         if (!code) return "󰖙"
@@ -262,7 +273,7 @@ Scope {
                     
                     Timer {
                         interval: 200
-                        running: rootLock.locked
+                        running: rootLock.locked && (screenRoot.isPlayingIntro || screenRoot.inputActive)
                         repeat: true
                         onTriggered: framePump.requestPaint()
                     }

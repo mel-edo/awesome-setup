@@ -143,6 +143,14 @@ Scope {
         command: ["sh", "-c", "hyprctl dispatch 'hl.dsp.focus({ window = \"address:" + targetAddr + "\" })'"]
     }
 
+    function selectAndFocus(addr) {
+        if (addr && addr !== "") {
+            hyprctlFocus.targetAddr = addr
+            hyprctlFocus.running = true
+        }
+        shellRoot.overviewOpen = false
+    }
+
     function populateWindows() {
         if (!appIconProcess.running) appIconProcess.running = true
         if (!clientProcess.running) clientProcess.running = true
@@ -289,8 +297,7 @@ Scope {
                                         } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
                                             if (windowList.currentIndex >= 0 && windowList.currentIndex < windowModel.count) {
                                                 let addr = windowModel.get(windowList.currentIndex).winAddress;
-                                                root.pendingFocusAddr = addr;
-                                                shellRoot.overviewOpen = false;
+                                                root.selectAndFocus(addr);
                                                 searchInput.text = ""; 
                                             }
                                             handled = true;
@@ -411,8 +418,7 @@ Scope {
                                     onTapped: {
                                         windowList.currentIndex = index
                                         let addr = windowModel.get(windowList.currentIndex).winAddress
-                                        root.pendingFocusAddr = addr
-                                        shellRoot.overviewOpen = false
+                                        root.selectAndFocus(addr)
                                     }
                                 }
                             }
@@ -458,11 +464,6 @@ Scope {
                     onFinished: {
                         if (!root.isOpen) {
                             overviewRoot.isActuallyVisible = false
-                            if (root.pendingFocusAddr !== "") {
-                                hyprctlFocus.targetAddr = root.pendingFocusAddr
-                                hyprctlFocus.running = true
-                                root.pendingFocusAddr = ""
-                            }
                             root.closed()
                         }
                     }

@@ -5,6 +5,7 @@ import Quickshell.Wayland
 import Quickshell.Hyprland
 import Quickshell.Io
 import Quickshell.Services.SystemTray
+import Quickshell.Services.UPower
 import "."
 
 
@@ -14,8 +15,6 @@ Scope {
     property string netSsid: ""
     property int netSignal: 0
     property bool btConnected: false
-    property string batStatus: "Discharging"
-    property int batLevel: 100
     property int savedBriLevel: 50
     property string savedPowerProfile: "balanced"
 
@@ -23,19 +22,17 @@ Scope {
         Hyprland.dispatch('hl.dsp.focus({ workspace = ' + workspaceId + '})')
     }
 
-    Process {
-        id: globalBatteryProcess
-        command: ["bash", "-c", Quickshell.env("HOME") + "/.config/quickshell/mshell/scripts/watchers/battery_fetch.sh"]
-        running: true
-        stdout: SplitParser {
-            onRead: data => {
-                let parts = data.trim().split(" ")
-                root.batLevel = parseInt(parts[0]) || 0
-                root.batStatus = parts.slice(1).join(" ")
-            }
+    property real batLevel: UPower.displayDevice.percentage * 100
+    property string batStatus: {
+        switch (UPower.displayDevice.state) {
+            case UPowerDeviceState.Charging: return "Charging"
+            case UPowerDeviceState.Discharging: return "Discharging"
+            case UPowerDeviceState.FullyCharged: return "Full"
+            case UPowerDeviceState.PendingCharge: return "Charging"
+            case UPowerDeviceState.PendingDischarge: return "Discharging"
+            default: return "Unknown"
         }
     }
-    Timer { interval: 5000; running: true; repeat: true; onTriggered: { if (!globalBatteryProcess.running) globalBatteryProcess.running = true } }
 
     Process {
         id: globalNetworkProcess
@@ -646,7 +643,7 @@ Scope {
                                     property string itemId: modelData.id || modelData.title || index.toString()
                                     
                                     width: 26; height: 26; radius: 6
-                                    anchors.horizontalCenter: parent.horizontalCenter
+                                    anchors.horizontalCenter: parent ? parent.horizontalCenter : undefined
                                     
                                     color: "transparent"
 
