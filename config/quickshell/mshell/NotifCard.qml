@@ -104,17 +104,35 @@ Item {
             renderType: Text.NativeRendering
         }
 
-        Text {
-            text: root.nBod 
-            color: Theme.subtext
-            font.pixelSize: 12
+        Item {
+            id: bodyClip
             width: parent.textWidth
-            wrapMode: Text.Wrap 
-            maximumLineCount: 4 
-            elide: Text.ElideRight
-            visible: text !== ""
-            textFormat: Text.PlainText
-            renderType: Text.NativeRendering
+            height: Math.min(bodyText.implicitHeight, bodyText.font.pixelSize * 1.35 * 4)
+            clip: true
+            visible: bodyText.text !== ""
+
+            Text {
+                id: bodyText
+                text: root.nBod
+                color: Theme.subtext
+                font.pixelSize: 12
+                width: parent.width
+                wrapMode: Text.Wrap
+                textFormat: Text.StyledText
+                renderType: Text.NativeRendering
+            }
+
+            Rectangle {
+                anchors.bottom: parent.bottom
+                anchors.left: parent.left
+                anchors.right: parent.right
+                height: 18
+                visible: bodyText.implicitHeight > bodyClip.height
+                gradient: Gradient {
+                    GradientStop { position: 0.0; color: Qt.rgba(Theme.surface.r, Theme.surface.g, Theme.surface.b, 0) }
+                    GradientStop { position: 1.0; color: Theme.surface }
+                }
+            }
         }
     }
 }

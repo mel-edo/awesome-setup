@@ -21,8 +21,29 @@ Scope {
     }
 
     PwObjectTracker {
-        objects: [ Pipewire.defaultAudioSink ]
+        objects: Pipewire.nodes.values
     }
+
+    Connections {
+        target: Pipewire.nodes
+        function onValuesChanged() { updateScreenShareState() }
+    }
+
+    function updateScreenShareState() {
+        let sharing = false
+        for (let i = 0; i < Pipewire.nodes.values.length; i++) {
+            let node = Pipewire.nodes.values[i]
+            let p = node.properties
+            if (p && p["media.class"] === "Video/Source" && (p["node.name"] || "").startsWith("xdg-desktop-portal")) {
+                console.log("[pw] candidate node state raw value:", node.state, typeof node.state)
+                sharing = true
+                break
+            }
+        }
+        islandWindow.isScreenSharing = sharing
+    }
+
+    Component.onCompleted: updateScreenShareState()
 
     Connections {
         target: Pipewire.defaultAudioSink ? Pipewire.defaultAudioSink.audio : null
@@ -81,6 +102,7 @@ Scope {
         property bool isStartingUp: true
         property bool ignorePillHover: false
         property string lastTrackArtRaw: ""
+        property bool isScreenSharing: false
 
         onWasPlayingChanged: {
             if (wasPlaying) {
@@ -341,14 +363,16 @@ Scope {
             id: notifServer
             function stripMarkup(str) {
                 if (!str) return ""
-                return str.replace(/<[^>]*>/g, "")
-                        .replace(/&amp;/g, "&")
-                        .replace(/&lt;/g, "<")
-                        .replace(/&gt;/g, ">")
-                        .replace(/&quot;/g, "\"")
+                return str
+                    .replace(/<(?!\/?(b|i|u|s|a)\b)[^>]*>/gi, "")
+                    .replace(/&amp;/g, "&")
+                    .replace(/&lt;/g, "<")
+                    .replace(/&gt;/g, ">")
+                    .replace(/&quot;/g, "\"")
             }
 
             onNotification: notification => {
+                notification.tracked = true
                 notifQueue.insert(0, {
                     nApp: notification.appName || "System",
                     nSum: notification.summary || "",
@@ -541,46 +565,10 @@ Scope {
         }
 
         Timer {
-            interval: 2500
+            interval: 300000
             running: true
             repeat: true
             onTriggered: if (!btProcess.running) btProcess.running = true
-        }
-
-        Process {
-            id: sinkCheckProcess
-            command: ["pactl", "get-default-sink"]
-            stdout: StdioCollector {
-                onStreamFinished: {
-                    let sinkName = text.trim()
-                    if (islandWindow.currentAudioSink !== "" && islandWindow.currentAudioSink !== sinkName) {
-                        fetchVolProcess.running = true
-                    }
-                    islandWindow.currentAudioSink = sinkName
-                }
-            }
-        }
-
-        Process {
-            id: fetchVolProcess
-            command: ["bash", "-c", "wpctl get-volume @DEFAULT_AUDIO_SINK@ | awk '{print int($2 * 100)}'"]
-            stdout: StdioCollector {
-                onStreamFinished: {
-                    let vol = parseInt(text.trim())
-                    if (!isNaN(vol)) {
-                        islandWindow.showOsd(vol, "volume") 
-                    }
-                }
-            }
-        }
-
-        Timer {
-            interval: 1000
-            running: true
-            repeat: true
-            onTriggered: {
-                if (!sinkCheckProcess.running) sinkCheckProcess.running = true
-            }
         }
 
         Process {
@@ -646,7 +634,7 @@ Scope {
         Process {
             id: cavaProcess
             command: ["cava", "-p", Quickshell.env("HOME") + "/.config/cava/mshell.conf"]
-            running: true
+            running: islandWindow.wasPlaying
             stdout: SplitParser {
                 onRead: data => {
                     let bars = data.trim().split(";").filter(x => x !== "").map(Number)
@@ -694,7 +682,7 @@ Scope {
             
             // Main Width vals
             width: {
-                if (islandWindow.islandState === "idle") return 180
+                if (islandWindow.islandState === "idle") return 180 + (islandWindow.isScreenSharing ? 24 : 0)
                 if (islandWindow.islandState === "audio") return 460
                 if (islandWindow.islandState === "osd") return 252
                 if (islandWindow.islandState === "media" || islandWindow.islandState === "hub" || islandWindow.islandState === "bluetooth") return 350
@@ -772,11 +760,39 @@ Scope {
                 }
             }
 
-
-
             Item {
                 anchors.fill: parent
                 anchors.margins: 8
+
+                Item {
+                    id: recIndicator
+                    width: 18; height: 18
+                    anchors.right: parent.right
+                    anchors.rightMargin: 6
+                    anchors.verticalCenter: parent.verticalCenter
+                    visible: islandWindow.isScreenSharing && islandWindow.islandState === "idle" && !cavaRow.isActiveCava
+
+                    Rectangle {
+                        id: recRing
+                        anchors.centerIn: parent
+                        width: 18; height: 18; radius: 9
+                        color: "transparent"
+                        border.width: 2
+                        border.color: Theme.accent
+                        SequentialAnimation on opacity {
+                            running: recIndicator.visible
+                            loops: Animation.Infinite
+                            NumberAnimation { to: 0.2; duration: 850; easing.type: Easing.InOutQuad }
+                            NumberAnimation { to: 0.9; duration: 850; easing.type: Easing.InOutQuad }
+                        }
+                    }
+
+                    Rectangle {
+                        anchors.centerIn: parent
+                        width: 8; height: 8; radius: 4
+                        color: Theme.accent
+                    }
+                }
 
                 Item {
                     id: osdLayout
@@ -1060,9 +1076,12 @@ Scope {
                         }
                     }
                 }
+
                 // Idle clock
                 Text {
                     anchors.centerIn: parent
+                    anchors.horizontalCenterOffset: (islandWindow.isScreenSharing && islandWindow.islandState === "idle") ? -12 : 0
+                    Behavior on anchors.horizontalCenterOffset { NumberAnimation { duration: 300; easing.type: Easing.OutBack } }
                     text: Qt.formatDateTime(new Date(), "HH:mm:ss • ddd, MMM dd")
                     color: Theme.text
                     font.pixelSize: 14
