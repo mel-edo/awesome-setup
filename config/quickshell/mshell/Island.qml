@@ -2080,6 +2080,7 @@ Scope {
                                 }
                                 property int startDay: (calDate.getDay() + 6) % 7
                                 property int daysInMonth: new Date(calDate.getFullYear(), calDate.getMonth() + 1, 0).getDate()
+                                property int daysInPrevMonth: new Date(calDate.getFullYear(), calDate.getMonth(), 0).getDate()
                                 property int today: currentDate.getDate()
 
                                 Repeater {
@@ -2087,22 +2088,31 @@ Scope {
                                     Rectangle {
                                         width: (calGrid.width - 24) / 7; height: 24; radius: 6
                                         
-                                        property int day: index - calGrid.startDay + 1
-                                        property bool isValidDay: day > 0 && day <= calGrid.daysInMonth
-                                        property bool isToday: day === calGrid.today && calGrid.monthOffset === 0
+                                        property bool isPrevMonth: index < calGrid.startDay
+                                        property bool isNextMonth: index >= (calGrid.startDay + calGrid.daysInMonth)
+                                        property bool isCurrentMonth: !isPrevMonth && !isNextMonth
                                         
-                                        color: isToday ? Theme.accent : (dayHover.hovered && isValidDay ? Theme.surfaceHover : "transparent")
+                                        property int dayNumber: {
+                                            if (isPrevMonth) return calGrid.daysInPrevMonth - calGrid.startDay + 1 + index
+                                            if (isNextMonth) return index - (calGrid.startDay + calGrid.daysInMonth) + 1
+                                            return index - calGrid.startDay + 1
+                                        }
+                                        
+                                        property bool isToday: isCurrentMonth && (dayNumber === calGrid.today) && (calGrid.monthOffset === 0)
+                                        
+                                        color: isToday ? Theme.accent : (dayHover.hovered && isCurrentMonth ? Theme.surfaceHover : "transparent")
                                         Behavior on color { ColorAnimation { duration: 100 } }
 
                                         Text {
                                             anchors.centerIn: parent
-                                            text: parent.isValidDay ? parent.day : "" 
-                                            color: parent.isToday ? Theme.background : Theme.text
-                                            font.pixelSize: 13; font.bold: parent.isToday
+                                            text: parent.dayNumber 
+                                            color: parent.isToday ? Theme.background : (parent.isCurrentMonth ? Theme.text : Qt.rgba(Theme.subtext.r, Theme.subtext.g, Theme.subtext.b, 0.35))
+                                            font.pixelSize: 13
+                                            font.bold: parent.isToday
                                         }
 
                                         HoverHandler {
-                                            id: dayHover; enabled: parent.isValidDay; cursorShape: Qt.PointingHandCursor
+                                            id: dayHover; enabled: parent.isCurrentMonth; cursorShape: Qt.PointingHandCursor
                                         }
                                     }
                                 }
