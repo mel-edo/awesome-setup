@@ -860,6 +860,14 @@ Scope {
 
                     property var greeting: root.getGreetingParts()
 
+                    Timer {
+                        interval: 5000
+                        running: true
+                        repeat: true
+                        triggeredOnStart: true
+                        onTriggered: greetingCard.greeting = root.getGreetingParts()
+                    }
+
                     width: greetingLayout.implicitWidth + 64
                     height: greetingLayout.implicitHeight + 44
                     radius: 28
