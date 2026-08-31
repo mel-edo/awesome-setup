@@ -1,0 +1,5 @@
+[config]
+
+[templates.quickshell]
+input_path = "~/.config/matugen/templates/colors.json"
+output_path = "~/.cache/wal/colors.json"

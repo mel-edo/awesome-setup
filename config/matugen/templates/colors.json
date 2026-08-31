@@ -1,0 +1,14 @@
+{
+  "background": "{{colors.surface.default.hex}}",
+  "surface": "{{colors.surface_container.default.hex}}",
+  "surfaceHover": "{{colors.surface_container_high.default.hex}}",
+  "highlight": "{{colors.surface_container_highest.default.hex}}",
+  "accent": "{{colors.primary.default.hex}}",
+  "accentAlt": "{{colors.secondary.default.hex}}",
+  "text": "{{colors.on_surface.default.hex}}",
+  "subtext": "{{colors.on_surface_variant.default.hex}}",
+  "danger": "{{colors.error.default.hex}}",
+  "dangerBg": "{{colors.error_container.default.hex}}",
+  "dangerHover": "{{colors.on_error_container.default.hex}}",
+  "border": "{{colors.outline.default.hex}}"
+}
