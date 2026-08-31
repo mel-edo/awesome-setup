@@ -2,7 +2,7 @@
   "uiScale": 1.0,
   "openGuideAtStartup": true,
   "topbarHelpIcon": true,
-  "wallpaperDir": "/home/meledo/Downloads/Wallpapers",
+  "wallpaperDir": "",
   "language": "us",
   "kbOptions": "grp:alt_shift_toggle"
 }

@@ -42,7 +42,6 @@ hl.workspace_rule({
 local mainMod = "SUPER"
 
 local layout = "'smartgrid'"
-hl.bind("ALT + C", hl.dsp.exec_cmd("sh ~/.config/hypr/wallpaper.sh"))
 hl.bind(mainMod .. " + return", hl.dsp.exec_cmd("alacritty"))
 hl.bind(mainMod .. " + Q", hl.dsp.window.close())
 hl.bind(mainMod .. " + ALT + M", hl.dsp.exit())
