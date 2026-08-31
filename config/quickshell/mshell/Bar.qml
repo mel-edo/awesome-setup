@@ -22,7 +22,7 @@ Scope {
         Hyprland.dispatch('hl.dsp.focus({ workspace = ' + workspaceId + '})')
     }
 
-    property real batLevel: UPower.displayDevice.percentage * 100
+    property int batLevel: Math.round(UPower.displayDevice.percentage * 100)
     property string batStatus: {
         switch (UPower.displayDevice.state) {
             case UPowerDeviceState.Charging: return "Charging"

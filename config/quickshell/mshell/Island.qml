@@ -20,6 +20,18 @@ Scope {
         }
     }
 
+    IpcHandler {
+        target: "record"
+        function start() {
+            islandWindow.isGpuRecording = true
+            updateScreenShareState()
+        }
+        function stop() {
+            islandWindow.isGpuRecording = false
+            updateScreenShareState()
+        }
+    }
+
     PwObjectTracker {
         objects: Pipewire.nodes.values
     }
@@ -40,7 +52,7 @@ Scope {
                 break
             }
         }
-        islandWindow.isScreenSharing = sharing
+        islandWindow.isScreenSharing = sharing || islandWindow.isGpuRecording
     }
 
     Component.onCompleted: updateScreenShareState()
@@ -103,6 +115,7 @@ Scope {
         property bool ignorePillHover: false
         property string lastTrackArtRaw: ""
         property bool isScreenSharing: false
+        property bool isGpuRecording: false
 
         onWasPlayingChanged: {
             if (wasPlaying) {
@@ -351,7 +364,7 @@ Scope {
             id: notifQueue
             property int lastCount: 0
             onCountChanged: {
-                if (count < lastCount && islandWindow.islandState === "notification") {
+                if (count === 0 && count < lastCount && islandWindow.islandState === "notification") {
                     islandWindow.closeToIdle()
                 }
                 lastCount = count
@@ -694,7 +707,7 @@ Scope {
             // Main Height vals
             height: {
                 if (islandWindow.islandState === "idle") return 34
-                if (islandWindow.islandState === "audio") return 56 + Math.max(1, audioPanel.outputDevices.length) * 40
+                if (islandWindow.islandState === "audio") return 56 + Math.max(1, audioPanel.outputDevices.length) * 40 + 16
                 if (islandWindow.islandState === "osd") return 52
                 if (islandWindow.islandState === "media" || islandWindow.islandState === "hub" || islandWindow.islandState === "bluetooth") return 68
                 if (islandWindow.islandState === "wallpaper") return 290
@@ -770,7 +783,34 @@ Scope {
                     anchors.right: parent.right
                     anchors.rightMargin: 6
                     anchors.verticalCenter: parent.verticalCenter
-                    visible: islandWindow.isScreenSharing && islandWindow.islandState === "idle" && !cavaRow.isActiveCava
+
+                    property bool wantsShow: islandWindow.isScreenSharing && islandWindow.islandState === "idle" && !cavaRow.isActiveCava
+                    property bool shouldShow: false
+
+                    onWantsShowChanged: {
+                        if (wantsShow) {
+                            pillSettleTimer.restart()
+                        } else {
+                            pillSettleTimer.stop()
+                            shouldShow = false
+                        }
+                    }
+
+                    Connections {
+                        target: mainPill
+                        function onWidthChanged() { if (recIndicator.wantsShow) pillSettleTimer.restart() }
+                        function onHeightChanged() { if (recIndicator.wantsShow) pillSettleTimer.restart() }
+                    }
+
+                    Timer {
+                        id: pillSettleTimer
+                        interval: 50
+                        onTriggered: recIndicator.shouldShow = recIndicator.wantsShow
+                    }
+
+                    visible: opacity > 0
+                    opacity: shouldShow ? 1 : 0
+                    Behavior on opacity { NumberAnimation { duration: 250; easing.type: Easing.OutQuad } }
 
                     Rectangle {
                         id: recRing
@@ -1822,11 +1862,11 @@ Scope {
                         }
                     }
                 }
-                // Audio control (per-device volume, inline row layout, dynamic height)
+                // Audio control
                 Item {
                     id: audioPanel
                     width: 440
-                    height: 56 + Math.max(1, outputDevices.length) * 40
+                    height: 56 + Math.max(1, outputDevices.length) * 40 + 16
                     anchors.centerIn: parent
 
                     property bool isActive: islandWindow.islandState === "audio"
@@ -1869,7 +1909,7 @@ Scope {
                     }
 
                     Column {
-                        anchors.top: audioHeader.bottom; anchors.topMargin: 16
+                        anchors.top: audioHeader.bottom; anchors.topMargin: 16;
                         anchors.left: parent.left; anchors.right: parent.right
                         anchors.margins: 20
                         spacing: 8
@@ -1888,7 +1928,7 @@ Scope {
                                 property real vol: deviceRow.ready ? deviceRow.modelData.audio.volume : 0
                                 property bool muted: deviceRow.ready ? deviceRow.modelData.audio.muted : false
 
-                                // Icon — tap to mute/unmute this device
+                                // Icon
                                 Item {
                                     width: 20; height: 32
                                     Text {
@@ -1903,7 +1943,7 @@ Scope {
                                     }
                                 }
 
-                                // Name — tap to make this the default output
+                                // Name
                                 Item {
                                     width: 110; height: 32
                                     Text {
@@ -1920,7 +1960,7 @@ Scope {
                                     TapHandler { onTapped: Pipewire.preferredDefaultAudioSink = deviceRow.modelData }
                                 }
 
-                                // Volume bar sits in front of (to the right of) the name, same row
+                                // Volume bar
                                 Item {
                                     id: miniSlider
                                     width: parent.width - 20 - 110 - parent.spacing * 2
