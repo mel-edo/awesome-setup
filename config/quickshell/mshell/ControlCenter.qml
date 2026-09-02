@@ -344,7 +344,7 @@ Column {
                 Behavior on height   { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
                 Behavior on color    { ColorAnimation  { duration: 100 } }
 
-                // ── Network row ────────────────────────────────────────────
+                // Network row
                 Rectangle {
                     id: netRow
                     width: parent.width
@@ -386,14 +386,12 @@ Column {
                         }
                     }
 
-                    // Tap handler scoped ONLY to the network row
                     HoverHandler { id: netItemHover; cursorShape: Qt.PointingHandCursor }
                     MouseArea {
                         anchors.fill: parent
                         onClicked: {
                             let isSaved = root.savedNetworks.includes(modelData.ssid)
                             
-                            // If secure AND we don't have it saved, ask for password
                             if (modelData.security !== "" && !isSaved) {
                                 if (root.passwordSsid === modelData.ssid) {
                                     root.passwordSsid = ""
@@ -409,7 +407,6 @@ Column {
                                 return
                             }
                             
-                            // Otherwise, connect immediately
                             root.connectingWifi = modelData.ssid
                             resetConnectingWifi.restart()
                             wifiConnectProcess.command = ["nmcli", "dev", "wifi", "connect", modelData.ssid]
@@ -418,7 +415,7 @@ Column {
                     }
                 }
 
-                // ── Password row (slides in) ────────────────────────────────
+                // Password row
                 Item {
                     id: pwRow
                     anchors.top: netRow.bottom
@@ -430,7 +427,7 @@ Column {
 
                     MouseArea {
                         anchors.fill: parent
-                        onClicked: {} // swallow
+                        onClicked: {}
                     }
 
                     Row {
@@ -857,12 +854,11 @@ Column {
 
     Rectangle { width: parent.width; height: 1; color: Qt.rgba(Theme.subtext.r, Theme.subtext.g, Theme.subtext.b, 0.12) }
 
-    // --- SYSTEM SLIDERS ---
+    // System Sliders
     Column {
         width: parent.width
         spacing: 12
 
-        // Section Title
         Item {
             width: parent.width
             height: 28
@@ -961,7 +957,7 @@ Column {
             }
         }
 
-        // Brightness Slider
+        // Brightness slider
         Item {
             width: parent.width
             height: 36

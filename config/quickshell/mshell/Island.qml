@@ -621,15 +621,26 @@ Scope {
             onTriggered: islandWindow.isOsdIdle = true
         }
 
-        Timer {
-            interval: 300000
+        Process {
+            id: btWatcher
             running: true
-            repeat: true
+            command: ["bash", "-c", "dbus-monitor --system \"interface='org.freedesktop.DBus.Properties',member='PropertiesChanged',arg0='org.bluez.Device1'\" | grep --line-buffered '\"Connected\"'"]
+            stdout: SplitParser {
+                onRead: data => {
+                    btFetchDelay.restart()
+                }
+            }
+        }
+
+        Timer {
+            id: btFetchDelay
+            interval: 2000 
             onTriggered: if (!btProcess.running) btProcess.running = true
         }
 
         Process {
             id: btProcess
+            running: true
             command: ["bash", "-c", "bluetoothctl devices Connected | while read -r _ mac name; do bat=$(bluetoothctl info \"$mac\" | grep 'Battery Percentage:' | awk -F '[()]' '{print $2}'); [ -z \"$bat\" ] && bat=\"--\"; echo \"$mac|$name|$bat\"; done"]
             stdout: StdioCollector {
                 onStreamFinished: {
@@ -780,7 +791,6 @@ Scope {
             scale: 1.0
             Behavior on scale { NumberAnimation { duration: 120; easing.type: Easing.OutElastic; easing.overshoot: 2.0 } }
 
-            // The Liquid Spring Physics
             Behavior on width { NumberAnimation { duration: 300; easing.type: Easing.OutBack; easing.overshoot: 0.7 } }
             Behavior on height { NumberAnimation { duration: 300; easing.type: Easing.OutBack; easing.overshoot: 0.7 } }
 
@@ -958,7 +968,7 @@ Scope {
                         Text {
                             anchors.centerIn: parent
                             text: islandWindow.osdValue
-                            color: Theme.background // Dark Text
+                            color: Theme.background
                             font.pixelSize: 13
                             font.bold: true
                             
@@ -1579,6 +1589,7 @@ Scope {
                         }
                     }
                 }
+
                 // Bluetooth popup
                 Item {
                     id: btPanel
@@ -2253,7 +2264,7 @@ Scope {
                                 spacing: 10
                                 visible: islandWindow.weatherToday !== null
 
-                                // Main Weather Info (Enlarged & Focused)
+                                // Main Weather Info
                                 Row {
                                     spacing: 18
                                     anchors.horizontalCenter: parent.horizontalCenter
@@ -2289,12 +2300,12 @@ Scope {
                                     }
                                 }
 
-                                // Stats Row (Rain / Feels Like / Wind)
+                                // Stats Row
                                 Row {
                                     anchors.horizontalCenter: parent.horizontalCenter
                                     spacing: 12
             
-                                    // Rain Chance (PoP)
+                                    // Rain Chance
                                     Row {
                                         spacing: 4
                                         Text { text: "󰖎"; color: "#60A5FA"; font.pixelSize: 13; anchors.baseline: popTxt.baseline }
@@ -2314,7 +2325,7 @@ Scope {
                                     }
                                 }
 
-                                // Sun Cycle Row (Sunrise / Sunset)
+                                // Sun Cycle Row
                                 Row {
                                     anchors.horizontalCenter: parent.horizontalCenter
                                     spacing: 16

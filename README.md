@@ -4,9 +4,17 @@
 
 ### This was made on a 1920x1080 display
 
-### Video showcasing the animations
-
 https://github.com/mel-edo/awesome-setup/assets/90543784/25acfe82-682d-4f04-9ef8-c2461703d929
+
+---
+
+### Screenshots
+ 
+![a](/images/1.png?raw=true)
+![b](/images/2.png?raw=true)
+![b](/images/3.png?raw=true)
+![b](/images/4.png?raw=true)
+![b](/images/5.png?raw=true)
 
 ---
 
@@ -134,13 +142,13 @@ Runs on Hyprland startup. Change as you wish
  
 | App / match | Behavior |
 |---|---|
-| zen (browser) | → workspace 1 (silent) |
-| discord | → workspace 2 (silent) |
-| Obsidian | → workspace 3 (silent) |
-| codium, steam | → workspace 4 (silent) |
-| youtube-music | → workspace 5 (silent) |
-| PrismLauncher, twintaillauncher, Lutris | → workspace 6 (silent), floating & centered |
-| Betterbird | → workspace 7 (silent) |
+| zen (browser) | → workspace 1 |
+| discord | → workspace 2 |
+| Obsidian | → workspace 3 |
+| codium, steam | → workspace 4 |
+| youtube-music | → workspace 5 |
+| PrismLauncher, twintaillauncher, Lutris | → workspace 6 , floating & centered |
+| Betterbird | → workspace 7 |
 | yad, copyq, nm-connection-editor, pavucontrol, blueberry, file-roller, Godot, qBittorrent | Floating, fixed size, centered |
 | Picture-in-Picture windows | Floating, pinned to position (1280, 35) |
 | "Friends List" (Steam) | Floating |
@@ -151,20 +159,11 @@ Runs on Hyprland startup. Change as you wish
  
 ---
  
-### Screenshots
- 
-![a](/images/1.png?raw=true)
-![b](/images/2.png?raw=true)
-![b](/images/3.png?raw=true)
-![b](/images/4.png?raw=true)
-![b](/images/5.png?raw=true)
- 
----
-
 ### Sources of inspiration:
 
-- [rklyz](https://github.com/rklyz/MyRice)
-- [janleigh](https://github.com/janleigh/dotfiles)
+- [caelestia](https://github.com/caelestia-dots/shell)
+- [Rexcrazy804](https://github.com/Rexcrazy804/Zaphkiel)
+- [Devvvmn](https://github.com/Devvvmn/ActivSpot)
 ---
 
 ### Star History:

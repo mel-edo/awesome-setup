@@ -468,7 +468,6 @@ Scope {
                                         anchors.fill: parent
                                         clip: true
                                         
-                                        // Speed up the text sliding animations so they don't fight the new mechanical fold
                                         pushEnter: Transition { NumberAnimation { property: "x"; from: menuStack.width; to: 0; duration: 150; easing.type: Easing.OutCubic } }
                                         pushExit: Transition { NumberAnimation { property: "x"; from: 0; to: -menuStack.width; duration: 150; easing.type: Easing.OutCubic } }
                                         popEnter: Transition { NumberAnimation { property: "x"; from: -menuStack.width; to: 0; duration: 150; easing.type: Easing.OutCubic } }
@@ -698,7 +697,6 @@ Scope {
                     }
                 }
                 
-                // 3. REUSABLE MENU COMPONENT
                 Component {
                     id: customMenuComponent
 
