@@ -647,10 +647,13 @@ Column {
                 color: root.connectingBt === modelData.mac ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.15) : (btItemHover.hovered ? Theme.surfaceHover : "transparent")
                 Behavior on color { ColorAnimation { duration: 100 } }
 
-                Row {
-                    anchors.fill: parent; anchors.leftMargin: 10; anchors.rightMargin: 10; spacing: 10
+                Item {
+                    anchors.fill: parent; anchors.leftMargin: 10; anchors.rightMargin: 10
 
                     Text {
+                        id: btTypeIcon
+                        anchors.left: parent.left
+                        anchors.verticalCenter: parent.verticalCenter
                         text: {
                             if (!modelData || !modelData.name) return "󰂯"
                             let n = modelData.name.toLowerCase()
@@ -661,35 +664,40 @@ Column {
                         }
                         color: modelData.connected === "1" ? Theme.accent : Theme.subtext
                         font.pixelSize: 18
-                        anchors.verticalCenter: parent.verticalCenter
+                    }
+
+                    Rectangle {
+                        id: btBatBadge
+                        visible: modelData.battery !== "--" && modelData.battery !== ""
+                        width: btBatRow.implicitWidth + 8; height: 16; radius: 8
+                        anchors.right: parent.right
+                        anchors.top: parent.top
+                        anchors.topMargin: 6
+                        color: Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.12)
+
+                        Row {
+                            id: btBatRow; anchors.centerIn: parent; spacing: 3
+                            Text { text: "󰥉"; color: Theme.accent; font.pixelSize: 9; anchors.verticalCenter: parent.verticalCenter }
+                            Text { text: modelData.battery + "%"; color: Theme.text; font.pixelSize: 9; font.bold: true; anchors.verticalCenter: parent.verticalCenter }
+                        }
                     }
 
                     Column {
+                        anchors.left: btTypeIcon.right
+                        anchors.leftMargin: 10
+                        anchors.right: btBatBadge.visible ? btBatBadge.left : parent.right
+                        anchors.rightMargin: btBatBadge.visible ? 8 : 0
                         anchors.verticalCenter: parent.verticalCenter
                         spacing: 2
-                        
-                        Row {
-                            spacing: 8
-                            Text {
-                                text: modelData.name || "Unknown"
-                                color: Theme.text; font.pixelSize: 12; font.bold: true
-                                elide: Text.ElideRight; width: Math.min(implicitWidth, 130)
-                            }
-                            
-                            Rectangle {
-                                visible: modelData.battery !== "--" && modelData.battery !== ""
-                                width: btBatRow.implicitWidth + 8; height: 16; radius: 8
-                                anchors.verticalCenter: parent.verticalCenter
-                                color: Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.12)
 
-                                Row {
-                                    id: btBatRow; anchors.centerIn: parent; spacing: 3
-                                    Text { text: "󰥉"; color: Theme.accent; font.pixelSize: 9; anchors.verticalCenter: parent.verticalCenter }
-                                    Text { text: modelData.battery + "%"; color: Theme.text; font.pixelSize: 9; font.bold: true; anchors.verticalCenter: parent.verticalCenter }
-                                }
-                            }
+                        Text {
+                            id: btNameText
+                            text: modelData.name || "Unknown"
+                            color: Theme.text; font.pixelSize: 12; font.bold: true
+                            elide: Text.ElideRight
+                            width: parent.width
                         }
-                        
+
                         Text {
                             text: modelData.connected === "1" ? "Connected" : (modelData.paired === "1" ? "Paired" : "Available")
                             color: modelData.connected === "1" ? Theme.accent : Theme.subtext

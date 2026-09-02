@@ -9,6 +9,7 @@ import Quickshell.Services.Notifications
 import QtQuick.Shapes
 import QtQuick.Effects
 import QtQuick.Layouts
+import QtQuick.Controls
 import QtQuick.Window
 import "."
 
@@ -116,6 +117,8 @@ Scope {
         property string lastTrackArtRaw: ""
         property bool isScreenSharing: false
         property bool isGpuRecording: false
+        property var pendingWallSwap: null
+        property string currentWallType: activeWallCache.includes("431960") ? "animated" : "static"
 
         onWasPlayingChanged: {
             if (wasPlaying) {
@@ -245,6 +248,46 @@ Scope {
             islandWindow.showClock = true
             alternateTimer.stop()
             hubStayTimer.restart()
+        }
+
+        Process { id: curtainProcess }
+
+        function beginWallTransition(type, path, rawPreview, mode) {
+            let nextCache = type === "animated" ? rawPreview : path
+            if (islandWindow.activeWallCache === nextCache) return
+            
+            islandWindow.pendingWallSwap = { type: type, path: path, rawPreview: rawPreview, mode: mode }
+            
+            let isWeInvolved = (islandWindow.currentWallType === "animated" || type === "animated")
+            
+            if (!isWeInvolved) {
+                islandWindow.activeWallCache = nextCache
+                islandWindow.runPendingWallSwap()
+                return
+            }
+
+            let curtainScript = "awww img --transition-type fade --transition-step 30 " + Quickshell.env("HOME") + "/.cache/mshell/curtain.png"
+            curtainProcess.command = ["bash", "-c", curtainScript]
+            curtainProcess.running = true
+            
+            islandWindow.activeWallCache = nextCache
+            wallSettleTimer.interval = 500
+            wallSettleTimer.restart()
+        }
+
+        Timer {
+            id: wallSettleTimer
+            onTriggered: islandWindow.runPendingWallSwap()
+        }
+
+        function runPendingWallSwap() {
+            if (!islandWindow.pendingWallSwap) return
+            let p = islandWindow.pendingWallSwap
+            islandWindow.pendingWallSwap = null
+            
+            let script = Quickshell.env("HOME") + "/.config/quickshell/mshell/scripts/set_wall.sh"
+            wallChangerProcess.command = ["bash", script, p.type, p.path, p.rawPreview, p.mode]
+            wallChangerProcess.running = true
         }
 
         function weatherIcon(code) {
@@ -391,7 +434,8 @@ Scope {
                     nSum: notification.summary || "",
                     nBod: stripMarkup(notification.body || ""),
                     nIco: notification.appIcon || "",
-                    nImg: notification.image || ""
+                    nImg: notification.image || "",
+                    nTime: Qt.formatDateTime(new Date(), "HH:mm")
                 })
                 if (!islandWindow.isDnd) {
                     hubDelayTimer.stop()
@@ -707,7 +751,7 @@ Scope {
             // Main Height vals
             height: {
                 if (islandWindow.islandState === "idle") return 34
-                if (islandWindow.islandState === "audio") return 56 + Math.max(1, audioPanel.outputDevices.length) * 40 + 16
+                if (islandWindow.islandState === "audio") return 56 + Math.max(1, Math.min(audioPanel.outputDevices.length, 4)) * 40 + 16
                 if (islandWindow.islandState === "osd") return 52
                 if (islandWindow.islandState === "media" || islandWindow.islandState === "hub" || islandWindow.islandState === "bluetooth") return 68
                 if (islandWindow.islandState === "wallpaper") return 290
@@ -951,7 +995,9 @@ Scope {
                         nBod: notifQueue.count > 0 ? notifQueue.get(0).nBod : ""
                         nIco: notifQueue.count > 0 ? notifQueue.get(0).nIco : ""
                         nImg: notifQueue.count > 0 ? notifQueue.get(0).nImg : ""
+                        nTime: notifQueue.count > 0 ? notifQueue.get(0).nTime : ""
                         index: 0
+                        isPopup: true
                         visible: notifQueue.count > 0
                     }
                 }
@@ -1081,6 +1127,7 @@ Scope {
                             nBod: model.nBod
                             nIco: model.nIco
                             nImg: model.nImg
+                            nTime: model.nTime
                             index: model.index
                         }
                         remove: Transition {
@@ -1830,10 +1877,7 @@ Scope {
                             TapHandler {
                                 onTapped: {
                                     let rawPreview = preview.replace("file://", "")
-                                    let script = Quickshell.env("HOME") + "/.config/quickshell/mshell/scripts/set_wall.sh"
-                                    islandWindow.activeWallCache = type === "animated" ? rawPreview : path
-                                    wallChangerProcess.command = ["bash", script, type, path, rawPreview, islandWindow.themeMode]
-                                    wallChangerProcess.running = true
+                                    islandWindow.beginWallTransition(type, path, rawPreview, islandWindow.themeMode)
                                     islandWindow.closeToIdle()
                                 }
                             }
@@ -1866,7 +1910,7 @@ Scope {
                 Item {
                     id: audioPanel
                     width: 440
-                    height: 56 + Math.max(1, outputDevices.length) * 40 + 16
+                    height: 56 + Math.max(1, Math.min(outputDevices.length, 4)) * 40 + 16
                     anchors.centerIn: parent
 
                     property bool isActive: islandWindow.islandState === "audio"
@@ -1908,127 +1952,140 @@ Scope {
                         text: "\u{f057e}  Sound"; color: Theme.text; font.pixelSize: 14; font.bold: true
                     }
 
-                    Column {
-                        anchors.top: audioHeader.bottom; anchors.topMargin: 16;
+                    ListView {
+                        id: audioDeviceList
+                        anchors.top: audioHeader.bottom; anchors.topMargin: 16
                         anchors.left: parent.left; anchors.right: parent.right
-                        anchors.margins: 20
+                        anchors.leftMargin: 20; anchors.rightMargin: 20
+                        height: Math.max(1, Math.min(audioPanel.outputDevices.length, 4)) * 40 - 8
                         spacing: 8
+                        clip: true
+                        model: audioPanel.outputDevices
+                        interactive: contentHeight > height
+                        boundsBehavior: Flickable.StopAtBounds
 
-                        Repeater {
-                            model: audioPanel.outputDevices
-                            Row {
-                                id: deviceRow
-                                required property var modelData
-                                width: parent.width
-                                height: 32
-                                spacing: 10
+                        ScrollBar.vertical: ScrollBar {
+                            policy: audioDeviceList.contentHeight > audioDeviceList.height + 2 ? ScrollBar.AlwaysOn : ScrollBar.AlwaysOff
+                            interactive: true
+                            contentItem: Rectangle {
+                                implicitWidth: 4
+                                radius: 2
+                                color: Theme.accent
+                            }
+                        }
 
-                                property bool isDefault: audioPanel.sinkNode && deviceRow.modelData.id === audioPanel.sinkNode.id
-                                property bool ready: deviceRow.modelData && deviceRow.modelData.ready && deviceRow.modelData.audio
-                                property real vol: deviceRow.ready ? deviceRow.modelData.audio.volume : 0
-                                property bool muted: deviceRow.ready ? deviceRow.modelData.audio.muted : false
+                        delegate: Row {
+                            id: deviceRow
+                            required property var modelData
+                            width: audioDeviceList.width - (audioDeviceList.ScrollBar.vertical.visible ? 10 : 0)
+                            height: 32
+                            spacing: 10
 
-                                // Icon
-                                Item {
-                                    width: 20; height: 32
+                            property bool isDefault: audioPanel.sinkNode && deviceRow.modelData.id === audioPanel.sinkNode.id
+                            property bool ready: deviceRow.modelData && deviceRow.modelData.ready && deviceRow.modelData.audio
+                            property real vol: deviceRow.ready ? deviceRow.modelData.audio.volume : 0
+                            property bool muted: deviceRow.ready ? deviceRow.modelData.audio.muted : false
+
+                            // Icon
+                            Item {
+                                width: 20; height: 32
+                                Text {
+                                    anchors.centerIn: parent
+                                    text: audioPanel.deviceIcon(deviceRow.modelData)
+                                    color: deviceRow.muted ? Theme.danger : (deviceRow.isDefault ? Theme.accent : Theme.subtext)
+                                    font.pixelSize: 13
+                                }
+                                HoverHandler { cursorShape: Qt.PointingHandCursor }
+                                TapHandler {
+                                    onTapped: if (deviceRow.ready) deviceRow.modelData.audio.muted = !deviceRow.modelData.audio.muted
+                                }
+                            }
+
+                            // Name
+                            Item {
+                                width: 110; height: 32
+                                Text {
+                                    anchors.left: parent.left
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    text: deviceRow.modelData.description || deviceRow.modelData.nickname || deviceRow.modelData.name
+                                    color: deviceRow.isDefault ? Theme.text : Theme.subtext
+                                    font.pixelSize: 12
+                                    font.bold: deviceRow.isDefault
+                                    elide: Text.ElideRight
+                                    width: parent.width
+                                }
+                                HoverHandler { cursorShape: Qt.PointingHandCursor }
+                                TapHandler { onTapped: Pipewire.preferredDefaultAudioSink = deviceRow.modelData }
+                            }
+
+                            // Volume bar
+                            Item {
+                                id: miniSlider
+                                width: parent.width - 20 - 110 - parent.spacing * 2
+                                height: 26
+                                anchors.verticalCenter: parent.verticalCenter
+
+                                property bool sliderHovered: false
+
+                                Rectangle { anchors.fill: parent; radius: height / 2; color: Theme.highlight }
+
+                                Rectangle {
+                                    anchors.left: parent.left; anchors.top: parent.top; anchors.bottom: parent.bottom
+                                    width: miniHead.x + miniHead.width
+                                    radius: height / 2
+                                    color: (deviceRow.muted ? 0 : deviceRow.vol) * 100 > 100 ? Theme.danger : (deviceRow.isDefault ? Theme.accent : Theme.subtext)
+                                    Behavior on color { ColorAnimation { duration: 150 } }
+                                }
+
+                                Rectangle {
+                                    id: miniHead
+                                    width: parent.height; height: parent.height
+                                    radius: width / 2
+                                    color: Theme.text
+                                    x: Math.max(0, Math.min(1, deviceRow.muted ? 0 : deviceRow.vol)) * (parent.width - width)
+                                    Behavior on x { enabled: !miniDrag.pressed; NumberAnimation { duration: 120; easing.type: Easing.OutQuad } }
+
                                     Text {
                                         anchors.centerIn: parent
-                                        text: audioPanel.deviceIcon(deviceRow.modelData)
-                                        color: deviceRow.muted ? Theme.danger : (deviceRow.isDefault ? Theme.accent : Theme.subtext)
+                                        text: {
+                                            if (deviceRow.muted || deviceRow.vol <= 0) return "\u{f0581}"
+                                            if (deviceRow.vol < 0.33) return "\u{f057f}"
+                                            if (deviceRow.vol < 0.66) return "\u{f0580}"
+                                            return "\u{f057e}"
+                                        }
+                                        color: Theme.background
                                         font.pixelSize: 13
+                                        opacity: miniSlider.sliderHovered ? 0 : 1
+                                        Behavior on opacity { NumberAnimation { duration: 200; easing.type: Easing.InOutQuad } }
                                     }
-                                    HoverHandler { cursorShape: Qt.PointingHandCursor }
-                                    TapHandler {
-                                        onTapped: if (deviceRow.ready) deviceRow.modelData.audio.muted = !deviceRow.modelData.audio.muted
-                                    }
-                                }
 
-                                // Name
-                                Item {
-                                    width: 110; height: 32
                                     Text {
-                                        anchors.left: parent.left
-                                        anchors.verticalCenter: parent.verticalCenter
-                                        text: deviceRow.modelData.description || deviceRow.modelData.nickname || deviceRow.modelData.name
-                                        color: deviceRow.isDefault ? Theme.text : Theme.subtext
-                                        font.pixelSize: 12
-                                        font.bold: deviceRow.isDefault
-                                        elide: Text.ElideRight
-                                        width: parent.width
+                                        anchors.centerIn: parent
+                                        text: Math.round((deviceRow.muted ? 0 : deviceRow.vol) * 100)
+                                        color: Theme.background
+                                        font.pixelSize: 11
+                                        font.bold: true
+                                        opacity: miniSlider.sliderHovered ? 1 : 0
+                                        Behavior on opacity { NumberAnimation { duration: 200; easing.type: Easing.InOutQuad } }
                                     }
-                                    HoverHandler { cursorShape: Qt.PointingHandCursor }
-                                    TapHandler { onTapped: Pipewire.preferredDefaultAudioSink = deviceRow.modelData }
                                 }
 
-                                // Volume bar
-                                Item {
-                                    id: miniSlider
-                                    width: parent.width - 20 - 110 - parent.spacing * 2
-                                    height: 26
-                                    anchors.verticalCenter: parent.verticalCenter
-
-                                    property bool sliderHovered: false
-
-                                    Rectangle { anchors.fill: parent; radius: height / 2; color: Theme.highlight }
-
-                                    Rectangle {
-                                        anchors.left: parent.left; anchors.top: parent.top; anchors.bottom: parent.bottom
-                                        width: miniHead.x + miniHead.width
-                                        radius: height / 2
-                                        color: (deviceRow.muted ? 0 : deviceRow.vol) * 100 > 100 ? Theme.danger : (deviceRow.isDefault ? Theme.accent : Theme.subtext)
-                                        Behavior on color { ColorAnimation { duration: 150 } }
-                                    }
-
-                                    Rectangle {
-                                        id: miniHead
-                                        width: parent.height; height: parent.height
-                                        radius: width / 2
-                                        color: Theme.text
-                                        x: Math.max(0, Math.min(1, deviceRow.muted ? 0 : deviceRow.vol)) * (parent.width - width)
-                                        Behavior on x { enabled: !miniDrag.pressed; NumberAnimation { duration: 120; easing.type: Easing.OutQuad } }
-
-                                        Text {
-                                            anchors.centerIn: parent
-                                            text: {
-                                                if (deviceRow.muted || deviceRow.vol <= 0) return "\u{f0581}"
-                                                if (deviceRow.vol < 0.33) return "\u{f057f}"
-                                                if (deviceRow.vol < 0.66) return "\u{f0580}"
-                                                return "\u{f057e}"
-                                            }
-                                            color: Theme.background
-                                            font.pixelSize: 13
-                                            opacity: miniSlider.sliderHovered ? 0 : 1
-                                            Behavior on opacity { NumberAnimation { duration: 200; easing.type: Easing.InOutQuad } }
-                                        }
-
-                                        Text {
-                                            anchors.centerIn: parent
-                                            text: Math.round((deviceRow.muted ? 0 : deviceRow.vol) * 100)
-                                            color: Theme.background
-                                            font.pixelSize: 11
-                                            font.bold: true
-                                            opacity: miniSlider.sliderHovered ? 1 : 0
-                                            Behavior on opacity { NumberAnimation { duration: 200; easing.type: Easing.InOutQuad } }
+                                MouseArea {
+                                    id: miniDrag
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    cursorShape: Qt.PointingHandCursor
+                                    onEntered: miniSlider.sliderHovered = true
+                                    onExited: miniSlider.sliderHovered = false
+                                    function updateVol(mx) {
+                                        let ratio = Math.max(0, Math.min(1, mx / width))
+                                        if (deviceRow.ready) {
+                                            deviceRow.modelData.audio.muted = false
+                                            deviceRow.modelData.audio.volume = ratio
                                         }
                                     }
-
-                                    MouseArea {
-                                        id: miniDrag
-                                        anchors.fill: parent
-                                        hoverEnabled: true
-                                        cursorShape: Qt.PointingHandCursor
-                                        onEntered: miniSlider.sliderHovered = true
-                                        onExited: miniSlider.sliderHovered = false
-                                        function updateVol(mx) {
-                                            let ratio = Math.max(0, Math.min(1, mx / width))
-                                            if (deviceRow.ready) {
-                                                deviceRow.modelData.audio.muted = false
-                                                deviceRow.modelData.audio.volume = ratio
-                                            }
-                                        }
-                                        onPressed: mouse => updateVol(mouse.x)
-                                        onPositionChanged: mouse => { if (pressed) updateVol(mouse.x) }
-                                    }
+                                    onPressed: mouse => updateVol(mouse.x)
+                                    onPositionChanged: mouse => { if (pressed) updateVol(mouse.x) }
                                 }
                             }
                         }

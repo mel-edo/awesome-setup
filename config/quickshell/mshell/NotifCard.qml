@@ -9,7 +9,9 @@ Item {
     property string nBod: ""
     property string nIco: ""
     property string nImg: ""
+    property string nTime: ""
     property int index: 0
+    property bool isPopup: false
 
     width: 380
     height: Math.max(iconRect.height + 12, textCol.height + 16)
@@ -30,7 +32,7 @@ Item {
     TapHandler {
         onTapped: {
             notifQueue.remove(root.index) 
-            islandWindow.closeToIdle()
+            if (root.isPopup) islandWindow.closeToIdle()
         }
     }
 
@@ -80,15 +82,36 @@ Item {
         
         property int textWidth: 300 
 
-        Text {
-            text: root.nApp 
-            color: Theme.accentAlt
-            font.pixelSize: 11
-            font.bold: true
+        Item {
             width: parent.textWidth
-            elide: Text.ElideRight
-            textFormat: Text.PlainText
-            renderType: Text.NativeRendering
+            height: appNameText.implicitHeight
+
+            Text {
+                id: appNameText
+                anchors.left: parent.left
+                anchors.right: timeText.left
+                anchors.rightMargin: root.nTime !== "" ? 6 : 0
+                anchors.verticalCenter: parent.verticalCenter
+                text: root.nApp
+                color: Theme.accentAlt
+                font.pixelSize: 11
+                font.bold: true
+                elide: Text.ElideRight
+                textFormat: Text.PlainText
+                renderType: Text.NativeRendering
+            }
+
+            Text {
+                id: timeText
+                anchors.right: parent.right
+                anchors.verticalCenter: appNameText.verticalCenter
+                text: root.nTime
+                color: Theme.subtext
+                font.pixelSize: 10
+                visible: root.nTime !== ""
+                textFormat: Text.PlainText
+                renderType: Text.NativeRendering
+            }
         }
 
         Text {
