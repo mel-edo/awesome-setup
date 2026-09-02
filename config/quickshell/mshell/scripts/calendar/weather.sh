@@ -5,22 +5,18 @@ URL="https://api.openweathermap.org/data/2.5/forecast?q=${CITY}&appid=${API_KEY}
 CACHE_FILE="/tmp/island_weather_cache.json"
 CACHE_MINUTES=30
 
-# 1. If valid non-empty cache exists and is fresh (<30m), return it
 if [ -s "$CACHE_FILE" ] && find "$CACHE_FILE" -mmin -"$CACHE_MINUTES" -print -quit 2>/dev/null | grep -q .; then
     cat "$CACHE_FILE"
     exit 0
 fi
 
-# 2. Fetch with a 5s connection and 10s max timeout
 RESPONSE=$(curl -s --connect-timeout 5 --max-time 10 "$URL")
 
 if [ -z "$RESPONSE" ]; then
-    # Network down: fallback to stale cache if available
     [ -s "$CACHE_FILE" ] && cat "$CACHE_FILE"
     exit 1
 fi
 
-# 3. Parse JSON safely
 NEW_DATA=$(echo "$RESPONSE" | python3 -c "
 import json, sys, datetime
 from collections import defaultdict
@@ -92,7 +88,6 @@ except Exception:
     sys.exit(1)
 ")
 
-# 4. Only overwrite cache if output is valid and non-empty
 if [ $? -eq 0 ] && [ -n "$NEW_DATA" ]; then
     echo "$NEW_DATA" > "$CACHE_FILE"
     echo "$NEW_DATA"
