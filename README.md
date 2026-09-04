@@ -1,6 +1,6 @@
-# mshell dots
+# mshell-dots
 
-https://github.com/mel-edo/awesome-setup/assets/90543784/25acfe82-682d-4f04-9ef8-c2461703d929
+https://github.com/user-attachments/assets/303bab8e-1210-4601-a3fc-da12fd016163
 
 ---
 
