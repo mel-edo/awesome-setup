@@ -4,33 +4,30 @@ https://github.com/user-attachments/assets/303bab8e-1210-4601-a3fc-da12fd016163
 
 ---
 
-<table>
-  <tr>
-    <td width="38%" valign="top">
-      <h4>Hyprland Rice</h4>
-      <p>Made on a 1920x1080 display</p>
-      <ul>
-        <li><b>Wallpapers from:</b> <a href="https://www.artstation.com/aenamiart">ArtStation</a> & <a href="https://store.steampowered.com/app/431960/Wallpaper_Engine/">Wallpaper Engine</a></li>
-        <li><b>Window Manager:</b> <a href="https://github.com/hyprwm/Hyprland">Hyprland</a></li>
-        <li><b>Terminal:</b> <a href="https://github.com/alacritty/alacritty">alacritty</a></li>
-        <li><b>Shell:</b> <a href="https://www.zsh.org/">zsh</a></li>
-        <li><b>Desktop shell / bar:</b> <a href="https://github.com/quickshell-mirror/quickshell">Quickshell</a></li>
-        <li><b>Color theming:</b> <a href="https://github.com/InioX/matugen">matugen</a></li>
-        <li><b>System fetch:</b> <a href="https://github.com/fastfetch-cli/fastfetch">fastfetch</a></li>
-        <li><b>Cursor theme:</b> <a href="https://github.com/catppuccin/cursors">catppuccin-dark</a></li>
-        <li><b>Folder theme:</b> <a href="https://github.com/PapirusDevelopmentTeam/papirus-icon-theme">Papirus</a> with <a href="https://github.com/catppuccin/papirus-folders">Catppuccin folder colors</a></li>
-        <li><b>GTK theme:</b> <a href="https://github.com/catppuccin/gtk">catppuccin</a></li>
-        <li><b>QT theme:</b> <a href="https://github.com/catppuccin/Kvantum">catppuccin with kvantum</a></li>
-      </ul>
-    </td>
-    <td width="62%" valign="top" align="center">
-      <a href="images/1.png"><img src="images/1.png" width="48%" /></a>
-      <a href="images/2.png"><img src="images/2.png" width="48%" /></a>
-      <a href="images/3.png"><img src="images/3.png" width="48%" /></a>
-      <a href="images/4.png"><img src="images/4.png" width="48%" /></a>
-    </td>
-  </tr>
-</table>
+## Hyprland Rice
+
+*Made on a 1920x1080 display*
+
+- **Wallpapers from:** [ArtStation](https://www.artstation.com/aenamiart) & [Wallpaper Engine](https://store.steampowered.com/app/431960/Wallpaper_Engine/)
+- **Window Manager:** [Hyprland](https://github.com/hyprwm/Hyprland)
+- **Terminal:** [alacritty](https://github.com/alacritty/alacritty)
+- **Shell:** [zsh](https://www.zsh.org/)
+- **Desktop shell / bar:** [Quickshell](https://github.com/quickshell-mirror/quickshell)
+- **Color theming:** [matugen](https://github.com/InioX/matugen)
+- **System fetch:** [fastfetch](https://github.com/fastfetch-cli/fastfetch)
+- **Cursor theme:** [catppuccin-dark](https://github.com/catppuccin/cursors)
+- **Folder theme:** [Papirus](https://github.com/PapirusDevelopmentTeam/papirus-icon-theme) with [Catppuccin folder colors](https://github.com/catppuccin/papirus-folders)
+- **GTK theme:** [catppuccin](https://github.com/catppuccin/gtk)
+- **QT theme:** [catppuccin with kvantum](https://github.com/catppuccin/Kvantum)
+
+<br/>
+
+<p align="center">
+  <a href="images/1.png"><img src="images/1.png" width="49%" alt="Screenshot 1" /></a>
+  <a href="images/2.png"><img src="images/2.png" width="49%" alt="Screenshot 2" /></a>
+  <a href="images/3.png"><img src="images/3.png" width="49%" alt="Screenshot 3" /></a>
+  <a href="images/4.png"><img src="images/4.png" width="49%" alt="Screenshot 4" /></a>
+</p>
 
 ---
 
@@ -95,7 +92,7 @@ Runs on Hyprland startup. Change as you wish
  
 ## Keybinds & Rules
  
-All keybindings, touchpad gestures, and window/layer rules are documented in **[KEYBINDS.md](KEYBINDS.md)**.
+For the complete list of shortcuts, media controls, gestures, and window/layer rules, see **[KEYBINDS.md](KEYBINDS.md)**.
  
 | Keybind | Action |
 |---|---|
@@ -105,54 +102,38 @@ All keybindings, touchpad gestures, and window/layer rules are documented in **[
 | `SUPER + Q` | Close window |
 | `SUPER + W` | Toggle overview |
 | `SUPER + Escape` | Toggle power menu |
- 
-> For the complete list of shortcuts, media controls, gestures, and window/layer rules, see **[KEYBINDS.md](KEYBINDS.md)**.
- 
+  
 ---
  
 ## Previous Rices
 
 ### Lavender (AwesomeWM)
 
-<table>
-  <tr>
-    <td width="38%" valign="top">
-      <h4>Catppuccin Lavender themed Rice</h4>
-      <ul>
-        <li><b>Branch:</b> <a href="https://github.com/mel-edo/awesome-setup/tree/Lavender"><code>Lavender</code></a></li>
-        <li><b>Window Manager:</b> <a href="https://github.com/awesomeWM/awesome">AwesomeWM</a></li>
-        <li><b>Bar:</b> <a href="https://github.com/polybar/polybar">Polybar</a></li>
-        <li><b>Compositor:</b> <a href="https://github.com/pijulius/picom">picom-pijulius</a></li>
-        <li><b>Wallpaper:</b> <a href="https://www.artstation.com/artwork/4Xa124">ArtStation</a></li>
-      </ul>
-    </td>
-    <td width="62%" valign="top" align="center">
-      <a href="https://raw.githubusercontent.com/mel-edo/awesome-setup/Lavender/images/1.png"><img src="https://raw.githubusercontent.com/mel-edo/awesome-setup/Lavender/images/1.png" width="48%" /></a>
-      <a href="https://raw.githubusercontent.com/mel-edo/awesome-setup/Lavender/images/2.png"><img src="https://raw.githubusercontent.com/mel-edo/awesome-setup/Lavender/images/2.png" width="48%" /></a>
-      <a href="https://raw.githubusercontent.com/mel-edo/awesome-setup/Lavender/images/3.png"><img src="https://raw.githubusercontent.com/mel-edo/awesome-setup/Lavender/images/3.png" width="48%" /></a>
-      <a href="https://raw.githubusercontent.com/mel-edo/awesome-setup/Lavender/images/4.png"><img src="https://raw.githubusercontent.com/mel-edo/awesome-setup/Lavender/images/4.png" width="48%" /></a>
-    </td>
-  </tr>
-</table>
+<a href="https://raw.githubusercontent.com/mel-edo/awesome-setup/Lavender/images/2.png"><img src="https://raw.githubusercontent.com/mel-edo/awesome-setup/Lavender/images/2.png" width="28%" align="right" /></a>
+<a href="https://raw.githubusercontent.com/mel-edo/awesome-setup/Lavender/images/1.png"><img src="https://raw.githubusercontent.com/mel-edo/awesome-setup/Lavender/images/1.png" width="28%" align="right" /></a>
+
+Catppuccin Lavender themed Rice
+
+- **Branch:** [`Lavender`](https://github.com/mel-edo/awesome-setup/tree/Lavender)
+- **Window Manager:** [AwesomeWM](https://github.com/awesomeWM/awesome)
+- **Bar:** [Polybar](https://github.com/polybar/polybar)
+- **Compositor:** [picom-pijulius](https://github.com/pijulius/picom)
+- **Wallpaper:** [ArtStation](https://www.artstation.com/artwork/4Xa124)
+
+<br clear="both" />
 
 ### Mauve (AwesomeWM)
 
-<table>
-  <tr>
-    <td width="38%" valign="top">
-      <h4>Catppuccin Mauve themed Rice</h4>
-      <ul>
-        <li><b>Branch:</b> <a href="https://github.com/mel-edo/awesome-setup/tree/Mauve"><code>Mauve</code></a></li>
-        <li><b>Window Manager:</b> <a href="https://github.com/awesomeWM/awesome">AwesomeWM</a></li>
-        <li><b>Wallpaper:</b> <a href="https://www.artstation.com/artwork/4bX4eY">ArtStation</a></li>
-      </ul>
-    </td>
-    <td width="62%" valign="top" align="center">
-      <a href="https://raw.githubusercontent.com/mel-edo/awesome-setup/Mauve/images/1.png"><img src="https://raw.githubusercontent.com/mel-edo/awesome-setup/Mauve/images/1.png" width="48%" /></a>
-      <a href="https://raw.githubusercontent.com/mel-edo/awesome-setup/Mauve/images/2.png"><img src="https://raw.githubusercontent.com/mel-edo/awesome-setup/Mauve/images/2.png" width="48%" /></a>
-    </td>
-  </tr>
-</table>
+<a href="https://raw.githubusercontent.com/mel-edo/awesome-setup/Mauve/images/2.png"><img src="https://raw.githubusercontent.com/mel-edo/awesome-setup/Mauve/images/2.png" width="28%" align="right" /></a>
+<a href="https://raw.githubusercontent.com/mel-edo/awesome-setup/Mauve/images/1.png"><img src="https://raw.githubusercontent.com/mel-edo/awesome-setup/Mauve/images/1.png" width="28%" align="right" /></a>
+
+Catppuccin Mauve themed Rice
+
+- **Branch:** [`Mauve`](https://github.com/mel-edo/awesome-setup/tree/Mauve)
+- **Window Manager:** [AwesomeWM](https://github.com/awesomeWM/awesome)
+- **Wallpaper:** [ArtStation](https://www.artstation.com/artwork/4bX4eY)
+
+<br clear="both" />
 
 ---
  
@@ -163,9 +144,7 @@ All keybindings, touchpad gestures, and window/layer rules are documented in **[
 - [Devvvmn](https://github.com/Devvvmn/ActivSpot)
 ---
 
-### Star History:
-
-<img src="https://img.shields.io/github/stars/MeledoJames/awesome-setup?color=b4befe&labelColor=1e1e2e&style=for-the-badge" align="right" />
+### Star History: <a href="https://github.com/mel-edo/awesome-setup/stargazers"><img src="https://img.shields.io/github/stars/MeledoJames/awesome-setup?color=b4befe&labelColor=1e1e2e&style=for-the-badge" align="right" /></a>
 
 <a href="https://www.star-history.com/#mel-edo/awesome-setup&Date">
  <picture>
