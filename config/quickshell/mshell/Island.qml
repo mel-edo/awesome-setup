@@ -437,6 +437,11 @@ Scope {
                     nImg: notification.image || "",
                     nTime: Qt.formatDateTime(new Date(), "HH:mm")
                 })
+
+                if (notifQueue.count > 50) {
+                    notifQueue.remove(50)
+                }
+
                 if (!islandWindow.isDnd) {
                     hubDelayTimer.stop()
                     hubStayTimer.stop()
