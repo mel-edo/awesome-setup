@@ -57,20 +57,10 @@ hl.bind("ALT + Tab", hl.dsp.window.bring_to_top())
 hl.bind(mainMod .. " + A", hl.dsp.global("quickshell:toggleLauncher"))
 hl.bind(mainMod .. " + escape", hl.dsp.global("quickshell:togglePowerMenu"))
 hl.bind(mainMod .. " + W", hl.dsp.global("quickshell:toggleOverview"))
-hl.bind(
-	"Next",
-	hl.dsp.exec_cmd(
-		'sh -c \'FILE=~/Pictures/$(date +%Y-%m-%d_%H-%M-%S).png; REGION=$(slurp) && sleep 0.1 && grim -g "$REGION" "$FILE" && wl-copy < "$FILE" && notify-send "Screenshot" "Saved and copied to clipboard"\''
-	)
-)
-hl.bind(
-	"f12",
-	hl.dsp.exec_cmd(
-		'sh -c \'FILE=~/Pictures/$(date +%Y-%m-%d_%H-%M-%S).png; REGION=$(slurp) && sleep 0.1 && grim -g "$REGION" "$FILE" && wl-copy < "$FILE" && notify-send "Screenshot" "Saved and copied to clipboard"\''
-	)
-)
-hl.bind("SHIFT + Next", hl.dsp.exec_cmd("sh -c '~/.config/hypr/ocr.sh'"))
-hl.bind("SHIFT + f12", hl.dsp.exec_cmd("sh -c '~/.config/hypr/ocr.sh'"))
+hl.bind("Next", hl.dsp.global("quickshell:regionScreenshot"))
+hl.bind("f12", hl.dsp.global("quickshell:regionScreenshot"))
+hl.bind("SHIFT + Next", hl.dsp.global("quickshell:regionOcr"))
+hl.bind("SHIFT + f12", hl.dsp.global("quickshell:regionOcr"))
 hl.bind("SUPER + L", hl.dsp.global("quickshell:triggerSessionLock"))
 hl.bind("SHIFT + ALT +  0", hl.dsp.exec_cmd("sh -c '~/.config/quickshell/mshell/scripts/gsr-toggle.sh'"))
 hl.bind(mainMod .. " + Z", hl.dsp.exec_cmd("killall qs"))
@@ -507,6 +497,14 @@ hl.layer_rule({
 		namespace = "^(quickshell).*",
 	},
 	no_anim = true,
+})
+
+hl.layer_rule({
+	name = "layerrule-region-selector",
+	match = {
+		namespace = "^(mshell-region-selector).*",
+	},
+	animation = "fade",
 })
 
 hl.config({

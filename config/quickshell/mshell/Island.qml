@@ -34,29 +34,59 @@ Scope {
     }
 
     PwObjectTracker {
-        objects: Pipewire.nodes.values
+        objects: [ Pipewire.defaultAudioSource ].concat(Pipewire.nodes.values)
     }
 
     Connections {
         target: Pipewire.nodes
-        function onValuesChanged() { updateScreenShareState() }
+        function onValuesChanged() {
+            updateScreenShareState()
+        }
     }
 
     function updateScreenShareState() {
         let sharing = false
-        for (let i = 0; i < Pipewire.nodes.values.length; i++) {
-            let node = Pipewire.nodes.values[i]
-            let p = node.properties
-            if (p && p["media.class"] === "Video/Source" && (p["node.name"] || "").startsWith("xdg-desktop-portal")) {
-                console.log("[pw] candidate node state raw value:", node.state, typeof node.state)
-                sharing = true
-                break
+        if (Pipewire.nodes && Pipewire.nodes.values) {
+            for (let i = 0; i < Pipewire.nodes.values.length; i++) {
+                let node = Pipewire.nodes.values[i]
+                if (!node) continue
+                let p = node.properties || {}
+                let nodeName = (p["node.name"] || node.name || "").toLowerCase()
+                let mediaClass = p["media.class"] || ""
+                let mediaRole = p["media.role"] || ""
+                
+                // Detect xdg-desktop-portal-hyprland screencast streams (xdph-streaming-...)
+                // or general portal screencopy streams
+                if (nodeName.startsWith("xdph-") || nodeName.startsWith("xdg-desktop-portal") || nodeName.includes("screencopy")) {
+                    sharing = true
+                    break
+                }
+                // Check if Video/Source node exists that is not a hardware webcam
+                if (mediaClass === "Video/Source" && mediaRole !== "Camera" && !nodeName.includes("v4l2")) {
+                    sharing = true
+                    break
+                }
+                if (mediaClass === "Stream/Input/Video" || mediaClass === "Stream/Output/Video") {
+                    sharing = true
+                    break
+                }
             }
         }
         islandWindow.isScreenSharing = sharing || islandWindow.isGpuRecording
     }
 
-    Component.onCompleted: updateScreenShareState()
+    Timer {
+        interval: 1500
+        running: true
+        repeat: true
+        onTriggered: {
+            updateScreenShareState()
+        }
+    }
+
+    Component.onCompleted: {
+        updateScreenShareState()
+    }
 
     Connections {
         target: Pipewire.defaultAudioSink ? Pipewire.defaultAudioSink.audio : null
@@ -78,7 +108,10 @@ Scope {
         implicitHeight: 500
         implicitWidth: Screen.width
         color: "transparent"
-        mask: Region { item: mainPill }
+        mask: Region {
+            Region { item: mainPill }
+            Region { item: recSatellite }
+        }
         property var cavaValues: []
         property bool cavaActive: false
         property bool showClock: true
@@ -117,6 +150,12 @@ Scope {
         property string lastTrackArtRaw: ""
         property bool isScreenSharing: false
         property bool isGpuRecording: false
+        readonly property bool isMediaPlaying: activePlayer !== null && (activePlayer.playbackState === 1 || activePlayer.playbackState === "Playing")
+        readonly property string currentArtUrl: persistentArtUrl || (activePlayer ? (activePlayer.trackArtUrl || "") : "")
+        readonly property real mediaProgress: {
+            if (!activePlayer || !activePlayer.length || activePlayer.length <= 0) return 0.0
+            return Math.min(1.0, Math.max(0.0, (activePlayer.position || 0) / activePlayer.length))
+        }
         property var pendingWallSwap: null
         property string currentWallType: activeWallCache.includes("431960") ? "animated" : "static"
 
@@ -750,48 +789,62 @@ Scope {
 
         Rectangle {
             id: mainPill
-            anchors.horizontalCenter: parent.horizontalCenter
+            x: (parent.width - width) / 2
             anchors.top: parent.top
             
             // Main Width vals
             width: {
-                if (islandWindow.islandState === "idle") return 180 + (islandWindow.isScreenSharing ? 24 : 0)
-                if (islandWindow.islandState === "audio") return 460
-                if (islandWindow.islandState === "osd") return 252
-                if (islandWindow.islandState === "media" || islandWindow.islandState === "hub" || islandWindow.islandState === "bluetooth") return 350
-                if (islandWindow.islandState === "notification" || islandWindow.islandState === "notifications") return 410
-                if (islandWindow.islandState === "calendar" || islandWindow.islandState === "wallpaper") return 660
-                return 180
+                let baseW = 180;
+                if (islandWindow.islandState === "idle") baseW = 180
+                else if (islandWindow.islandState === "audio") baseW = 460
+                else if (islandWindow.islandState === "osd") baseW = 252
+                else if (islandWindow.islandState === "media" || islandWindow.islandState === "hub" || islandWindow.islandState === "bluetooth") baseW = 350
+                else if (islandWindow.islandState === "notification" || islandWindow.islandState === "notifications") baseW = 410
+                else if (islandWindow.islandState === "calendar" || islandWindow.islandState === "wallpaper") baseW = 660
+
+                return baseW
             }
             
             // Main Height vals
             height: {
-                if (islandWindow.islandState === "idle") return 34
-                if (islandWindow.islandState === "audio") return 56 + Math.max(1, Math.min(audioPanel.outputDevices.length, 4)) * 40 + 16
-                if (islandWindow.islandState === "osd") return 52
-                if (islandWindow.islandState === "media" || islandWindow.islandState === "hub" || islandWindow.islandState === "bluetooth") return 68
-                if (islandWindow.islandState === "wallpaper") return 290
-                if (islandWindow.islandState === "calendar") return 320
-                if (islandWindow.islandState === "notification") {
-                    if (notifQueue.count === 0) return 34
-                    return singleNotifCard.height + 16
+                let baseH = 34;
+                if (islandWindow.islandState === "idle") baseH = 34
+                else if (islandWindow.islandState === "audio") baseH = 56 + Math.max(1, Math.min(audioPanel.outputDevices.length, 4)) * 40 + 16
+                else if (islandWindow.islandState === "osd") baseH = 52
+                else if (islandWindow.islandState === "media" || islandWindow.islandState === "hub" || islandWindow.islandState === "bluetooth") baseH = 68
+                else if (islandWindow.islandState === "wallpaper") baseH = 290
+                else if (islandWindow.islandState === "calendar") baseH = 320
+                else if (islandWindow.islandState === "notification") {
+                    if (notifQueue.count === 0) baseH = 34
+                    else baseH = singleNotifCard.height + 16
                 }
-                if (islandWindow.islandState === "notifications") {
-                    if (notifQueue.count === 0) return 68 
-                    return notifCenterContainer.height + 16
+                else if (islandWindow.islandState === "notifications") {
+                    if (notifQueue.count === 0) baseH = 68 
+                    else baseH = notifCenterContainer.height + 16
                 }
-                return 34
+
+                return baseH
             }
-            
             radius: {
-                if (islandWindow.islandState === "calendar" || islandWindow.islandState === "notifications") return 24
-                return height / 3
+                if (islandWindow.islandState === "calendar" || islandWindow.islandState === "wallpaper" || islandWindow.islandState === "audio" || islandWindow.islandState === "notifications") return 24
+                return Math.min(24, height / 3)
             }
             topLeftRadius: 0
             topRightRadius: 0
             
-            color: Theme.surface
+            color: recMorphSurface.visible ? "transparent" : Theme.surface
             clip: true
+
+            // Mask to keep top corners sharp during fluid morph animation
+            Rectangle {
+                anchors.top: parent.top
+                anchors.left: parent.left
+                anchors.right: parent.right
+                height: parent.radius
+                color: Theme.surface
+                visible: recMorphSurface.visible
+                z: -1
+            }
 
             scale: 1.0
             Behavior on scale { NumberAnimation { duration: 120; easing.type: Easing.OutElastic; easing.overshoot: 2.0 } }
@@ -836,62 +889,7 @@ Scope {
                 anchors.fill: parent
                 anchors.margins: 8
 
-                Item {
-                    id: recIndicator
-                    width: 18; height: 18
-                    anchors.right: parent.right
-                    anchors.rightMargin: 6
-                    anchors.verticalCenter: parent.verticalCenter
 
-                    property bool wantsShow: islandWindow.isScreenSharing && islandWindow.islandState === "idle" && !cavaRow.isActiveCava
-                    property bool shouldShow: false
-
-                    onWantsShowChanged: {
-                        if (wantsShow) {
-                            pillSettleTimer.restart()
-                        } else {
-                            pillSettleTimer.stop()
-                            shouldShow = false
-                        }
-                    }
-
-                    Connections {
-                        target: mainPill
-                        function onWidthChanged() { if (recIndicator.wantsShow) pillSettleTimer.restart() }
-                        function onHeightChanged() { if (recIndicator.wantsShow) pillSettleTimer.restart() }
-                    }
-
-                    Timer {
-                        id: pillSettleTimer
-                        interval: 50
-                        onTriggered: recIndicator.shouldShow = recIndicator.wantsShow
-                    }
-
-                    visible: opacity > 0
-                    opacity: shouldShow ? 1 : 0
-                    Behavior on opacity { NumberAnimation { duration: 250; easing.type: Easing.OutQuad } }
-
-                    Rectangle {
-                        id: recRing
-                        anchors.centerIn: parent
-                        width: 18; height: 18; radius: 9
-                        color: "transparent"
-                        border.width: 2
-                        border.color: Theme.accent
-                        SequentialAnimation on opacity {
-                            running: recIndicator.visible
-                            loops: Animation.Infinite
-                            NumberAnimation { to: 0.2; duration: 850; easing.type: Easing.InOutQuad }
-                            NumberAnimation { to: 0.9; duration: 850; easing.type: Easing.InOutQuad }
-                        }
-                    }
-
-                    Rectangle {
-                        anchors.centerIn: parent
-                        width: 8; height: 8; radius: 4
-                        color: Theme.accent
-                    }
-                }
 
                 Item {
                     id: osdLayout
@@ -1182,8 +1180,6 @@ Scope {
                 // Idle clock
                 Text {
                     anchors.centerIn: parent
-                    anchors.horizontalCenterOffset: (islandWindow.isScreenSharing && islandWindow.islandState === "idle") ? -12 : 0
-                    Behavior on anchors.horizontalCenterOffset { NumberAnimation { duration: 300; easing.type: Easing.OutBack } }
                     text: Qt.formatDateTime(new Date(), "HH:mm:ss • ddd, MMM dd")
                     color: Theme.text
                     font.pixelSize: 14
@@ -2378,6 +2374,143 @@ Scope {
                             }
                         }
                     }
+                }
+            }
+        }
+
+        function smoothStep(value) {
+            let clamped = Math.max(0, Math.min(1, value));
+            return clamped * clamped * (3 - 2 * clamped);
+        }
+
+        function interpolate(from, to, value) {
+            return from + (to - from) * smoothStep(value);
+        }
+
+        PillMorphSurface {
+            id: recMorphSurface
+            anchors.fill: parent
+            mainCenter: Qt.vector2d(mainPill.x + mainPill.width / 2, mainPill.y + mainPill.height / 2)
+            mainSize: Qt.vector2d(mainPill.width, mainPill.height)
+            mainRadius: mainPill.radius
+            satelliteCenter: Qt.vector2d(recSatellite.x + recSatellite.width / 2, recSatellite.y + recSatellite.height / 2)
+            satelliteSize: Qt.vector2d(recSatellite.width, recSatellite.height)
+            satelliteRadius: recSatellite.height / 2
+            blendRadius: recSatellite.customBlendRadius
+            surfaceColor: Theme.surface
+            visible: recSatellite.customBlendRadius > 0.01 && islandWindow.islandState === "idle"
+            z: mainPill.z - 1
+        }
+
+        Item {
+            id: recSatellite
+            
+            property bool isEmerging: (islandWindow.isGpuRecording || islandWindow.isScreenSharing)
+            property real customOffsetX: -17
+            property real customBlendRadius: 0
+            property bool morphFinished: false
+
+            onIsEmergingChanged: {
+                emergeAnim.stop()
+                disappearAnim.stop()
+                if (isEmerging) {
+                    emergeAnim.start()
+                } else {
+                    disappearAnim.start()
+                }
+            }
+
+            SequentialAnimation {
+                id: emergeAnim
+                PropertyAction { target: recSatellite; property: "morphFinished"; value: false }
+                ParallelAnimation {
+                    SequentialAnimation {
+                        NumberAnimation { target: recSatellite; property: "customOffsetX"; to: 28; duration: 500; easing.type: Easing.OutCubic }
+                        NumberAnimation { target: recSatellite; property: "customOffsetX"; to: 26; duration: 250; easing.type: Easing.InOutQuad }
+                    }
+                    SequentialAnimation {
+                        NumberAnimation { target: recSatellite; property: "customBlendRadius"; to: 20; duration: 250; easing.type: Easing.OutQuad }
+                        NumberAnimation { target: recSatellite; property: "customBlendRadius"; to: 14; duration: 180; easing.type: Easing.InOutQuad }
+                        NumberAnimation { target: recSatellite; property: "customBlendRadius"; to: 8; duration: 70; easing.type: Easing.InOutQuad }
+                        NumberAnimation { target: recSatellite; property: "customBlendRadius"; to: 0; duration: 1; }
+                    }
+                }
+                PropertyAction { target: recSatellite; property: "morphFinished"; value: true }
+            }
+
+            SequentialAnimation {
+                id: disappearAnim
+                PropertyAction { target: recSatellite; property: "morphFinished"; value: false }
+                ParallelAnimation {
+                    NumberAnimation { target: recSatellite; property: "customOffsetX"; to: -17; duration: 400; easing.type: Easing.InCubic }
+                    
+                    SequentialAnimation {
+                        PauseAnimation { duration: 130 }
+                        NumberAnimation { target: recSatellite; property: "customBlendRadius"; to: 20; duration: 40; easing.type: Easing.OutQuad }
+                        NumberAnimation { target: recSatellite; property: "customBlendRadius"; to: 0; duration: 230; easing.type: Easing.InQuad }
+                    }
+                }
+            }
+
+            opacity: (isEmerging || customOffsetX > -16) && islandWindow.islandState === "idle" ? 1 : 0
+            visible: opacity > 0
+            Behavior on opacity { NumberAnimation { duration: 200; easing.type: Easing.OutQuad } }
+
+            readonly property real satelliteDiameter: 26
+
+            z: mainPill.z - 1
+            x: (mainPill.x + mainPill.width) + customOffsetX - (satelliteDiameter / 2)
+            y: mainPill.y + (mainPill.height - satelliteDiameter) / 2
+            width: satelliteDiameter
+            height: satelliteDiameter
+
+            // Satellite background
+            Rectangle {
+                id: satBg
+                anchors.fill: parent
+                radius: height / 2
+                color: Theme.surface
+            }
+
+            // Delayed inner contents
+            Item {
+                anchors.fill: parent
+                opacity: recSatellite.morphFinished ? 1.0 : 0.0
+                Behavior on opacity { NumberAnimation { duration: 150; easing.type: Easing.InOutQuad } }
+
+                // Pulsing recording dot
+                Rectangle {
+                    id: recDot
+                    anchors.centerIn: parent
+                    width: 8
+                    height: 8
+                    radius: 4
+                    color: Theme.accent
+                    
+                    SequentialAnimation on opacity {
+                        running: true
+                        loops: Animation.Infinite
+                        NumberAnimation { from: 0.35; to: 1.0; duration: 750; easing.type: Easing.InOutSine }
+                        NumberAnimation { from: 1.0; to: 0.35; duration: 750; easing.type: Easing.InOutSine }
+                    }
+                    SequentialAnimation on scale {
+                        running: true
+                        loops: Animation.Infinite
+                        NumberAnimation { from: 0.85; to: 1.15; duration: 750; easing.type: Easing.InOutSine }
+                        NumberAnimation { from: 1.15; to: 0.85; duration: 750; easing.type: Easing.InOutSine }
+                    }
+                }
+
+                // Outer glowing halo ring
+                Rectangle {
+                    anchors.centerIn: parent
+                    width: 16
+                    height: 16
+                    radius: 8
+                    color: "transparent"
+                    border.width: 1
+                    border.color: Theme.accent
+                    opacity: recDot.opacity * 0.7
                 }
             }
         }

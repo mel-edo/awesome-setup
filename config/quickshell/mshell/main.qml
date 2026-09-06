@@ -50,9 +50,33 @@ ShellRoot {
         onPressed: shellRoot.powerMenuOpen = !shellRoot.powerMenuOpen
     }
 
+    GlobalShortcut {
+        name: "regionScreenshot"
+        onPressed: RegionSelectionService.begin("screenshot")
+    }
+
+    GlobalShortcut {
+        name: "regionOcr"
+        onPressed: RegionSelectionService.begin("ocr")
+    }
+
+    IpcHandler {
+        target: "screenshot"
+        function start() {
+            RegionSelectionService.begin("screenshot")
+        }
+        function ocr() {
+            RegionSelectionService.begin("ocr")
+        }
+        function cancel() {
+            RegionSelectionService.cancel()
+        }
+    }
+
     Bar {}
     Island {}
     LockScreen {}
+    RegionSelector {}
     
     Variants {
         model: Quickshell.screens

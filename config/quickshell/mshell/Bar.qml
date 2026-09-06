@@ -6,6 +6,7 @@ import Quickshell.Hyprland
 import Quickshell.Io
 import Quickshell.Services.SystemTray
 import Quickshell.Services.UPower
+import Quickshell.Widgets
 import "."
 
 
@@ -498,7 +499,7 @@ Scope {
                 layer: WlrLayer.Top
                 color: "transparent"
                 exclusiveZone: 0
-                implicitWidth: 350 
+                implicitWidth: 380 
                 mask: Region { item: trayRoot }
                 
                 visible: SystemTray.items.values.length > 0
@@ -507,10 +508,11 @@ Scope {
                 property string activeMenuId: ""
                 property string activeMenuName: ""
                 property real activeMenuY: 0
+                property real activeMenuIconCenterY: 0
                 property bool isMenuOpen: activeMenuHandle !== null
                 Timer {
                     id: stateResetTimer
-                    interval: 100 
+                    interval: 200 
                     onTriggered: {
                         trayDrawerWindow.keepOpen = false
                         trayDrawerWindow.activeMenuHandle = null
@@ -545,37 +547,67 @@ Scope {
                         id: flyoutContainer
                         anchors.top: parent.top
                         anchors.right: trayContainer.left 
+                        anchors.rightMargin: 0
                         
-                        width: flyoutClip.width
+                        width: flyoutClip.width + 6
                         height: parent.height
 
                         Item {
                             id: flyoutClip
                             anchors.right: parent.right
-                            width: trayDrawerWindow.isMenuOpen ? 220 : 0
+                            width: trayDrawerWindow.isMenuOpen ? 250 : 0
                             height: flyoutBackground.height
                             y: trayDrawerWindow.activeMenuY
                             clip: true
 
                             Behavior on width { NumberAnimation { duration: 250; easing.type: Easing.OutExpo } }
-                            Behavior on y { NumberAnimation { duration: 150; easing.type: Easing.OutQuad } }
+                            Behavior on y { NumberAnimation { duration: 180; easing.type: Easing.OutQuad } }
 
                             Rectangle {
                                 id: flyoutBackground
                                 anchors.right: parent.right
-                                width: 220
+                                anchors.rightMargin: 10
+                                width: 230
                                 height: Math.min(Math.max(menuStack.currentItem?.implicitHeight || 80, 50), 450)
                                 Behavior on height { NumberAnimation { duration: 150; easing.type: Easing.OutExpo } }
 
-                                topLeftRadius: 12
-                                bottomLeftRadius: 12
+                                radius: 12
                                 color: Theme.surface
                                 border.width: 1
-                                border.color: Qt.rgba(Theme.subtext.r, Theme.subtext.g, Theme.subtext.b, 0.15)
+                                border.color: Theme.highlight
+
+                                Item {
+                                    anchors.verticalCenter: parent.top
+                                    anchors.verticalCenterOffset: Math.max(16, Math.min(parent.height - 16, trayDrawerWindow.activeMenuIconCenterY - flyoutClip.y))
+                                    anchors.horizontalCenter: parent.right
+                                    anchors.horizontalCenterOffset: 1
+                                    width: 20; height: 20
+                                    visible: trayDrawerWindow.isMenuOpen
+                                    z: 10
+
+                                    // Diamond rotated 45 degrees
+                                    Rectangle {
+                                        anchors.centerIn: parent
+                                        width: 16; height: 16
+                                        rotation: 45
+                                        color: Theme.surface
+                                        border.width: 1
+                                        border.color: Theme.highlight
+                                    }
+
+                                    Rectangle {
+                                        anchors.right: parent.horizontalCenter
+                                        anchors.top: parent.top
+                                        anchors.bottom: parent.bottom
+                                        width: 10
+                                        color: Theme.surface
+                                    }
+                                }
 
                                 StackView {
                                     id: menuStack
                                     anchors.fill: parent
+                                    anchors.margins: 2
                                     clip: true
                                     pushEnter: null
                                     pushExit: null
@@ -638,13 +670,14 @@ Scope {
                                 clip: true
                                 
                                 delegate: Rectangle {
+                                    id: trayItemDelegate
                                     required property var modelData
-                                    property string itemId: modelData.id || modelData.title || index.toString()
-                                    
-                                    width: 26; height: 26; radius: 6
+                                    width: 28; height: 28; radius: 7
                                     anchors.horizontalCenter: parent ? parent.horizontalCenter : undefined
                                     
-                                    color: "transparent"
+                                    color: iconHover.hovered ? Theme.surfaceHover : "transparent"
+                                    border.width: 0
+                                    Behavior on color { ColorAnimation { duration: 120 } }
 
                                     Image {
                                         anchors.centerIn: parent
@@ -671,19 +704,18 @@ Scope {
                                                 trayDrawerWindow.activeMenuId = ""
                                             } else if (button === Qt.RightButton) {
                                                 if (modelData.hasMenu) {
-                                                    if (trayDrawerWindow.activeMenuId !== itemId) {
-                                                        trayDrawerWindow.activeMenuId = itemId
+                                                    if (trayDrawerWindow.activeMenuHandle !== modelData.menu) {
                                                         trayDrawerWindow.activeMenuHandle = modelData.menu
-                                                        trayDrawerWindow.activeMenuName = modelData.title || "Options"
+                                                        trayDrawerWindow.activeMenuName = (modelData.title || "Options").replace(/&/g, '')
                                                         
-                                                        let localPos = parent.mapToItem(trayRoot, 0, 0)
-                                                        trayDrawerWindow.activeMenuY = Math.max(0, localPos.y - 10)
+                                                        let localPos = trayItemDelegate.mapToItem(trayRoot, 0, 0)
+                                                        trayDrawerWindow.activeMenuIconCenterY = localPos.y + trayItemDelegate.height / 2
+                                                        trayDrawerWindow.activeMenuY = Math.max(6, Math.min(localPos.y - 12, trayRoot.height - 80))
                                                         
                                                         menuStack.clear()
                                                         menuStack.push(customMenuComponent, { handle: modelData.menu, appName: trayDrawerWindow.activeMenuName }, StackView.Immediate)
                                                     } else {
                                                         trayDrawerWindow.activeMenuHandle = null
-                                                        trayDrawerWindow.activeMenuId = ""
                                                     }
                                                 } else {
                                                     modelData.secondaryActivate()
@@ -712,25 +744,42 @@ Scope {
                             anchors.margins: 10
                             spacing: 8
 
-                            Row {
-                                spacing: 8
+                            Item {
+                                width: parent.width
+                                height: 22
+
                                 Rectangle {
-                                    width: 24; height: 24; radius: 6
+                                    id: backBtn
+                                    width: 22; height: 22; radius: 6
+                                    anchors.left: parent.left
+                                    anchors.verticalCenter: parent.verticalCenter
                                     color: backHover.hovered ? Theme.surfaceHover : "transparent"
-                                    Text { anchors.centerIn: parent; text: ""; color: Theme.text; font.pixelSize: 12 } 
+                                    visible: menuStack.depth > 1
+                                    Text { anchors.centerIn: parent; text: ""; color: Theme.text; font.pixelSize: 11 } 
                                     HoverHandler { id: backHover; cursorShape: Qt.PointingHandCursor }
                                     TapHandler { onTapped: menuStack.pop() }
                                 }
+
                                 Text {
                                     text: appName
-                                    color: Theme.text; font.pixelSize: 13; font.bold: true
+                                    color: Theme.accent
+                                    font.pixelSize: 12
+                                    font.bold: true
                                     anchors.verticalCenter: parent.verticalCenter
-                                    width: 150
+                                    anchors.left: (menuStack.depth > 1) ? backBtn.right : parent.left
+                                    anchors.leftMargin: (menuStack.depth > 1) ? 8 : 4
+                                    anchors.right: parent.right
+                                    anchors.rightMargin: 4
+                                    horizontalAlignment: Text.AlignLeft
                                     elide: Text.ElideRight
                                 }
                             }
 
-                            Rectangle { width: parent.width; height: 1; color: Qt.rgba(Theme.subtext.r, Theme.subtext.g, Theme.subtext.b, 0.2) }
+                            Rectangle { 
+                                width: parent.width
+                                height: 1
+                                color: Qt.rgba(Theme.subtext.r, Theme.subtext.g, Theme.subtext.b, 0.2) 
+                            }
 
                             QsMenuOpener { id: menuOpener; menu: handle }
 
@@ -743,36 +792,79 @@ Scope {
                                 interactive: false 
                                 
                                 delegate: Rectangle {
+                                    id: menuItemRoot
                                     required property var modelData
-                                    width: parent ? parent.width : 0
-                                    height: modelData.isSeparator ? 1 : 28 
+                                    anchors.left: parent ? parent.left : undefined
+                                    anchors.right: parent ? parent.right : undefined
+                                    height: modelData.isSeparator ? 9 : 28 
                                     radius: 6
-                                    color: modelData.isSeparator ? Qt.rgba(Theme.subtext.r, Theme.subtext.g, Theme.subtext.b, 0.15) : (menuItemHover.hovered ? Theme.surfaceHover : "transparent")
+                                    color: modelData.isSeparator ? "transparent" : (menuItemHover.hovered ? Theme.surfaceHover : "transparent")
 
-                                    Row {
-                                        anchors.fill: parent; anchors.leftMargin: 10; anchors.rightMargin: 8; spacing: 8
-                                        visible: !modelData.isSeparator
+                                    readonly property bool isCheckable: modelData && modelData.buttonType > 0
+                                    readonly property bool isChecked: isCheckable && (modelData.checkState === 2 || modelData.checkState === Qt.Checked)
+                                    readonly property bool hasIcon: modelData && typeof modelData.icon === "string" && modelData.icon.length > 0
 
-                                        Image {
-                                            source: modelData.icon || ""
-                                            width: 14; height: 14; sourceSize: Qt.size(14, 14)
-                                            anchors.verticalCenter: parent.verticalCenter
-                                            visible: modelData.icon !== ""
-                                        }
-                                        
-                                        Text {
-                                            text: modelData.text || ""
-                                            color: modelData.enabled ? Theme.text : Theme.subtext
-                                            font.pixelSize: 12
-                                            anchors.verticalCenter: parent.verticalCenter
-                                        }
+                                    Rectangle {
+                                        anchors.centerIn: parent
+                                        width: parent.width - 8
+                                        height: 1
+                                        color: Qt.rgba(Theme.subtext.r, Theme.subtext.g, Theme.subtext.b, 0.2)
+                                        visible: modelData.isSeparator
                                     }
 
-                                    Text {
-                                        anchors.right: parent.right; anchors.rightMargin: 8; anchors.verticalCenter: parent.verticalCenter
-                                        text: "" 
-                                        color: Theme.subtext; font.pixelSize: 10
-                                        visible: modelData.hasChildren && !modelData.isSeparator
+                                    Item {
+                                        anchors.fill: parent
+                                        visible: !modelData.isSeparator
+
+                                        Item {
+                                            id: leadingSlot
+                                            anchors.left: parent.left
+                                            anchors.leftMargin: 8
+                                            anchors.verticalCenter: parent.verticalCenter
+                                            width: 16; height: 16
+                                            visible: menuItemRoot.isCheckable || menuItemRoot.hasIcon
+
+                                            Text {
+                                                anchors.centerIn: parent
+                                                text: "󰄬"
+                                                color: Theme.accent
+                                                font.pixelSize: 12
+                                                font.bold: true
+                                                visible: menuItemRoot.isChecked
+                                            }
+
+                                            IconImage {
+                                                anchors.fill: parent
+                                                source: menuItemRoot.hasIcon ? modelData.icon : ""
+                                                visible: menuItemRoot.hasIcon && !menuItemRoot.isCheckable
+                                            }
+                                        }
+
+                                        Text {
+                                            id: itemLabel
+                                            anchors.left: leadingSlot.visible ? leadingSlot.right : parent.left
+                                            anchors.leftMargin: leadingSlot.visible ? 8 : 10
+                                            anchors.right: hasChildArrow.visible ? hasChildArrow.left : parent.right
+                                            anchors.rightMargin: hasChildArrow.visible ? 6 : 8
+                                            anchors.verticalCenter: parent.verticalCenter
+
+                                            text: (modelData.text || "").replace(/&/g, '')
+                                            color: modelData.enabled ? Theme.text : Theme.subtext
+                                            font.pixelSize: 12
+                                            horizontalAlignment: Text.AlignLeft
+                                            elide: Text.ElideRight
+                                        }
+
+                                        Text {
+                                            id: hasChildArrow
+                                            anchors.right: parent.right
+                                            anchors.rightMargin: 8
+                                            anchors.verticalCenter: parent.verticalCenter
+                                            text: "󰅂" 
+                                            color: Theme.subtext
+                                            font.pixelSize: 11
+                                            visible: modelData.hasChildren === true
+                                        }
                                     }
 
                                     HoverHandler { id: menuItemHover; enabled: !modelData.isSeparator && modelData.enabled; cursorShape: Qt.PointingHandCursor }
@@ -780,7 +872,7 @@ Scope {
                                         enabled: !modelData.isSeparator && modelData.enabled
                                         onTapped: {
                                             if (modelData.hasChildren) {
-                                                menuStack.push(customMenuComponent, { handle: modelData, appName: modelData.text.replace(/&/g, '') }, StackView.Immediate)
+                                                menuStack.push(customMenuComponent, { handle: modelData, appName: (modelData.text || "").replace(/&/g, '') }, StackView.Immediate)
                                             } else {
                                                 modelData.triggered()
                                                 trayDrawerWindow.activeMenuHandle = null

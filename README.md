@@ -142,6 +142,7 @@ Catppuccin Mauve themed Rice
 - [caelestia](https://github.com/caelestia-dots/shell)
 - [Rexcrazy804](https://github.com/Rexcrazy804/Zaphkiel)
 - [Devvvmn](https://github.com/Devvvmn/ActivSpot)
+- [StatIndet](https://github.com/StatIndet/quickshell)
 ---
 
 ### Star History: <a href="https://github.com/mel-edo/awesome-setup/stargazers"><img src="https://img.shields.io/github/stars/MeledoJames/awesome-setup?color=b4befe&labelColor=1e1e2e&style=for-the-badge" align="right" /></a>
