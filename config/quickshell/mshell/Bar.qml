@@ -736,7 +736,9 @@ Scope {
                         required property QsMenuHandle handle
                         required property string appName
 
-                        implicitHeight: menuColumn.implicitHeight + 20
+                        implicitHeight: 20 + 22 + 8 + 1 + 8 + (menuListView.contentHeight > 0 ? menuListView.contentHeight : 0)
+
+                        QsMenuOpener { id: menuOpener; menu: handle }
 
                         Column {
                             id: menuColumn
@@ -781,15 +783,18 @@ Scope {
                                 color: Qt.rgba(Theme.subtext.r, Theme.subtext.g, Theme.subtext.b, 0.2) 
                             }
 
-                            QsMenuOpener { id: menuOpener; menu: handle }
-
                             ListView {
+                                id: menuListView
                                 width: parent.width
-                                height: contentHeight
+                                height: parent.height - y
                                 model: menuOpener.children
                                 clip: true
                                 spacing: 2
-                                interactive: false 
+                                boundsBehavior: Flickable.StopAtBounds
+                                ScrollBar.vertical: ScrollBar { 
+                                    width: 4
+                                    policy: menuListView.contentHeight > menuListView.height ? ScrollBar.AlwaysOn : ScrollBar.AsNeeded
+                                }
                                 
                                 delegate: Rectangle {
                                     id: menuItemRoot
