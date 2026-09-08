@@ -622,7 +622,7 @@ Scope {
                         anchors.top: parent.top
                         anchors.right: parent.right
                         
-                        property int targetHeight: (SystemTray.items.values.length * 34) + 16
+                        property int targetHeight: (SystemTray.items.values.length * 36) + 16
                         
                         width: trayDrawerWindow.keepOpen ? 50 : 5
                         height: trayDrawerWindow.keepOpen ? Math.max(targetHeight, 50) : 50
@@ -792,8 +792,14 @@ Scope {
                                 spacing: 2
                                 boundsBehavior: Flickable.StopAtBounds
                                 ScrollBar.vertical: ScrollBar { 
-                                    width: 4
-                                    policy: menuListView.contentHeight > menuListView.height ? ScrollBar.AlwaysOn : ScrollBar.AsNeeded
+                                    policy: ScrollBar.AsNeeded
+                                    contentItem: Rectangle {
+                                        implicitWidth: 4
+                                        implicitHeight: 20
+                                        radius: 2
+                                        color: Theme.subtext
+                                        opacity: parent.pressed ? 0.8 : (parent.hovered ? 0.6 : 0.3)
+                                    }
                                 }
                                 
                                 delegate: Rectangle {
