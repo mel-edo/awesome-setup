@@ -45,7 +45,16 @@ Column {
     Connections {
         target: Pipewire.defaultAudioSink ? Pipewire.defaultAudioSink.audio : null
         function onVolumeChanged() {
-            if (!root.isDraggingSlider) {
+            if (!root.isDraggingSlider && Pipewire.defaultAudioSink && Pipewire.defaultAudioSink.audio) {
+                root.volLevel = Math.round(Pipewire.defaultAudioSink.audio.volume * 100);
+            }
+        }
+    }
+
+    Connections {
+        target: Pipewire
+        function onDefaultAudioSinkChanged() {
+            if (!root.isDraggingSlider && Pipewire.defaultAudioSink && Pipewire.defaultAudioSink.audio) {
                 root.volLevel = Math.round(Pipewire.defaultAudioSink.audio.volume * 100);
             }
         }

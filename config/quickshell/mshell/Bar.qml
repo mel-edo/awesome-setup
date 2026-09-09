@@ -568,7 +568,7 @@ Scope {
                                 anchors.right: parent.right
                                 anchors.rightMargin: 10
                                 width: 230
-                                height: Math.min(Math.max(menuStack.currentItem?.implicitHeight || 80, 50), 450)
+                                height: Math.min(Math.max((menuStack.currentItem?.implicitHeight || 76) + 4, 50), 450)
                                 Behavior on height { NumberAnimation { duration: 150; easing.type: Easing.OutExpo } }
 
                                 radius: 12
@@ -733,6 +733,7 @@ Scope {
                     id: customMenuComponent
 
                     Item {
+                        id: customMenuRoot
                         required property QsMenuHandle handle
                         required property string appName
 
@@ -793,12 +794,14 @@ Scope {
                                 boundsBehavior: Flickable.StopAtBounds
                                 ScrollBar.vertical: ScrollBar { 
                                     policy: ScrollBar.AsNeeded
+                                    visible: customMenuRoot.implicitHeight > 446
                                     contentItem: Rectangle {
                                         implicitWidth: 4
                                         implicitHeight: 20
                                         radius: 2
                                         color: Theme.subtext
                                         opacity: parent.pressed ? 0.8 : (parent.hovered ? 0.6 : 0.3)
+                                        visible: customMenuRoot.implicitHeight > 446
                                     }
                                 }
                                 
