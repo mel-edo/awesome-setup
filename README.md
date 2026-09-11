@@ -1,5 +1,3 @@
-# mshell-dots
-
 https://github.com/user-attachments/assets/303bab8e-1210-4601-a3fc-da12fd016163
 
 ---
