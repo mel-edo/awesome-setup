@@ -912,8 +912,7 @@ Column {
                 
                 x: (Math.min(root.volLevel, 100) / 100) * (parent.width - width)
                 Behavior on x { 
-                    enabled: !volDragArea.pressed
-                    NumberAnimation { duration: 120; easing.type: Easing.OutQuad } 
+                    NumberAnimation { duration: 100; easing.type: Easing.OutQuad } 
                 }
 
                 Text {
@@ -953,7 +952,9 @@ Column {
                     let trackWidth = width - volHead.width;
                     let rawX = mouse.x - headHalf;
                     let pct = Math.max(0, Math.min(1, rawX / trackWidth));
-                    let val = Math.round(pct * 100);
+                    let rawVal = pct * 100;
+                    let nearest5 = Math.round(rawVal / 5) * 5;
+                    let val = Math.abs(rawVal - nearest5) <= 1.5 ? nearest5 : Math.round(rawVal);
                     
                     root.volLevel = val;
                     if (Pipewire.defaultAudioSink) {
@@ -997,8 +998,7 @@ Column {
                 
                 x: (Math.min(root.briLevel, 100) / 100) * (parent.width - width)
                 Behavior on x { 
-                    enabled: !briDragArea.pressed
-                    NumberAnimation { duration: 120; easing.type: Easing.OutQuad } 
+                    NumberAnimation { duration: 100; easing.type: Easing.OutQuad } 
                 }
 
                 Text {
@@ -1037,7 +1037,10 @@ Column {
                     let trackWidth = width - briHead.width;
                     let rawX = mouse.x - headHalf;
                     let pct = Math.max(0, Math.min(1, rawX / trackWidth));
-                    let val = Math.round(pct * 100);
+                    
+                    let rawVal = pct * 100;
+                    let nearest5 = Math.round(rawVal / 5) * 5;
+                    let val = Math.abs(rawVal - nearest5) <= 1.5 ? nearest5 : Math.round(rawVal);
                     
                     root.briLevel = val;
                     briSetProcess.command = ["brightnessctl", "s", val + "%"];

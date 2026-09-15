@@ -2055,7 +2055,7 @@ Scope {
                                     radius: width / 2
                                     color: Theme.text
                                     x: Math.max(0, Math.min(1, deviceRow.muted ? 0 : deviceRow.vol)) * (parent.width - width)
-                                    Behavior on x { enabled: !miniDrag.pressed; NumberAnimation { duration: 120; easing.type: Easing.OutQuad } }
+                                    Behavior on x { NumberAnimation { duration: 100; easing.type: Easing.OutQuad } }
 
                                     Text {
                                         anchors.centerIn: parent
@@ -2090,7 +2090,9 @@ Scope {
                                     onEntered: miniSlider.sliderHovered = true
                                     onExited: miniSlider.sliderHovered = false
                                     function updateVol(mx) {
-                                        let ratio = Math.max(0, Math.min(1, mx / width))
+                                        let rawRatio = Math.max(0, Math.min(1, mx / width))
+                                        let nearest5 = Math.round(rawRatio * 20) / 20
+                                        let ratio = Math.abs(rawRatio - nearest5) <= 0.015 ? nearest5 : rawRatio
                                         if (deviceRow.ready) {
                                             deviceRow.modelData.audio.muted = false
                                             deviceRow.modelData.audio.volume = ratio

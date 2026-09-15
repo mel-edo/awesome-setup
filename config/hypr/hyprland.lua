@@ -214,14 +214,14 @@ hl.animation({
 	enabled = true,
 	speed = 10,
 	bezier = "winIn",
-	style = "slide",
+	style = "fade",
 })
 hl.animation({
 	leaf = "layersOut",
 	enabled = true,
 	speed = 3,
 	bezier = "layerOut",
-	style = "popin 50%",
+	style = "fade",
 })
 
 hl.gesture({
@@ -499,14 +499,6 @@ hl.layer_rule({
 	no_anim = true,
 })
 
-hl.layer_rule({
-	name = "layerrule-region-selector",
-	match = {
-		namespace = "^(mshell-region-selector).*",
-	},
-	animation = "fade",
-})
-
 hl.config({
 	general = {
 		gaps_in = 5,
@@ -534,7 +526,6 @@ hl.config({
 		enabled = true,
 	},
 	dwindle = {
-		--pseudotile = true
 		preserve_split = true,
 	},
 	master = {
@@ -545,7 +536,6 @@ hl.config({
 		disable_hyprland_logo = true,
 		focus_on_activate = true,
 	},
-	-- Input and gestures stuff
 	input = {
 		kb_layout = "us",
 		accel_profile = "flat",
@@ -568,7 +558,6 @@ hl.config({
 		workspace_swipe_direction_lock_threshold = 10,
 		workspace_swipe_create_new = true,
 	},
-	-- Window rules
 })
 
 hl.on("hyprland.start", function()
