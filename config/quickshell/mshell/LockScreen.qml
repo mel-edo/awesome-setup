@@ -120,7 +120,7 @@ Scope {
     property string weatherIcon: ""
     property string weatherTemp: "--°C"
 
-    property real batPct: UPower.displayDevice.percentage * 100
+    property int batPct: Math.round(UPower.displayDevice.percentage * 100)
     property string batStatus: {
         switch (UPower.displayDevice.state) {
             case UPowerDeviceState.Charging: return "Charging"
@@ -947,11 +947,10 @@ Scope {
                             id: batLayoutRow; anchors.centerIn: parent; spacing: 8
                             property color dynamicBatColor: {
                                 if (root.batStatus === "Charging") return root.green;
-                                let pct = parseInt(root.batPct);
-                                if (pct <= 20) return root.red;
+                                if (root.batPct <= 20) return root.red;
                                 return root.text;
                             }
-                            Text { text: root.batStatus === "Charging" ? "󰂄" : (parseInt(root.batPct) <= 20 ? "󰂃" : "󰁹"); font.family: "Iosevka Nerd Font"; font.pixelSize: 18; color: batLayoutRow.dynamicBatColor }
+                            Text { text: root.batStatus === "Charging" ? "󰂄" : (root.batPct <= 20 ? "󰂃" : "󰁹"); font.family: "Iosevka Nerd Font"; font.pixelSize: 18; color: batLayoutRow.dynamicBatColor }
                             Text { text: root.batPct + "%"; font.family: "JetBrains Mono"; font.pixelSize: 13; font.weight: Font.Black; color: batLayoutRow.dynamicBatColor }
                         }
                     }
