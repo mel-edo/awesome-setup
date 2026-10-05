@@ -1,0 +1,4 @@
+*calendar_config.local.json
+/tmp/island_calendar_cache.json
+*.pyc
+__pycache__/

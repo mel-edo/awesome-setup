@@ -19,6 +19,28 @@ Scope {
         function showOsd(value: string, type: string) {
             islandWindow.showOsd(Number(value), type)
         }
+        function toggleCalendar() {
+            if (islandWindow.islandState === "calendar") {
+                islandWindow.closeToIdle()
+            } else {
+                islandWindow.islandState = "calendar"
+            }
+        }
+        function openCalendar() {
+            islandWindow.islandState = "calendar"
+        }
+        function showAgenda(day: string) {
+            islandWindow.islandState = "calendar"
+            if (day && day !== "") {
+                let now = new Date()
+                calendarPanel.selectDate(now.getFullYear(), now.getMonth() + 1, Number(day))
+            } else {
+                calendarPanel.setTab("agenda")
+            }
+        }
+        function refreshCalendar() {
+            if (!calendarProcess.running) calendarProcess.running = true
+        }
     }
 
     IpcHandler {
@@ -120,6 +142,8 @@ Scope {
         property bool postHubCava: false
         property var weatherToday: null
         property var weatherForecast: []
+        property var calendarData: null
+        property var calendarEventsByDate: ({})
         property var activePlayer: null
         property string currentTrackTitle: ""
         property int osdValue: 50
@@ -786,6 +810,26 @@ Scope {
 
         // Refresh weather every 15 minutes
         Timer { interval: 900000; running: true; repeat: true; onTriggered: { if (!weatherProcess.running) weatherProcess.running = true } }
+
+        Process {
+            id: calendarProcess
+            command: ["python3", Quickshell.env("HOME") + "/.config/quickshell/mshell/scripts/calendar/calendar_sync.py"]
+            running: true
+            stdout: StdioCollector {
+                onStreamFinished: {
+                    try {
+                        let data = JSON.parse(text)
+                        islandWindow.calendarData = data
+                        islandWindow.calendarEventsByDate = data.eventsByDate || ({})
+                    } catch(e) {
+                        console.log("[CalendarSync] parse error:", e)
+                    }
+                }
+            }
+        }
+
+        // Refresh calendar every 15 minutes
+        Timer { interval: 900000; running: true; repeat: true; onTriggered: { if (!calendarProcess.running) calendarProcess.running = true } }
 
         Rectangle {
             id: mainPill
@@ -2109,8 +2153,11 @@ Scope {
                 Item {
                     id: calendarPanel
                     width: 620
-                    height: 280
-                    anchors.centerIn: parent
+                    anchors.top: parent.top
+                    anchors.topMargin: 18
+                    anchors.bottom: parent.bottom
+                    anchors.bottomMargin: 14
+                    anchors.horizontalCenter: parent.horizontalCenter
                     layer.enabled: true
                     
                     property bool isActiveCalendar: islandWindow.islandState === "calendar"
@@ -2123,38 +2170,36 @@ Scope {
                             if (!weatherProcess.running && islandWindow.weatherToday === null) {
                                 weatherProcess.running = true
                             }
+                            if (!calendarProcess.running && islandWindow.calendarData === null) {
+                                calendarProcess.running = true
+                            }
                             calGrid.currentDate = new Date()
+                            calGrid.selectedDate = new Date()
                         } else {
                             calGrid.monthOffset = 0 
                         }
                     }
 
-                    Text {
-                        anchors.top: parent.top
-                        anchors.horizontalCenter: parent.horizontalCenter
-                        text: Qt.formatDateTime(new Date(), "HH:mm:ss • ddd, MMM d")
-                        color: Theme.text
-                        font.pixelSize: 14
-                        font.bold: true
-                        Timer {
-                            interval: 1000; running: true; repeat: true
-                            onTriggered: parent.text = Qt.formatDateTime(new Date(), "HH:mm:ss • ddd, MMM d")
-                        }
+                    function setTab(tab) { rightCard.activeTab = tab }
+                    function selectDate(y, m, d) {
+                        calGrid.selectedDate = new Date(y, m - 1, d)
+                        rightCard.activeTab = "agenda"
                     }
 
                     Row {
                         anchors.fill: parent
-                        anchors.topMargin: 42
-                        anchors.leftMargin: 12
-                        anchors.rightMargin: 12
-                        anchors.bottomMargin: 12
-                        spacing: 32
+                        anchors.leftMargin: 10
+                        anchors.rightMargin: 10
+                        anchors.topMargin: 6
+                        anchors.bottomMargin: 6
+                        spacing: 16
 
-                        // Calendar widget
+                        // Left: Calendar widget
                         Column {
+                            id: calCol
                             width: 290
                             height: parent.height
-                            spacing: 12
+                            spacing: 8
 
                             Item {
                                 width: parent.width; height: 24
@@ -2165,6 +2210,30 @@ Scope {
                                 }
                                 Row {
                                     anchors.right: parent.right; anchors.verticalCenter: parent.verticalCenter; spacing: 6
+
+                                    // Jump to today button
+                                    Rectangle {
+                                        visible: calGrid.monthOffset !== 0 || calGrid.selectedDateKey !== calGrid.todayDateKey
+                                        width: todayTxt.implicitWidth + 12; height: 22; radius: 6
+                                        color: todayHover.hovered ? Theme.accent : Qt.rgba(Theme.surface.r, Theme.surface.g, Theme.surface.b, 0.6)
+                                        Behavior on color { ColorAnimation { duration: 100 } }
+                                        Text {
+                                            id: todayTxt
+                                            anchors.centerIn: parent
+                                            text: "Today"
+                                            color: todayHover.hovered ? Theme.background : Theme.accent
+                                            font.pixelSize: 11
+                                            font.bold: true
+                                        }
+                                        HoverHandler { id: todayHover; cursorShape: Qt.PointingHandCursor }
+                                        TapHandler {
+                                            onTapped: {
+                                                calGrid.monthOffset = 0
+                                                calGrid.selectedDate = new Date()
+                                            }
+                                        }
+                                    }
+
                                     Rectangle {
                                         width: 24; height: 24; radius: 6
                                         color: prevHover.hovered ? Theme.accent : "transparent"
@@ -2203,6 +2272,10 @@ Scope {
                                 
                                 property int monthOffset: 0
                                 property var currentDate: new Date()
+                                property var selectedDate: new Date()
+                                property string todayDateKey: Qt.formatDate(currentDate, "yyyy-MM-dd")
+                                property string selectedDateKey: Qt.formatDate(selectedDate, "yyyy-MM-dd")
+
                                 property var calDate: {
                                     let d = new Date(currentDate.getTime())
                                     d.setMonth(d.getMonth() + monthOffset)
@@ -2215,8 +2288,8 @@ Scope {
 
                                 Repeater {
                                     model: 42 
-                                    Rectangle {
-                                        width: (calGrid.width - 24) / 7; height: 24; radius: 6
+                                    Item {
+                                        width: (calGrid.width - 24) / 7; height: 32
                                         
                                         property bool isPrevMonth: index < calGrid.startDay
                                         property bool isNextMonth: index >= (calGrid.startDay + calGrid.daysInMonth)
@@ -2227,149 +2300,535 @@ Scope {
                                             if (isNextMonth) return index - (calGrid.startDay + calGrid.daysInMonth) + 1
                                             return index - calGrid.startDay + 1
                                         }
+
+                                        property string dateKey: {
+                                            if (!isCurrentMonth) return ""
+                                            let y = calGrid.calDate.getFullYear()
+                                            let m = calGrid.calDate.getMonth() + 1
+                                            let d = dayNumber
+                                            return y + "-" + (m < 10 ? "0" + m : m) + "-" + (d < 10 ? "0" + d : d)
+                                        }
                                         
                                         property bool isToday: isCurrentMonth && (dayNumber === calGrid.today) && (calGrid.monthOffset === 0)
+                                        property bool isSelected: isCurrentMonth && (dateKey === calGrid.selectedDateKey)
                                         
-                                        color: isToday ? Theme.accent : (dayHover.hovered && isCurrentMonth ? Theme.surfaceHover : "transparent")
-                                        Behavior on color { ColorAnimation { duration: 100 } }
-
-                                        Text {
-                                            anchors.centerIn: parent
-                                            text: parent.dayNumber 
-                                            color: parent.isToday ? Theme.background : (parent.isCurrentMonth ? Theme.text : Qt.rgba(Theme.subtext.r, Theme.subtext.g, Theme.subtext.b, 0.35))
-                                            font.pixelSize: 13
-                                            font.bold: parent.isToday
+                                        property var dayEvents: isCurrentMonth && islandWindow.calendarEventsByDate ? (islandWindow.calendarEventsByDate[dateKey] || []) : []
+                                        property bool hasHolidays: {
+                                            for (let i = 0; i < dayEvents.length; i++) {
+                                                if (dayEvents[i].isHoliday) return true
+                                            }
+                                            return false
+                                        }
+                                        property bool hasBirthdays: {
+                                            for (let i = 0; i < dayEvents.length; i++) {
+                                                let ev = dayEvents[i]
+                                                if (ev.isBirthday || (ev.title && ev.title.toLowerCase().indexOf("birthday") !== -1)) return true
+                                            }
+                                            return false
+                                        }
+                                        property bool hasEvents: {
+                                            for (let i = 0; i < dayEvents.length; i++) {
+                                                if (!dayEvents[i].isHoliday) return true
+                                            }
+                                            return false
                                         }
 
-                                        HoverHandler {
-                                            id: dayHover; enabled: parent.isCurrentMonth; cursorShape: Qt.PointingHandCursor
+                                        // Squircle date container
+                                        Rectangle {
+                                            id: daySquircle
+                                            width: 32; height: 32; radius: 9
+                                            anchors.centerIn: parent
+
+                                            color: parent.isToday ? Theme.accent : (parent.isSelected ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.22) : (dayHover.hovered && parent.isCurrentMonth ? Theme.surfaceHover : "transparent"))
+                                            border.color: parent.isSelected && !parent.isToday ? Theme.accent : "transparent"
+                                            border.width: parent.isSelected && !parent.isToday ? 1.5 : 0
+                                            Behavior on color { ColorAnimation { duration: 100 } }
+
+                                            Text {
+                                                id: dayNumText
+                                                anchors.centerIn: parent
+                                                text: parent.parent.dayNumber 
+                                                color: parent.parent.isToday ? Theme.background : (parent.parent.isSelected ? Theme.accent : (parent.parent.isCurrentMonth ? Theme.text : Qt.rgba(Theme.subtext.r, Theme.subtext.g, Theme.subtext.b, 0.35)))
+                                                font.pixelSize: 12
+                                                font.bold: parent.parent.isToday || parent.parent.isSelected
+                                            }
+
+                                            // Indicator dots
+                                            Row {
+                                                anchors.top: dayNumText.bottom
+                                                anchors.topMargin: 1
+                                                anchors.horizontalCenter: parent.horizontalCenter
+                                                spacing: 2
+                                                visible: parent.parent.isCurrentMonth && (parent.parent.hasHolidays || parent.parent.hasEvents)
+
+                                                Rectangle {
+                                                    width: 3.5; height: 3.5; radius: 2
+                                                    visible: parent.parent.parent.hasEvents
+                                                    color: parent.parent.parent.isToday ? Theme.background : (parent.parent.parent.hasBirthdays ? "#f38ba8" : Theme.accent)
+                                                }
+                                                Rectangle {
+                                                    width: 3.5; height: 3.5; radius: 2
+                                                    visible: parent.parent.parent.hasHolidays
+                                                    color: parent.parent.parent.isToday ? Theme.background : "#f9e2af"
+                                                }
+                                            }
+
+                                            HoverHandler {
+                                                id: dayHover; enabled: parent.parent.isCurrentMonth; cursorShape: Qt.PointingHandCursor
+                                            }
+                                        }
+
+                                        TapHandler {
+                                            enabled: parent.isCurrentMonth
+                                            onTapped: {
+                                                let d = new Date(calGrid.calDate.getFullYear(), calGrid.calDate.getMonth(), parent.dayNumber)
+                                                calGrid.selectedDate = d
+                                                rightCard.activeTab = "agenda"
+                                            }
                                         }
                                     }
                                 }
                             }
                         }
 
-                        // Right: Weather
+                        // Right: Tabbed Card (Weather / Agenda)
                         Rectangle {
-                            width: 274; height: parent.height; radius: 12
+                            id: rightCard
+                            width: parent.width - calCol.width - parent.spacing
+                            height: parent.height
+                            radius: 12
                             color: Qt.rgba(Theme.highlight.r, Theme.highlight.g, Theme.highlight.b, 0.15)
+                            clip: true
 
-                            Text {
-                                anchors.centerIn: parent
-                                text: "󰖐   Fetching forecast..."
-                                color: Theme.subtext
-                                visible: islandWindow.weatherToday === null
+                            property string activeTab: "weather"
+                            property var selectedEvents: islandWindow.calendarEventsByDate ? (islandWindow.calendarEventsByDate[calGrid.selectedDateKey] || []) : []
+
+                            // Header Tabs
+                            Item {
+                                id: tabHeader
+                                anchors.top: parent.top
+                                anchors.left: parent.left
+                                anchors.right: parent.right
+                                anchors.topMargin: 6
+                                anchors.leftMargin: 8
+                                anchors.rightMargin: 8
+                                height: 28
+
+                                Rectangle {
+                                    anchors.fill: parent
+                                    radius: 7
+                                    color: Qt.rgba(Theme.surface.r, Theme.surface.g, Theme.surface.b, 0.5)
+
+                                    Row {
+                                        anchors.fill: parent
+                                        anchors.margins: 2
+                                        spacing: 2
+
+                                        // Weather tab
+                                        Rectangle {
+                                            width: (parent.width - 2) / 2
+                                            height: parent.height
+                                            radius: 5
+                                            color: rightCard.activeTab === "weather" ? Theme.surfaceHover : "transparent"
+                                            Behavior on color { ColorAnimation { duration: 120 } }
+
+                                            Row {
+                                                anchors.centerIn: parent
+                                                spacing: 6
+                                                Text {
+                                                    text: "󰖐"
+                                                    color: rightCard.activeTab === "weather" ? Theme.accent : Theme.subtext
+                                                    font.pixelSize: 13
+                                                    anchors.verticalCenter: parent.verticalCenter
+                                                }
+                                                Text {
+                                                    text: "Weather"
+                                                    color: rightCard.activeTab === "weather" ? Theme.text : Theme.subtext
+                                                    font.pixelSize: 11
+                                                    font.bold: rightCard.activeTab === "weather"
+                                                    anchors.verticalCenter: parent.verticalCenter
+                                                    anchors.verticalCenterOffset: 1.5
+                                                }
+                                            }
+                                            HoverHandler { id: wHover; cursorShape: Qt.PointingHandCursor }
+                                            TapHandler { onTapped: rightCard.activeTab = "weather" }
+                                        }
+
+                                        // Agenda tab
+                                        Rectangle {
+                                            width: (parent.width - 2) / 2
+                                            height: parent.height
+                                            radius: 5
+                                            color: rightCard.activeTab === "agenda" ? Theme.surfaceHover : "transparent"
+                                            Behavior on color { ColorAnimation { duration: 120 } }
+
+                                            Row {
+                                                anchors.centerIn: parent
+                                                spacing: 6
+                                                Text {
+                                                    text: "󰃭"
+                                                    color: rightCard.activeTab === "agenda" ? Theme.accent : Theme.subtext
+                                                    font.pixelSize: 13
+                                                    anchors.verticalCenter: parent.verticalCenter
+                                                }
+                                                Text {
+                                                    text: "Agenda"
+                                                    color: rightCard.activeTab === "agenda" ? Theme.text : Theme.subtext
+                                                    font.pixelSize: 11
+                                                    font.bold: rightCard.activeTab === "agenda"
+                                                    anchors.verticalCenter: parent.verticalCenter
+                                                    anchors.verticalCenterOffset: 1.5
+                                                }
+                                                
+                                                // Event count badge
+                                                Rectangle {
+                                                    visible: rightCard.selectedEvents.length > 0
+                                                    width: Math.max(16, badgeTxt.implicitWidth + 8)
+                                                    height: 16
+                                                    radius: 8
+                                                    color: Theme.accent
+                                                    anchors.verticalCenter: parent.verticalCenter
+                                                    anchors.verticalCenterOffset: 1.5
+                                                    Text {
+                                                        id: badgeTxt
+                                                        anchors.centerIn: parent
+                                                        anchors.verticalCenterOffset: 0.5
+                                                        text: rightCard.selectedEvents.length
+                                                        color: Theme.background
+                                                        font.pixelSize: 9
+                                                        font.bold: true
+                                                    }
+                                                }
+                                            }
+                                            HoverHandler { id: aHover; cursorShape: Qt.PointingHandCursor }
+                                            TapHandler { onTapped: rightCard.activeTab = "agenda" }
+                                        }
+                                    }
+                                }
                             }
 
-                            Column {
-                                anchors.centerIn: parent
-                                width: parent.width - 24
-                                spacing: 10
-                                visible: islandWindow.weatherToday !== null
+                            // View Container
+                            Item {
+                                anchors.top: tabHeader.bottom
+                                anchors.topMargin: 8
+                                anchors.bottom: parent.bottom
+                                anchors.bottomMargin: 8
+                                anchors.left: parent.left
+                                anchors.leftMargin: 10
+                                anchors.right: parent.right
+                                anchors.rightMargin: 10
+                                clip: true
 
-                                // Main Weather Info
-                                Row {
-                                    spacing: 18
-                                    anchors.horizontalCenter: parent.horizontalCenter
-            
+                                // --- WEATHER VIEW ---
+                                Item {
+                                    anchors.fill: parent
+                                    visible: rightCard.activeTab === "weather"
+
                                     Text {
-                                        text: islandWindow.weatherToday ? islandWindow.weatherIcon(islandWindow.weatherToday.icon) : ""
-                                        color: Theme.accent
-                                        font.pixelSize: 52
-                                        anchors.verticalCenter: parent.verticalCenter
+                                        anchors.centerIn: parent
+                                        text: "󰖐   Fetching forecast..."
+                                        color: Theme.subtext
+                                        visible: islandWindow.weatherToday === null
                                     }
-            
+
                                     Column {
-                                        anchors.verticalCenter: parent.verticalCenter
-                                        spacing: 1
-                
-                                        Text { 
-                                            text: islandWindow.weatherToday ? islandWindow.weatherToday.temp + "°C" : ""
-                                            color: Theme.text
-                                            font.pixelSize: 32
-                                            font.bold: true 
-                                        }
-                                        Text { 
-                                            text: islandWindow.weatherToday ? islandWindow.weatherToday.desc : ""
-                                            color: Theme.text
-                                            font.pixelSize: 13
-                                            font.bold: true 
-                                        }
-                                        Text { 
-                                            text: islandWindow.weatherToday ? "H: " + islandWindow.weatherToday.high + "°   L: " + islandWindow.weatherToday.low + "°" : ""
-                                            color: Theme.subtext
-                                            font.pixelSize: 12 
-                                        }
-                                    }
-                                }
+                                        anchors.centerIn: parent
+                                        width: parent.width - 4
+                                        spacing: 8
+                                        visible: islandWindow.weatherToday !== null
 
-                                // Stats Row
-                                Row {
-                                    anchors.horizontalCenter: parent.horizontalCenter
-                                    spacing: 12
-            
-                                    // Rain Chance
-                                    Row {
-                                        spacing: 4
-                                        Text { text: "󰖎"; color: "#60A5FA"; font.pixelSize: 13; anchors.baseline: popTxt.baseline }
-                                        Text { id: popTxt; text: islandWindow.weatherToday ? islandWindow.weatherToday.pop + "%" : "--%"; color: Theme.subtext; font.pixelSize: 11; font.bold: true }
-                                    }
-                                    // Feels Like
-                                    Row {
-                                        spacing: 4
-                                        Text { text: ""; color: Theme.accentAlt; font.pixelSize: 12; anchors.baseline: feelsTxt.baseline }
-                                        Text { id: feelsTxt; text: islandWindow.weatherToday ? islandWindow.weatherToday.feels + "°" : "--°"; color: Theme.subtext; font.pixelSize: 11; font.bold: true }
-                                    }
-                                    // Wind
-                                    Row {
-                                        spacing: 4
-                                        Text { text: "󰖝"; color: Theme.accentAlt; font.pixelSize: 12; anchors.baseline: windTxt.baseline }
-                                        Text { id: windTxt; text: islandWindow.weatherToday ? islandWindow.weatherToday.wind + " km/h" : "--"; color: Theme.subtext; font.pixelSize: 11; font.bold: true }
-                                    }
-                                }
-
-                                // Sun Cycle Row
-                                Row {
-                                    anchors.horizontalCenter: parent.horizontalCenter
-                                    spacing: 16
-
-                                    // Sunrise
-                                    Row {
-                                        spacing: 4
-                                        Text { text: "󰖜"; color: Theme.accentAlt; font.pixelSize: 13; anchors.baseline: sunriseTxt.baseline }
-                                        Text { id: sunriseTxt; text: islandWindow.weatherToday ? islandWindow.weatherToday.sunrise : "--:--"; color: Theme.subtext; font.pixelSize: 11; font.bold: true }
-                                    }
-                                    // Sunset
-                                    Row {
-                                        spacing: 4
-                                        Text { text: "󰖛"; color: Theme.accentAlt; font.pixelSize: 13; anchors.baseline: sunsetTxt.baseline }
-                                        Text { id: sunsetTxt; text: islandWindow.weatherToday ? islandWindow.weatherToday.sunset : "--:--"; color: Theme.subtext; font.pixelSize: 11; font.bold: true }
-                                    }
-                                }
-
-                                // Divider
-                                Rectangle { 
-                                    width: parent.width - 8
-                                    anchors.horizontalCenter: parent.horizontalCenter
-                                    height: 1 
-                                    color: Qt.rgba(Theme.subtext.r, Theme.subtext.g, Theme.subtext.b, 0.2) 
-                                }
-
-                                // Forecast Grid
-                                Grid {
-                                    anchors.horizontalCenter: parent.horizontalCenter
-                                    columns: 2
-                                    columnSpacing: 10
-                                    rowSpacing: 6
-                                    Repeater {
-                                        model: islandWindow.weatherForecast
+                                        // Main Weather Info
                                         Row {
-                                            spacing: 4
-                                            Text { text: modelData.day; color: Theme.subtext; font.pixelSize: 12; font.bold: true; width: 24; anchors.baseline: forecastHigh.baseline }
-                                            Text { text: islandWindow.weatherIcon(modelData.icon); color: Theme.accentAlt; font.pixelSize: 13; anchors.baseline: forecastHigh.baseline }
-                                            Text { id: forecastHigh; text: modelData.high + "°"; color: Theme.text; font.pixelSize: 12; font.bold: true }
-                                            Text { text: modelData.low + "°"; color: Theme.subtext; font.pixelSize: 11; anchors.baseline: forecastHigh.baseline }
-                                            Text { text: "󰖎" + modelData.pop + "%"; color: "#60A5FA"; font.pixelSize: 10; font.bold: true; anchors.baseline: forecastHigh.baseline; visible: modelData.pop >= 20 }
+                                            spacing: 16
+                                            anchors.horizontalCenter: parent.horizontalCenter
+                    
+                                            Text {
+                                                text: islandWindow.weatherToday ? islandWindow.weatherIcon(islandWindow.weatherToday.icon) : ""
+                                                color: Theme.accent
+                                                font.pixelSize: 46
+                                                anchors.verticalCenter: parent.verticalCenter
+                                            }
+                    
+                                            Column {
+                                                anchors.verticalCenter: parent.verticalCenter
+                                                spacing: 1
+                        
+                                                Text { 
+                                                    text: islandWindow.weatherToday ? islandWindow.weatherToday.temp + "°C" : ""
+                                                    color: Theme.text
+                                                    font.pixelSize: 28
+                                                    font.bold: true 
+                                                }
+                                                Text { 
+                                                    text: islandWindow.weatherToday ? islandWindow.weatherToday.desc : ""
+                                                    color: Theme.text
+                                                    font.pixelSize: 12
+                                                    font.bold: true 
+                                                }
+                                                Text { 
+                                                    text: islandWindow.weatherToday ? "H: " + islandWindow.weatherToday.high + "°   L: " + islandWindow.weatherToday.low + "°" : ""
+                                                    color: Theme.subtext
+                                                    font.pixelSize: 11 
+                                                }
+                                            }
+                                        }
+
+                                        // Stats Row
+                                        Row {
+                                            anchors.horizontalCenter: parent.horizontalCenter
+                                            spacing: 12
+                    
+                                            Row {
+                                                spacing: 3
+                                                Text { text: "󰖎"; color: "#60A5FA"; font.pixelSize: 12; anchors.baseline: popTxt.baseline }
+                                                Text { id: popTxt; text: islandWindow.weatherToday ? islandWindow.weatherToday.pop + "%" : "--%"; color: Theme.subtext; font.pixelSize: 10; font.bold: true }
+                                            }
+                                            Row {
+                                                spacing: 3
+                                                Text { text: ""; color: Theme.accentAlt; font.pixelSize: 11; anchors.baseline: feelsTxt.baseline }
+                                                Text { id: feelsTxt; text: islandWindow.weatherToday ? islandWindow.weatherToday.feels + "°" : "--°"; color: Theme.subtext; font.pixelSize: 10; font.bold: true }
+                                            }
+                                            Row {
+                                                spacing: 3
+                                                Text { text: "󰖝"; color: Theme.accentAlt; font.pixelSize: 11; anchors.baseline: windTxt.baseline }
+                                                Text { id: windTxt; text: islandWindow.weatherToday ? islandWindow.weatherToday.wind + " km/h" : "--"; color: Theme.subtext; font.pixelSize: 10; font.bold: true }
+                                            }
+                                        }
+
+                                        // Sun Cycle Row
+                                        Row {
+                                            anchors.horizontalCenter: parent.horizontalCenter
+                                            spacing: 14
+
+                                            Row {
+                                                spacing: 3
+                                                Text { text: "󰖜"; color: Theme.accentAlt; font.pixelSize: 12; anchors.baseline: sunriseTxt.baseline }
+                                                Text { id: sunriseTxt; text: islandWindow.weatherToday ? islandWindow.weatherToday.sunrise : "--:--"; color: Theme.subtext; font.pixelSize: 10; font.bold: true }
+                                            }
+                                            Row {
+                                                spacing: 3
+                                                Text { text: "󰖛"; color: Theme.accentAlt; font.pixelSize: 12; anchors.baseline: sunsetTxt.baseline }
+                                                Text { id: sunsetTxt; text: islandWindow.weatherToday ? islandWindow.weatherToday.sunset : "--:--"; color: Theme.subtext; font.pixelSize: 10; font.bold: true }
+                                            }
+                                        }
+
+                                        // Divider
+                                        Rectangle { 
+                                            width: parent.width - 8
+                                            anchors.horizontalCenter: parent.horizontalCenter
+                                            height: 1 
+                                            color: Qt.rgba(Theme.subtext.r, Theme.subtext.g, Theme.subtext.b, 0.2) 
+                                        }
+
+                                        // Forecast Grid
+                                        Grid {
+                                            anchors.horizontalCenter: parent.horizontalCenter
+                                            columns: 2
+                                            columnSpacing: 10
+                                            rowSpacing: 4
+                                            Repeater {
+                                                model: islandWindow.weatherForecast
+                                                Row {
+                                                    spacing: 4
+                                                    Text { text: modelData.day; color: Theme.subtext; font.pixelSize: 11; font.bold: true; width: 24; anchors.baseline: forecastHigh.baseline }
+                                                    Text { text: islandWindow.weatherIcon(modelData.icon); color: Theme.accentAlt; font.pixelSize: 12; anchors.baseline: forecastHigh.baseline }
+                                                    Text { id: forecastHigh; text: modelData.high + "°"; color: Theme.text; font.pixelSize: 11; font.bold: true }
+                                                    Text { text: modelData.low + "°"; color: Theme.subtext; font.pixelSize: 10; anchors.baseline: forecastHigh.baseline }
+                                                    Text { text: "󰖎" + modelData.pop + "%"; color: "#60A5FA"; font.pixelSize: 10; font.bold: true; anchors.baseline: forecastHigh.baseline; visible: modelData.pop >= 20 }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+
+                                // --- AGENDA VIEW ---
+                                Item {
+                                    anchors.fill: parent
+                                    visible: rightCard.activeTab === "agenda"
+
+                                    Column {
+                                        anchors.fill: parent
+                                        spacing: 6
+
+                                        // Date & Status Header
+                                        Item {
+                                            width: parent.width
+                                            height: 20
+
+                                            Row {
+                                                anchors.left: parent.left
+                                                anchors.verticalCenter: parent.verticalCenter
+                                                spacing: 6
+
+                                                Text {
+                                                    text: Qt.formatDate(calGrid.selectedDate, "ddd, MMM d")
+                                                    color: Theme.text
+                                                    font.pixelSize: 12
+                                                    font.bold: true
+                                                }
+
+                                                // Pill tag for today or day name
+                                                Rectangle {
+                                                    visible: calGrid.selectedDateKey === calGrid.todayDateKey
+                                                    width: isTodayLabel.implicitWidth + 8
+                                                    height: 16
+                                                    radius: 4
+                                                    color: Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.2)
+                                                    Text {
+                                                        id: isTodayLabel
+                                                        anchors.centerIn: parent
+                                                        text: "Today"
+                                                        color: Theme.accent
+                                                        font.pixelSize: 9
+                                                        font.bold: true
+                                                    }
+                                                }
+                                            }
+
+                                            // Refresh button
+                                            Rectangle {
+                                                anchors.right: parent.right
+                                                anchors.verticalCenter: parent.verticalCenter
+                                                width: 18; height: 18; radius: 4
+                                                color: refHover.hovered ? Theme.surfaceHover : "transparent"
+                                                Text {
+                                                    anchors.centerIn: parent
+                                                    text: "󰑐"
+                                                    color: refHover.hovered ? Theme.accent : Theme.subtext
+                                                    font.pixelSize: 11
+                                                }
+                                                HoverHandler { id: refHover; cursorShape: Qt.PointingHandCursor }
+                                                TapHandler {
+                                                    onTapped: {
+                                                        if (!calendarProcess.running) calendarProcess.running = true
+                                                    }
+                                                }
+                                            }
+                                        }
+
+                                        // Event List or Empty State
+                                        Item {
+                                            width: parent.width
+                                            height: parent.height - 26
+                                            clip: true
+
+                                            // Empty state
+                                            Column {
+                                                anchors.centerIn: parent
+                                                spacing: 5
+                                                visible: rightCard.selectedEvents.length === 0
+
+                                                Text {
+                                                    anchors.horizontalCenter: parent.horizontalCenter
+                                                    text: "󰃶"
+                                                    color: Theme.subtext
+                                                    font.pixelSize: 26
+                                                }
+                                                Text {
+                                                    anchors.horizontalCenter: parent.horizontalCenter
+                                                    text: "No events or holidays"
+                                                    color: Theme.text
+                                                    font.pixelSize: 11
+                                                    font.bold: true
+                                                }
+                                                Text {
+                                                    anchors.horizontalCenter: parent.horizontalCenter
+                                                    text: calGrid.selectedDateKey === calGrid.todayDateKey ? "Nothing scheduled for today" : "Enjoy your free day!"
+                                                    color: Theme.subtext
+                                                    font.pixelSize: 10
+                                                }
+
+                                                // Hint if personal calendar not yet configured
+                                                Text {
+                                                    anchors.horizontalCenter: parent.horizontalCenter
+                                                    text: "Add calendar in calendar_config.json"
+                                                    color: Theme.accent
+                                                    font.pixelSize: 9
+                                                    visible: islandWindow.calendarData && !islandWindow.calendarData.hasPersonalCalendar
+                                                }
+                                            }
+
+                                            // Scrollable ListView
+                                            ListView {
+                                                anchors.fill: parent
+                                                visible: rightCard.selectedEvents.length > 0
+                                                model: rightCard.selectedEvents
+                                                spacing: 6
+                                                clip: true
+                                                boundsBehavior: Flickable.StopAtBounds
+
+                                                delegate: Rectangle {
+                                                    property bool isBday: modelData.isBirthday || (modelData.title && modelData.title.toLowerCase().indexOf("birthday") !== -1)
+                                                    width: ListView.view.width
+                                                    height: itemCol.implicitHeight + 10
+                                                    radius: 8
+                                                    color: isBday ? Qt.rgba(243/255, 139/255, 168/255, 0.12) : (modelData.isHoliday ? Qt.rgba(249/255, 226/255, 175/255, 0.12) : Qt.rgba(Theme.surface.r, Theme.surface.g, Theme.surface.b, 0.6))
+                                                    border.color: isBday ? Qt.rgba(243/255, 139/255, 168/255, 0.3) : (modelData.isHoliday ? Qt.rgba(249/255, 226/255, 175/255, 0.3) : Qt.rgba(Theme.highlight.r, Theme.highlight.g, Theme.highlight.b, 0.2))
+                                                    border.width: 1
+
+                                                    // Left accent stripe
+                                                    Rectangle {
+                                                        width: 3
+                                                        height: parent.height - 8
+                                                        anchors.left: parent.left
+                                                        anchors.leftMargin: 4
+                                                        anchors.verticalCenter: parent.verticalCenter
+                                                        radius: 1.5
+                                                        color: isBday ? "#f38ba8" : (modelData.isHoliday ? "#f9e2af" : (modelData.color || Theme.accent))
+                                                    }
+
+                                                    Column {
+                                                        id: itemCol
+                                                        anchors.left: parent.left
+                                                        anchors.leftMargin: 12
+                                                        anchors.right: parent.right
+                                                        anchors.rightMargin: 8
+                                                        anchors.verticalCenter: parent.verticalCenter
+                                                        spacing: 2
+
+                                                        Row {
+                                                            spacing: 5
+                                                            Text {
+                                                                text: isBday ? "󰣆" : (modelData.isHoliday ? "󰣐" : "󰥔")
+                                                                color: isBday ? "#f38ba8" : (modelData.isHoliday ? "#f9e2af" : Theme.accent)
+                                                                font.pixelSize: 10
+                                                                anchors.verticalCenter: parent.verticalCenter
+                                                            }
+                                                            Text {
+                                                                text: modelData.time
+                                                                color: Theme.subtext
+                                                                font.pixelSize: 10
+                                                                font.bold: true
+                                                                anchors.verticalCenter: parent.verticalCenter
+                                                            }
+                                                            Text {
+                                                                text: "• " + modelData.source
+                                                                color: Qt.rgba(Theme.subtext.r, Theme.subtext.g, Theme.subtext.b, 0.7)
+                                                                font.pixelSize: 9
+                                                                anchors.verticalCenter: parent.verticalCenter
+                                                            }
+                                                        }
+
+                                                        Text {
+                                                            width: parent.width
+                                                            text: modelData.title
+                                                            color: Theme.text
+                                                            font.pixelSize: 11
+                                                            font.bold: true
+                                                            elide: Text.ElideRight
+                                                            maximumLineCount: 2
+                                                            wrapMode: Text.Wrap
+                                                        }
+
+                                                        Row {
+                                                            visible: modelData.location !== ""
+                                                            spacing: 4
+                                                            Text { text: "󰍎"; color: Theme.subtext; font.pixelSize: 9 }
+                                                            Text { text: modelData.location; color: Theme.subtext; font.pixelSize: 9; elide: Text.ElideRight; width: itemCol.width - 20 }
+                                                        }
+                                                    }
+                                                }
+                                            }
                                         }
                                     }
                                 }
