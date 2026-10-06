@@ -11,6 +11,7 @@ import json
 import time
 import re
 import urllib.request
+import urllib.parse
 import datetime
 from pathlib import Path
 
@@ -29,6 +30,8 @@ DEFAULT_CONFIG = {
     "google_calendar_url": "",
     "holiday_calendar_url": "",
     "custom_calendars": [],
+    "past_days": 365,
+    "future_days": 365,
     "cache_ttl_minutes": 20
 }
 
@@ -271,27 +274,42 @@ def main():
         })
 
     # 3. Custom calendars (strings or objects)
-    for c in config.get("custom_calendars", []):
+    palette = ["#74c7ec", "#a6e3a1", "#fab387", "#94e2d5", "#f5c2e7", "#89b4fa"]
+    for idx, c in enumerate(config.get("custom_calendars", [])):
+        color = palette[idx % len(palette)]
         if isinstance(c, str) and c.strip():
+            url_str = c.strip()
+            name = f"Calendar {idx + 1}"
+            m = re.search(r"/ical/([^/]+)", url_str)
+            if m:
+                addr = urllib.parse.unquote(m.group(1))
+                if "family" in addr.lower():
+                    name = "Family"
+                elif "group.calendar.google.com" in addr:
+                    name = "Shared"
+                elif "@" in addr:
+                    name = addr.split("@")[0].capitalize()
             calendars.append({
-                "name": "Calendar",
-                "url": c.strip(),
-                "color": "#89b4fa",
+                "name": name,
+                "url": url_str,
+                "color": color,
                 "isHoliday": False
             })
         elif isinstance(c, dict) and c.get("url"):
             calendars.append({
-                "name": c.get("name", "Calendar"),
+                "name": c.get("name", f"Calendar {idx + 1}"),
                 "url": c.get("url", "").strip(),
-                "color": c.get("color", "#89b4fa"),
+                "color": c.get("color", color),
                 "isHoliday": c.get("isHoliday", False)
             })
 
     local_now = datetime.datetime.now().astimezone()
     local_tz = local_now.tzinfo
-    # Time window: 45 days back to 90 days ahead
-    window_start = local_now - datetime.timedelta(days=45)
-    window_end = local_now + datetime.timedelta(days=90)
+    # Time window: configurable, defaulting to 365 days back and 365 days ahead
+    past_days = int(config.get("past_days", 365))
+    future_days = int(config.get("future_days", 365))
+    window_start = local_now - datetime.timedelta(days=past_days)
+    window_end = local_now + datetime.timedelta(days=future_days)
 
     events_by_date = {}
     all_events_list = []

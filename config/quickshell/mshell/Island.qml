@@ -159,6 +159,8 @@ Scope {
         property string notifBody: ""
         property string notifIcon: ""
         property string notifImage: ""
+        property real notifProgress: 1.0
+        property int notifTimeout: 4000
         property string weDir: Quickshell.env("HOME") + "/yo/SteamLibrary/steamapps/workshop/content/431960"
         property bool isDnd: false
         property string themeMode: "dark"
@@ -277,6 +279,8 @@ Scope {
                 hubStayTimer.stop()
                 idleStayTimer.stop()
                 notificationTimer.stop()
+                notifProgressAnim.stop()
+                islandWindow.notifProgress = 1.0
                 osdTimeoutTimer.stop()
                 alternateTimer.stop()
                 return
@@ -287,6 +291,8 @@ Scope {
             hubStayTimer.stop()
             idleStayTimer.stop()
             notificationTimer.stop()
+            notifProgressAnim.stop()
+            islandWindow.notifProgress = 1.0
             osdTimeoutTimer.stop()
             islandWindow.showClock = true 
             if (islandWindow.cavaActive) {
@@ -492,13 +498,15 @@ Scope {
 
             onNotification: notification => {
                 notification.tracked = true
+                let expireMs = (notification.expireTimeout && notification.expireTimeout > 0) ? notification.expireTimeout : 4000
                 notifQueue.insert(0, {
                     nApp: notification.appName || "System",
                     nSum: notification.summary || "",
                     nBod: stripMarkup(notification.body || ""),
                     nIco: notification.appIcon || "",
                     nImg: notification.image || "",
-                    nTime: Qt.formatDateTime(new Date(), "HH:mm")
+                    nTime: Qt.formatDateTime(new Date(), "HH:mm"),
+                    nTimeout: expireMs
                 })
 
                 if (notifQueue.count > 50) {
@@ -520,7 +528,30 @@ Scope {
             interval: 30 
             onTriggered: {
                 islandWindow.islandState = "notification"
-                notificationTimer.restart()
+                let timeoutMs = 4000
+                if (notifQueue.count > 0 && notifQueue.get(0).nTimeout > 0) {
+                    timeoutMs = notifQueue.get(0).nTimeout
+                }
+                islandWindow.notifTimeout = timeoutMs
+                notifProgressAnim.stop()
+                islandWindow.notifProgress = 1.0
+                notifProgressAnim.duration = timeoutMs
+                notifProgressAnim.restart()
+            }
+        }
+
+        NumberAnimation {
+            id: notifProgressAnim
+            target: islandWindow
+            property: "notifProgress"
+            from: 1.0
+            to: 0.0
+            duration: islandWindow.notifTimeout
+            easing.type: Easing.Linear
+            onFinished: {
+                if (islandWindow.islandState === "notification") {
+                    islandWindow.closeToIdle()
+                }
             }
         }
 
@@ -1029,7 +1060,7 @@ Scope {
                 Item {
                     id: singleNotifCard
                     width: 380
-                    height: popupCard.height
+                    height: popupCard.height + 10
                     anchors.centerIn: parent
 
                     property bool isActivePopup: islandWindow.islandState === "notification"
@@ -1039,14 +1070,20 @@ Scope {
 
                     HoverHandler {
                         onHoveredChanged: {
-                            if (hovered) notificationTimer.stop()
-                            else if (singleNotifCard.isActivePopup) notificationTimer.restart()
+                            if (hovered) {
+                                if (notifProgressAnim.running) notifProgressAnim.pause()
+                            } else if (singleNotifCard.isActivePopup) {
+                                if (notifProgressAnim.paused) notifProgressAnim.resume()
+                                else if (!notifProgressAnim.running) notifProgressAnim.restart()
+                            }
                         }
                     }
 
                     NotifCard {
                         id: popupCard
                         width: 380
+                        anchors.top: parent.top
+                        anchors.horizontalCenter: parent.horizontalCenter
                         nApp: notifQueue.count > 0 ? notifQueue.get(0).nApp : ""
                         nSum: notifQueue.count > 0 ? notifQueue.get(0).nSum : ""
                         nBod: notifQueue.count > 0 ? notifQueue.get(0).nBod : ""
@@ -1056,6 +1093,40 @@ Scope {
                         index: 0
                         isPopup: true
                         visible: notifQueue.count > 0
+                    }
+
+                    // Sliding countdown line underneath notification
+                    Item {
+                        id: notifProgressContainer
+                        anchors.bottom: parent.bottom
+                        anchors.bottomMargin: 2
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        width: parent.width - 24
+                        height: 3
+                        visible: singleNotifCard.isActivePopup && notifQueue.count > 0
+
+                        // Track groove
+                        Rectangle {
+                            anchors.fill: parent
+                            radius: height / 2
+                            color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.1)
+                        }
+
+                        // Sliding countdown indicator
+                        Rectangle {
+                            id: notifProgressBar
+                            anchors.left: parent.left
+                            anchors.top: parent.top
+                            anchors.bottom: parent.bottom
+                            width: Math.max(0, parent.width * islandWindow.notifProgress)
+                            radius: height / 2
+
+                            gradient: Gradient {
+                                orientation: Gradient.Horizontal
+                                GradientStop { position: 0.0; color: Theme.accent }
+                                GradientStop { position: 1.0; color: Theme.accentAlt }
+                            }
+                        }
                     }
                 }
 
