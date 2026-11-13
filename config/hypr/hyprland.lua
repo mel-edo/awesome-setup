@@ -163,6 +163,7 @@ hl.bind(mainMod .. " + CTRL + N", hl.dsp.exec_cmd("/usr/local/bin/niflveil resto
 
 -- Env vars
 
+hl.env("AQ_NO_MODIFIERS", "1")
 hl.env("ELECTRON_OZONE_PLATFORM_HINT", "auto")
 hl.env("NVD_BACKEND", "direct")
 hl.env("LIBVA_DRIVER_NAME", "nvidia")

@@ -80,7 +80,7 @@ ShellRoot {
     FullscreenOsd {}
     
     Variants {
-        model: Quickshell.screens
+        model: Quickshell.screens.filter(s => s && s.name && !s.name.startsWith("EXT") && !s.name.startsWith("HEADLESS") && !s.name.startsWith("NOOP"))
         delegate: Component {
             Loader {
                 id: launcherLoader

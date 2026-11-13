@@ -18,7 +18,17 @@ pkill -9 -f '[l]inux-wallpaperengine' 2>/dev/null
 if [ "$TYPE" == "animated" ]; then
   pkill awww 2>/dev/null
   pkill awww-daemon 2>/dev/null
-  nohup setsid linux-wallpaperengine --assets-dir "/home/meledo/yo/SteamLibrary/steamapps/common/wallpaper_engine/assets" -s --screen-root eDP-1 --clamp border "$TARGET" </dev/null >/dev/null 2>&1 &
+
+  SCREEN_ARGS=()
+  for m in $(hyprctl monitors -j 2>/dev/null | jq -r '.[].name' 2>/dev/null); do
+    [ -n "$m" ] && SCREEN_ARGS+=(--screen-root "$m" --clamp border)
+  done
+
+  if [ ${#SCREEN_ARGS[@]} -eq 0 ]; then
+    SCREEN_ARGS=(--screen-root eDP-1 --clamp border)
+  fi
+
+  nohup setsid linux-wallpaperengine --assets-dir "/home/meledo/yo/SteamLibrary/steamapps/common/wallpaper_engine/assets" -s "${SCREEN_ARGS[@]}" "$TARGET" </dev/null >/dev/null 2>&1 &
   if [ -n "$PREVIEW" ] && [ -f "$PREVIEW" ]; then
     command -v matugen >/dev/null && matugen image -t scheme-tonal-spot -m "$MODE" --source-color-index 0 "$PREVIEW"
   fi

@@ -52,7 +52,7 @@ Scope {
 
     // Top strut
     Variants {
-        model: Quickshell.screens
+        model: Quickshell.screens.filter(s => s && s.name && !s.name.startsWith("EXT") && !s.name.startsWith("HEADLESS") && !s.name.startsWith("NOOP"))
         delegate: Component {
             PanelWindow {
                 required property var modelData
@@ -70,7 +70,7 @@ Scope {
 
     // Left container: workspaces and title
     Variants {
-        model: Quickshell.screens
+        model: Quickshell.screens.filter(s => s && s.name && !s.name.startsWith("EXT") && !s.name.startsWith("HEADLESS") && !s.name.startsWith("NOOP"))
         delegate: Component {
             PanelWindow {
                 required property var modelData
@@ -149,7 +149,7 @@ Scope {
 
     // Focused window title
     Variants {
-        model: Quickshell.screens
+        model: Quickshell.screens.filter(s => s && s.name && !s.name.startsWith("EXT") && !s.name.startsWith("HEADLESS") && !s.name.startsWith("NOOP"))
         delegate: Component {
             PanelWindow {
                 required property var modelData
@@ -195,7 +195,7 @@ Scope {
 
     // Right container: system trays and control center
     Variants {
-        model: Quickshell.screens
+        model: Quickshell.screens.filter(s => s && s.name && !s.name.startsWith("EXT") && !s.name.startsWith("HEADLESS") && !s.name.startsWith("NOOP"))
         delegate: Component {
             WlrLayershell {
                 id: rightLiquidPill
@@ -484,7 +484,7 @@ Scope {
     }
 
     Variants {
-        model: Quickshell.screens
+        model: Quickshell.screens.filter(s => s && s.name && !s.name.startsWith("EXT") && !s.name.startsWith("HEADLESS") && !s.name.startsWith("NOOP"))
         delegate: Component {
             WlrLayershell {
                 id: trayDrawerWindow
