@@ -95,6 +95,7 @@ Scope {
             }
         }
         islandWindow.isScreenSharing = sharing || islandWindow.isGpuRecording
+        SharedState.isScreenSharing = islandWindow.isScreenSharing
     }
 
     Timer {
@@ -116,6 +117,13 @@ Scope {
             let vol = Pipewire.defaultAudioSink.audio.volume;
             if (!isNaN(vol) && !SharedState.isSuppressingOsd) {
                 islandWindow.showOsd(Math.round(vol * 100), "volume")
+            }
+        }
+        function onMutedChanged() {
+            if (Pipewire.defaultAudioSink && Pipewire.defaultAudioSink.audio && !SharedState.isSuppressingOsd) {
+                let isMuted = Pipewire.defaultAudioSink.audio.muted;
+                let vol = isMuted ? 0 : Math.round(Pipewire.defaultAudioSink.audio.volume * 100);
+                islandWindow.showOsd(vol, "volume");
             }
         }
     }
@@ -176,6 +184,8 @@ Scope {
         property string lastTrackArtRaw: ""
         property bool isScreenSharing: false
         property bool isGpuRecording: false
+        onIsScreenSharingChanged: SharedState.isScreenSharing = (isScreenSharing || isGpuRecording)
+        onIsGpuRecordingChanged: SharedState.isScreenSharing = (isScreenSharing || isGpuRecording)
         readonly property bool isMediaPlaying: activePlayer !== null && (activePlayer.playbackState === 1 || activePlayer.playbackState === "Playing")
         readonly property string currentArtUrl: persistentArtUrl || (activePlayer ? (activePlayer.trackArtUrl || "") : "")
         readonly property real mediaProgress: {
@@ -378,6 +388,7 @@ Scope {
                 osdType = type;
                 return;
             }
+            SharedState.triggerOsd(value, type)
             if (islandWindow.islandState === "bluetooth") {
                 islandWindow.pendingBt = true
                 hubStayTimer.stop()

@@ -105,6 +105,8 @@ hl.bind(
 	hl.dsp.exec_cmd("wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%-"),
 	{ locked = true, repeating = true }
 )
+hl.bind("SHIFT + XF86AudioRaiseVolume", hl.dsp.exec_cmd("brightnessctl s 5%+"), { locked = true, repeating = true })
+hl.bind("SHIFT + XF86AudioLowerVolume", hl.dsp.exec_cmd("brightnessctl s 5%-"), { locked = true, repeating = true })
 hl.bind("XF86MonBrightnessUp", hl.dsp.exec_cmd("brightnessctl s 5%+"), { locked = true, repeating = true })
 hl.bind("XF86MonBrightnessDown", hl.dsp.exec_cmd("brightnessctl s 5%-"), { locked = true, repeating = true })
 hl.bind(mainMod .. " + Right", hl.dsp.exec_cmd("brightnessctl s 5%+"), { locked = true, repeating = true })

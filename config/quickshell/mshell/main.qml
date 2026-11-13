@@ -77,6 +77,7 @@ ShellRoot {
     Island {}
     LockScreen {}
     RegionSelector {}
+    FullscreenOsd {}
     
     Variants {
         model: Quickshell.screens

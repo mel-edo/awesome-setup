@@ -13,3 +13,4 @@ singleton RegionSelectionService 1.0 RegionSelectionService.qml
 RegionSelector 1.0 RegionSelector.qml
 RegionSelectionWindow 1.0 RegionSelectionWindow.qml
 PillMorphSurface 1.0 PillMorphSurface.qml
+FullscreenOsd 1.0 FullscreenOsd.qml
