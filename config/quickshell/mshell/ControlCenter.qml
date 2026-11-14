@@ -325,6 +325,9 @@ Column {
                         duration: 750
                         running: wifiRescanProcess.running
                         loops: Animation.Infinite
+                        onRunningChanged: {
+                            if (!running) rescanIcon.rotation = 0
+                        }
                     }
 
                     HoverHandler { id: wifiRescanHover; cursorShape: Qt.PointingHandCursor }
@@ -801,15 +804,29 @@ Column {
             Row {
                 anchors.centerIn: parent
                 spacing: 6
-                Text {
-                    text: wifiRescanProcess.running ? "󰑐" : "󰤮"
-                    color: Theme.subtext
-                    font.pixelSize: 12
+                Item {
+                    width: 14; height: 14
                     anchors.verticalCenter: parent.verticalCenter
-                    RotationAnimation on rotation {
-                        from: 0; to: 360; duration: 750
-                        running: wifiRescanProcess.running
-                        loops: Animation.Infinite
+
+                    Text {
+                        visible: wifiRescanProcess.running
+                        anchors.centerIn: parent
+                        text: "󰑐"
+                        color: Theme.subtext
+                        font.pixelSize: 12
+                        RotationAnimation on rotation {
+                            from: 0; to: 360; duration: 750
+                            running: wifiRescanProcess.running
+                            loops: Animation.Infinite
+                        }
+                    }
+
+                    Text {
+                        visible: !wifiRescanProcess.running
+                        anchors.centerIn: parent
+                        text: "󰤮"
+                        color: Theme.subtext
+                        font.pixelSize: 12
                     }
                 }
                 Text {
