@@ -16,6 +16,8 @@ Scope {
     property string netSsid: ""
     property int netSignal: 0
     property bool btConnected: false
+    property bool vpnConnected: false
+    property string vpnName: ""
     property int savedBriLevel: 50
     property string savedPowerProfile: "balanced"
 
@@ -45,6 +47,8 @@ Scope {
                 root.netSsid = parts[0] === "disconnected" ? "" : parts[0]
                 root.netSignal = parseInt(parts[1] || "0")
                 root.btConnected = parts[2]?.trim() === "1"
+                root.vpnConnected = parts[3]?.trim() === "1"
+                root.vpnName = parts[4]?.trim() || ""
             }
         }
     }
@@ -331,7 +335,7 @@ Scope {
                                 ]
 
                                 Row {
-                                    spacing: 8
+                                    spacing: 5
                                     anchors.verticalCenter: parent.verticalCenter
                                     Text {
                                         text: {
@@ -344,6 +348,13 @@ Scope {
                                         }
                                         color: root.netSsid !== "" ? Theme.accent : Theme.danger
                                         font.pixelSize: 15
+                                        anchors.verticalCenter: parent.verticalCenter
+                                    }
+                                    Text {
+                                        visible: root.vpnConnected
+                                        text: "󰖂"
+                                        color: Theme.accent
+                                        font.pixelSize: 13
                                         anchors.verticalCenter: parent.verticalCenter
                                     }
                                 }
@@ -411,11 +422,20 @@ Scope {
                                 parentWindow: rightLiquidPill
                                 netSsid: root.netSsid
                                 netSignal: root.netSignal
+                                vpnConnected: root.vpnConnected
+                                vpnName: root.vpnName
                                 batLevel: root.batLevel
                                 batStatus: root.batStatus
                                 btConnected: root.btConnected
                                 briLevel: root.savedBriLevel
                                 powerProfile: root.savedPowerProfile
+                                onRequestNetworkRefresh: {
+                                    if (globalNetworkProcess.running) {
+                                        Qt.callLater(() => { if (!globalNetworkProcess.running) globalNetworkProcess.running = true; })
+                                    } else {
+                                        globalNetworkProcess.running = true;
+                                    }
+                                }
                             }
                         }
 

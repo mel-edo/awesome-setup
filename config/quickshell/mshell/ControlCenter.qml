@@ -14,6 +14,8 @@ Column {
     property string netSsid: ""
     property int netSignal: 0
     property bool btConnected: false
+    property bool vpnConnected: false
+    property string vpnName: ""
     property int batLevel: 100
     property string batStatus: "Discharging"
     property bool wifiEnabled: true
@@ -29,13 +31,68 @@ Column {
     property bool passwordVisible: false
     property bool isScanningBt: false
     property var visibleBtDevices: btDevices.filter(d => isScanningBt || d.paired === "1" || d.connected === "1")
+    property string activeOrConnectingSsid: root.connectingWifi !== "" ? root.connectingWifi : (root.netSsid !== "disconnected" ? root.netSsid : "")
+    property bool isWifiConnecting: root.connectingWifi !== ""
+    signal requestNetworkRefresh()
+
+    function startWifiTimeout() {
+        resetConnectingWifiTimer.restart()
+    }
+
+    function stopWifiTimeout() {
+        resetConnectingWifiTimer.stop()
+    }
+
+    function connectWifi(ssid) {
+        if (root.isWifiConnecting) return;
+        root.connectingWifi = ssid;
+        root.wifiNetworks = root.wifiNetworks.filter(n => n.ssid !== ssid);
+        root.startWifiTimeout();
+        wifiActionProcess.command = [
+            Quickshell.env("HOME") + "/.config/quickshell/mshell/scripts/watchers/wifi_control.sh",
+            "connect",
+            ssid
+        ];
+        if (!wifiActionProcess.running) wifiActionProcess.running = true;
+    }
+
+    function connectWifiWithPassword(ssid, pass) {
+        if (root.isWifiConnecting) return;
+        root.connectingWifi = ssid;
+        root.wifiNetworks = root.wifiNetworks.filter(n => n.ssid !== ssid);
+        root.startWifiTimeout();
+        wifiActionProcess.command = [
+            Quickshell.env("HOME") + "/.config/quickshell/mshell/scripts/watchers/wifi_control.sh",
+            "connect_pass",
+            ssid,
+            pass
+        ];
+        if (!wifiActionProcess.running) wifiActionProcess.running = true;
+    }
+
+    function disconnectWifi() {
+        wifiDisconnectProcess.command = [
+            Quickshell.env("HOME") + "/.config/quickshell/mshell/scripts/watchers/wifi_control.sh",
+            "disconnect"
+        ];
+        if (!wifiDisconnectProcess.running) wifiDisconnectProcess.running = true;
+    }
 
     property int volLevel: (Pipewire.defaultAudioSink && Pipewire.defaultAudioSink.audio) ? Math.round(Pipewire.defaultAudioSink.audio.volume * 100) : 50
     property int briLevel: 50
     property bool isDraggingSlider: volDragArea.pressed || briDragArea.pressed
     onIsDraggingSliderChanged: SharedState.isSuppressingOsd = isDraggingSlider
     
-    Timer { id: resetConnectingWifi; interval: 3000; onTriggered: root.connectingWifi = "" }
+    Timer {
+        id: resetConnectingWifiTimer
+        interval: 20000
+        onTriggered: {
+            console.log("[ControlCenter] Wi-Fi connection timed out")
+            root.connectingWifi = ""
+            root.requestNetworkRefresh()
+            if (!wifiListProcess.running) wifiListProcess.running = true
+        }
+    }
     Timer { id: resetConnectingBt; interval: 3000; onTriggered: root.connectingBt = "" }
 
     PwObjectTracker {
@@ -110,8 +167,9 @@ Column {
         id: wifiRescanProcess
         command: ["nmcli", "dev", "wifi", "rescan"]
         onRunningChanged: {
-            if (!running && !wifiListProcess.running) {
-                wifiListProcess.running = true
+            if (!running) {
+                rescanIcon.rotation = 0
+                if (!wifiListProcess.running) wifiListProcess.running = true
             }
         }
     }
@@ -125,7 +183,7 @@ Column {
                 let nets = []
                 for (let line of lines) {
                     let parts = line.split(":")
-                    if (parts.length >= 3 && parts[0] !== "" && parts[0] !== root.netSsid) {
+                    if (parts.length >= 3 && parts[0] !== "" && parts[0] !== root.activeOrConnectingSsid && parts[0] !== root.netSsid && parts[0] !== root.connectingWifi) {
                         nets.push({ ssid: parts[0], signal: parseInt(parts[1]) || 0, security: parts[2] || "" })
                     }
                 }
@@ -161,24 +219,42 @@ Column {
     // Toggles and Actions
     Process { id: wifiToggleProcess }
     Process { id: btToggleProcess }
-    Process { id: wifiConnectProcess }
+    Process {
+        id: wifiActionProcess
+        stdout: StdioCollector {
+            onStreamFinished: console.log("[ControlCenter] wifiAction: " + text.trim())
+        }
+        onExited: (exitCode) => {
+            console.log("[ControlCenter] wifiAction exited: " + exitCode)
+            if (exitCode === 0 && root.connectingWifi !== "") {
+                root.netSsid = root.connectingWifi
+            }
+            root.connectingWifi = ""
+            root.stopWifiTimeout()
+            root.requestNetworkRefresh()
+            if (!savedWifiFetchProcess.running) savedWifiFetchProcess.running = true
+            if (!wifiListProcess.running) wifiListProcess.running = true
+        }
+    }
+    Process {
+        id: wifiDisconnectProcess
+        stdout: StdioCollector {
+            onStreamFinished: console.log("[ControlCenter] wifiDisconnect: " + text.trim())
+        }
+        onExited: (exitCode) => {
+            console.log("[ControlCenter] wifiDisconnect exited: " + exitCode)
+            root.netSsid = ""
+            root.connectingWifi = ""
+            root.stopWifiTimeout()
+            root.requestNetworkRefresh()
+            if (!wifiListProcess.running) wifiListProcess.running = true
+        }
+    }
     Process { id: btActionProcess }
     Process { id: btScanProcess }
     Process { id: profileProcess }
     Process { id: volSetProcess }
     Process { id: briSetProcess }
-
-    Process {
-        id: wifiConnectWithPassProcess
-        stdout: StdioCollector {
-            onStreamFinished: {
-                root.passwordSsid = ""
-                root.passwordText = ""
-                root.passwordVisible = false
-                Qt.callLater(() => { if (!wifiListProcess.running) wifiListProcess.running = true })
-            }
-        }
-    }
 
     Timer { interval: 10000; running: root.isOpen; repeat: true; onTriggered: { if (!wifiListProcess.running) wifiListProcess.running = true; if (!savedWifiFetchProcess.running) savedWifiFetchProcess.running = true } }
     Timer { interval: 5000; running: root.isOpen; repeat: true; onTriggered: { if (!btListProcess.running) btListProcess.running = true } }
@@ -288,29 +364,164 @@ Column {
             }
         }
 
-        // Active connection status
+        // Active or Connecting Wi-Fi card
         Rectangle {
-            visible: root.wifiEnabled && root.netSsid !== "" && root.netSsid !== "disconnected"
-            width: parent.width; height: 44; radius: 8
-            color: Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.12)
+            id: activeNetCard
+            visible: root.wifiEnabled && (root.activeOrConnectingSsid !== "")
+            width: parent.width; height: 46; radius: 10
+            color: root.isWifiConnecting
+                ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.08)
+                : Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.12)
+            border.width: 1
+            border.color: root.isWifiConnecting
+                ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.35)
+                : Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.22)
+
+            Behavior on color { ColorAnimation { duration: 150 } }
+            Behavior on border.color { ColorAnimation { duration: 150 } }
 
             Row {
-                anchors.fill: parent; anchors.leftMargin: 10; anchors.rightMargin: 10; spacing: 10
-                Text { 
-                    text: {
-                        if (root.netSignal > 80) return "󰤨"
-                        if (root.netSignal > 60) return "󰤥"
-                        if (root.netSignal > 40) return "󰤢"
-                        if (root.netSignal > 20) return "󰤟"
-                        return "󰤯"
+                anchors.left: parent.left
+                anchors.right: disconnectBtn.visible ? disconnectBtn.left : parent.right
+                anchors.rightMargin: disconnectBtn.visible ? 8 : 12
+                anchors.leftMargin: 12
+                anchors.verticalCenter: parent.verticalCenter
+                spacing: 10
+
+                Item {
+                    width: 22; height: 22
+                    anchors.verticalCenter: parent.verticalCenter
+
+                    // Connecting spinner
+                    Text {
+                        visible: root.isWifiConnecting
+                        anchors.centerIn: parent
+                        text: "󰑐"
+                        color: Theme.accent
+                        font.pixelSize: 18
+
+                        RotationAnimation on rotation {
+                            from: 0; to: 360; duration: 800
+                            running: root.isWifiConnecting
+                            loops: Animation.Infinite
+                        }
                     }
-                    color: Theme.accent; font.pixelSize: 18; anchors.verticalCenter: parent.verticalCenter 
+
+                    // Static upright Wi-Fi signal icon
+                    Text {
+                        visible: !root.isWifiConnecting
+                        anchors.centerIn: parent
+                        text: {
+                            if (root.netSignal > 80) return "󰤨";
+                            if (root.netSignal > 60) return "󰤥";
+                            if (root.netSignal > 40) return "󰤢";
+                            if (root.netSignal > 20) return "󰤟";
+                            return "󰤯";
+                        }
+                        color: Theme.accent
+                        font.pixelSize: 18
+                    }
+                }
+
+                Column {
+                    anchors.verticalCenter: parent.verticalCenter
+                    spacing: 2
+                    Text {
+                        text: root.activeOrConnectingSsid
+                        color: Theme.text
+                        font.pixelSize: 12
+                        font.bold: true
+                        elide: Text.ElideRight
+                        width: disconnectBtn.visible ? 150 : 220
+                    }
+                    Text {
+                        text: root.isWifiConnecting ? "Connecting..." : "Connected"
+                        color: Theme.accent
+                        font.pixelSize: 10
+                        font.bold: root.isWifiConnecting
+                    }
+                }
+            }
+
+            Rectangle {
+                id: disconnectBtn
+                visible: !root.isWifiConnecting && root.netSsid !== "" && root.netSsid !== "disconnected"
+                anchors.right: parent.right
+                anchors.rightMargin: 10
+                anchors.verticalCenter: parent.verticalCenter
+                height: 24
+                width: dcRow.implicitWidth + 14
+                radius: 12
+                color: dcTap.pressed ? Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b, 0.25)
+                     : (dcHover.hovered ? Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b, 0.18)
+                     : Qt.rgba(Theme.subtext.r, Theme.subtext.g, Theme.subtext.b, 0.12))
+                border.width: 1
+                border.color: dcHover.hovered
+                     ? Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b, 0.40)
+                     : Qt.rgba(Theme.subtext.r, Theme.subtext.g, Theme.subtext.b, 0.20)
+
+                Behavior on color { ColorAnimation { duration: 150 } }
+                Behavior on border.color { ColorAnimation { duration: 150 } }
+
+                Row {
+                    id: dcRow
+                    anchors.centerIn: parent
+                    spacing: 4
+                    Text {
+                        text: "󰅖"
+                        color: dcHover.hovered ? Theme.danger : Theme.subtext
+                        font.pixelSize: 11
+                        anchors.verticalCenter: parent.verticalCenter
+                    }
+                    Text {
+                        text: "Disconnect"
+                        color: dcHover.hovered ? Theme.danger : Theme.text
+                        font.pixelSize: 10
+                        font.bold: true
+                        anchors.verticalCenter: parent.verticalCenter
+                    }
+                }
+
+                HoverHandler { id: dcHover; cursorShape: Qt.PointingHandCursor }
+                TapHandler {
+                    id: dcTap
+                    onTapped: root.disconnectWifi()
+                }
+            }
+        }
+
+        // Dedicated VPN Status card
+        Rectangle {
+            visible: root.vpnConnected
+            width: parent.width; height: 44; radius: 10
+            color: Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.10)
+            border.width: 1
+            border.color: Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.20)
+
+            Row {
+                anchors.fill: parent; anchors.leftMargin: 12; anchors.rightMargin: 12; spacing: 10
+                Text {
+                    text: "󰖂"
+                    color: Theme.accent
+                    font.pixelSize: 18
+                    anchors.verticalCenter: parent.verticalCenter
                 }
                 Column {
                     anchors.verticalCenter: parent.verticalCenter
                     spacing: 2
-                    Text { text: root.netSsid; color: Theme.text; font.pixelSize: 12; font.bold: true; elide: Text.ElideRight; width: 230 }
-                    Text { text: "Connected"; color: Theme.accent; font.pixelSize: 10 }
+                    Text {
+                        text: root.vpnName ? root.vpnName : "VPN Tunnel"
+                        color: Theme.text
+                        font.pixelSize: 12
+                        font.bold: true
+                        elide: Text.ElideRight
+                        width: 220
+                    }
+                    Text {
+                        text: "VPN Connected"
+                        color: Theme.accent
+                        font.pixelSize: 10
+                    }
                 }
             }
         }
@@ -343,8 +554,8 @@ Column {
                 property bool showPassword: root.passwordSsid === modelData.ssid
 
                 width: parent ? parent.width - (wifiListView.ScrollBar.vertical.visible ? 10 : 0) : 0
-                height: showPassword ? 88 : 34
-                radius: 10
+                height: showPassword ? 88 : 36
+                radius: 8
                 clip: true
                 color: root.connectingWifi === modelData.ssid
                     ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.15)
@@ -357,22 +568,25 @@ Column {
                 Rectangle {
                     id: netRow
                     width: parent.width
-                    height: 34
+                    height: 36
                     color: "transparent"
-                    radius: 10
+                    radius: 8
 
                     Row {
-                        anchors.fill: parent
-                        anchors.leftMargin: 10; anchors.rightMargin: 10
+                        anchors.left: parent.left
+                        anchors.right: savedBadge.visible ? savedBadge.left : parent.right
+                        anchors.rightMargin: savedBadge.visible ? 8 : 10
+                        anchors.leftMargin: 10
+                        anchors.verticalCenter: parent.verticalCenter
                         spacing: 10
 
                         Text {
                             text: {
-                                if (modelData.signal > 80) return "󰤨"
-                                if (modelData.signal > 60) return "󰤥"
-                                if (modelData.signal > 40) return "󰤢"
-                                if (modelData.signal > 20) return "󰤟"
-                                return "󰤯"
+                                if (modelData.signal > 80) return "󰤨";
+                                if (modelData.signal > 60) return "󰤥";
+                                if (modelData.signal > 40) return "󰤢";
+                                if (modelData.signal > 20) return "󰤟";
+                                return "󰤯";
                             }
                             color: modelData.signal > 20 ? Theme.accent : Theme.subtext
                             font.pixelSize: 16
@@ -395,10 +609,33 @@ Column {
                         }
                     }
 
-                    HoverHandler { id: netItemHover; cursorShape: Qt.PointingHandCursor }
+                    Rectangle {
+                        id: savedBadge
+                        visible: root.savedNetworks.includes(modelData.ssid)
+                        anchors.right: parent.right
+                        anchors.rightMargin: 10
+                        anchors.verticalCenter: parent.verticalCenter
+                        height: 16
+                        width: savedLabel.implicitWidth + 8
+                        radius: 8
+                        color: Qt.rgba(Theme.subtext.r, Theme.subtext.g, Theme.subtext.b, 0.12)
+                        Text {
+                            id: savedLabel
+                            anchors.centerIn: parent
+                            text: "Saved"
+                            color: Theme.subtext
+                            font.pixelSize: 9
+                            font.bold: true
+                        }
+                    }
+
+                    HoverHandler { id: netItemHover; cursorShape: root.isWifiConnecting ? Qt.ForbiddenCursor : Qt.PointingHandCursor }
                     MouseArea {
                         anchors.fill: parent
+                        cursorShape: root.isWifiConnecting ? Qt.ForbiddenCursor : Qt.PointingHandCursor
                         onClicked: {
+                            if (root.isWifiConnecting) return;
+
                             let isSaved = root.savedNetworks.includes(modelData.ssid)
                             
                             if (modelData.security !== "" && !isSaved) {
@@ -416,10 +653,7 @@ Column {
                                 return
                             }
                             
-                            root.connectingWifi = modelData.ssid
-                            resetConnectingWifi.restart()
-                            wifiConnectProcess.command = ["nmcli", "dev", "wifi", "connect", modelData.ssid]
-                            if (!wifiConnectProcess.running) wifiConnectProcess.running = true
+                            root.connectWifi(modelData.ssid)
                         }
                     }
                 }
@@ -534,13 +768,7 @@ Column {
                                 let ssid = wifiDelegate.modelData.ssid
                                 let pass = root.passwordText
                                 if (pass.length === 0) return
-                                root.connectingWifi = ssid
-                                resetConnectingWifi.restart()
-                                wifiConnectWithPassProcess.command = [
-                                    "nmcli", "dev", "wifi", "connect", ssid, "password", pass
-                                ]
-                                if (!wifiConnectWithPassProcess.running)
-                                    wifiConnectWithPassProcess.running = true
+                                root.connectWifiWithPassword(ssid, pass)
                                 pwField.text = ""
                                 root.passwordText = ""
                                 root.passwordSsid = ""
@@ -562,6 +790,33 @@ Column {
                             }
                         }
                     }
+                }
+            }
+        }
+
+        // Scanning / empty state
+        Item {
+            visible: root.wifiEnabled && root.wifiNetworks.length === 0 && !root.isWifiConnecting
+            width: parent.width; height: 32
+            Row {
+                anchors.centerIn: parent
+                spacing: 6
+                Text {
+                    text: wifiRescanProcess.running ? "󰑐" : "󰤮"
+                    color: Theme.subtext
+                    font.pixelSize: 12
+                    anchors.verticalCenter: parent.verticalCenter
+                    RotationAnimation on rotation {
+                        from: 0; to: 360; duration: 750
+                        running: wifiRescanProcess.running
+                        loops: Animation.Infinite
+                    }
+                }
+                Text {
+                    text: wifiRescanProcess.running ? "Scanning for networks..." : "No networks found"
+                    color: Theme.subtext
+                    font.pixelSize: 11
+                    anchors.verticalCenter: parent.verticalCenter
                 }
             }
         }
